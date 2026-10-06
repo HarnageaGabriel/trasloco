@@ -14,10 +14,12 @@ const (
 	ExitError = 1
 	// ExitPartial means the command completed only in part.
 	ExitPartial = 2
-	// ExitBlocked means the command was blocked by a precondition or policy.
+	// ExitBlocked means manual work, a secret, or an identity decision blocks completion.
 	ExitBlocked = 3
-	// ExitDrift means drift was detected between expected and actual state.
-	ExitDrift = 4
+	// ExitStale means apply was refused before mutation because plan preconditions changed.
+	ExitStale = 4
+	// ExitDrift is retained as a compatibility alias for ExitStale.
+	ExitDrift = ExitStale
 	// ExitUsage means the command line was malformed (BSD EX_USAGE).
 	ExitUsage = 64
 	// ExitInterrupted is used when a second interrupt forces termination.
@@ -67,9 +69,63 @@ func CodeFor(err error) int {
 	}
 	var ee *CodedError
 	if errors.As(err, &ee) {
-		return ee.Code
+		if validExitCode(ee.Code) {
+			return ee.Code
+		}
+		return ExitError
 	}
 	return ExitError
+}
+
+func validExitCode(code int) bool {
+	switch code {
+	case ExitOK, ExitError, ExitPartial, ExitBlocked, ExitStale, ExitUsage:
+		return true
+	default:
+		return false
+	}
+}
+
+// OutcomeSummary contains the terminal facts needed by the normative exit-code
+// precedence. Counts are per requested unit or durable change.
+type OutcomeSummary struct {
+	InvalidInput        bool
+	StaleBeforeMutation bool
+	MutationOccurred    bool
+	Succeeded           int
+	Failed              int
+	FailureSkipped      int
+	ManualBlocked       int
+	Cancelled           bool
+	RecoveredPanic      bool
+	DriftAfterMutation  bool
+	PolicyPromoted      bool
+	Audit               bool
+}
+
+// ResolveExitCode applies docs/spec/exit-codes.md precedence.
+func ResolveExitCode(summary OutcomeSummary) int {
+	if summary.InvalidInput {
+		return ExitUsage
+	}
+	if summary.StaleBeforeMutation && !summary.MutationOccurred {
+		return ExitStale
+	}
+	hasError := summary.Failed > 0 || summary.FailureSkipped > 0 || summary.Cancelled ||
+		summary.RecoveredPanic || summary.DriftAfterMutation || summary.PolicyPromoted
+	if summary.StaleBeforeMutation && summary.MutationOccurred {
+		hasError = true
+	}
+	if hasError {
+		if summary.Succeeded > 0 {
+			return ExitPartial
+		}
+		return ExitError
+	}
+	if summary.ManualBlocked > 0 && !summary.Audit {
+		return ExitBlocked
+	}
+	return ExitOK
 }
 
 // usageError wraps err as a usage error (exit code 64).

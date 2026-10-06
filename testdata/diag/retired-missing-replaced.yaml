@@ -1,0 +1,10 @@
+schemaVersion: 1
+codes:
+  - code: TRL-INT-9999
+    area: INT
+    title: Retired test diagnostic
+    severity: error
+    exitClass: error
+    remediation: Do not use.
+    since: 0.1.0
+    status: retired

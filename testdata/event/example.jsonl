@@ -1,0 +1,2 @@
+{"version":1,"sequence":1,"time":"2026-10-06T12:00:00.000Z","runId":"run-01","type":"RunStarted","phase":null,"unitKey":null,"operationId":null,"payload":{"command":"plan","toolVersion":"0.1.0","configDigest":"sha256:abc"}}
+{"version":1,"sequence":2,"time":"2026-10-06T12:00:00.010Z","runId":"run-01","type":"RunFinished","phase":null,"unitKey":null,"operationId":null,"payload":{"outcome":"succeeded","exitCode":0,"counts":{},"reportRef":"report.json"}}
