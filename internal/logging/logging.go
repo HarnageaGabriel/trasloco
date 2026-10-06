@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+
+	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
 // Format selects the log encoding.
@@ -37,12 +39,16 @@ func ParseLevel(s string) (slog.Level, error) {
 }
 
 // New builds a logger writing to w using the given level and format.
-func New(w io.Writer, level slog.Level, format Format) *slog.Logger {
+func New(w io.Writer, level slog.Level, format Format, redactors ...*redact.Redactor) *slog.Logger {
+	var r *redact.Redactor
+	if len(redactors) > 0 {
+		r = redactors[0]
+	}
 	opts := &slog.HandlerOptions{Level: level}
 	if format == FormatJSON {
-		return slog.New(slog.NewJSONHandler(w, opts))
+		return slog.New(redact.NewSlogHandler(slog.NewJSONHandler(w, opts), r))
 	}
-	return slog.New(slog.NewTextHandler(w, opts))
+	return slog.New(redact.NewSlogHandler(slog.NewTextHandler(w, opts), r))
 }
 
 // ResolveFormat picks the log format: JSON when the output mode is json or

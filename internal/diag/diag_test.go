@@ -78,7 +78,7 @@ func TestDiagnosticVectors(t *testing.T) {
 	t.Run("DIAG-010", func(t *testing.T) {
 		r := redact.New()
 		r.Add("canary-secret")
-		d, err := New("TRL-INT-0001", WithMessage("failed: canary-secret"), r)
+		d, err := New("TRL-INT-0001", WithMessage("failed: canary-secret"), WithRedactor(r))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -3,22 +3,34 @@ package ir
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"regexp"
+	"slices"
 	"strings"
+
+	"github.com/HarnageaGabriel/trasloco/internal/redact"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
 )
 
 // Validate checks provider-neutral structural and graph invariants. Adapter
 // capability checks belong after this function and do not weaken these rules.
-func Validate(pipeline *Pipeline) []diag.Diagnostic {
-	validator := irValidator{pipeline: pipeline}
+func Validate(pipeline *Pipeline, redactors ...*redact.Redactor) []diag.Diagnostic {
+	var r *redact.Redactor
+	if len(redactors) > 0 {
+		r = redactors[0]
+	}
+	validator := irValidator{pipeline: pipeline, diagnostics: diag.NewCollector(), redactor: r}
+	validator.indexOrigins()
 	validator.validate()
-	return validator.diagnostics
+	return validator.diagnostics.List()
 }
 
 type irValidator struct {
 	pipeline    *Pipeline
-	diagnostics []diag.Diagnostic
+	diagnostics *diag.Collector
+	redactor    *redact.Redactor
+	origins     map[string]*Origin
 	jobs        map[string]*Job
 	jobStage    map[string]string
 	outputs     map[OutputRef]bool
@@ -43,6 +55,7 @@ func (v *irValidator) validate() {
 	v.uniquePipelineIDs()
 	v.indexJobsAndStages()
 	v.validateStages()
+	v.validateStageDAG()
 	v.validateTriggersAndInputs()
 	v.validateVariables("variables", v.pipeline.Variables)
 	if v.pipeline.Concurrency != nil {
@@ -118,9 +131,9 @@ func (v *irValidator) indexJobsAndStages() {
 			v.jobStage[jobID] = stage.ID
 		}
 	}
-	for jobID := range v.jobs {
+	for _, jobID := range slices.Sorted(maps.Keys(v.jobs)) {
 		if _, exists := v.jobStage[jobID]; !exists {
-			v.add("TRL-VAL-0011", "stages", fmt.Sprintf("job %q does not belong to a stage", jobID))
+			v.add("TRL-VAL-0011", v.jobPath(jobID), fmt.Sprintf("job %q does not belong to a stage", jobID))
 		}
 	}
 }
@@ -131,7 +144,23 @@ func (v *irValidator) validateStages() {
 	}
 	for index := range v.pipeline.Stages {
 		path := fmt.Sprintf("stages[%d]", index)
-		v.metadata(path, v.pipeline.Stages[index].Metadata)
+		stage := &v.pipeline.Stages[index]
+		v.metadata(path, stage.Metadata)
+		if stage.If != nil {
+			v.cond(path+".if", stage.If, "")
+		}
+		v.validateVariables(path+".variables", stage.Variables)
+		for i, dependency := range stage.DependsOn {
+			found := false
+			for previous := range v.pipeline.Stages {
+				if v.pipeline.Stages[previous].ID == dependency {
+					found = true
+				}
+			}
+			if !found {
+				v.add("TRL-VAL-0010", fmt.Sprintf("%s.dependsOn[%d]", path, i), "stage dependency must reference an existing stage")
+			}
+		}
 		if v.pipeline.Stages[index].Name == "" {
 			v.add("TRL-VAL-0007", path+".name", "stage name is required")
 		}
@@ -204,10 +233,38 @@ func (v *irValidator) validateJob(index int, job *Job) {
 		}
 	}
 	v.validateVariables(path+".variables", job.Variables)
+	v.concurrency(path+".concurrency", job.Concurrency, job.ID)
+	if job.Uses != nil {
+		if job.Uses.Ref == "" {
+			v.add("TRL-VAL-0007", path+".uses.ref", "reusable workflow ref is required")
+		}
+		if len(job.Steps) > 0 {
+			v.add("TRL-VAL-0012", path, "reusable workflow call cannot contain steps")
+		}
+		for _, key := range slices.Sorted(maps.Keys(job.Uses.With)) {
+			expr := job.Uses.With[key]
+			v.expr(path+".uses.with."+key, &expr, job.ID)
+		}
+		for _, key := range slices.Sorted(maps.Keys(job.Uses.Secrets)) {
+			if job.Uses.Secrets[key].Name == "" {
+				v.add("TRL-VAL-0007", path+".uses.secrets."+key, "secret reference name is required")
+			}
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(job.Permissions)) {
+		if key == "" || !oneOf(job.Permissions[key], "read", "write", "none") {
+			v.add("TRL-VAL-0012", path+".permissions."+key, "permission requires a name and read, write, or none")
+		}
+	}
+	for needIndex, need := range job.Needs {
+		if v.crossesBarrier(job.ID, need) {
+			v.add("TRL-VAL-0010", fmt.Sprintf("%s.needs[%d]", path, needIndex), "dependency targets a later barrier stage")
+		}
+	}
 	if job.Container != nil && job.Container.Image == "" {
 		v.add("TRL-VAL-0007", path+".container.image", "container image is required")
 	}
-	for key := range job.ContainerEnv() {
+	for _, key := range slices.Sorted(maps.Keys(job.ContainerEnv())) {
 		expr := job.Container.Env[key]
 		v.expr(path+".container.env."+key, &expr, job.ID)
 	}
@@ -259,7 +316,13 @@ func (j *Job) ContainerEnv() map[string]Expr {
 }
 
 func (v *irValidator) validateMatrix(path string, matrix *Matrix) {
-	if len(matrix.Legs) == 0 {
+	if matrix.Opaque != nil {
+		v.raw(path+".opaque", matrix.Opaque)
+		if len(matrix.Legs) != 0 {
+			v.add("TRL-VAL-0012", path, "matrix must contain legs or opaque, never both")
+		}
+	}
+	if len(matrix.Legs) == 0 && matrix.Opaque == nil {
 		v.add("TRL-VAL-0007", path+".legs", "matrix requires at least one explicit leg")
 	}
 	seen := make(map[string]bool, len(matrix.Legs))
@@ -272,7 +335,7 @@ func (v *irValidator) validateMatrix(path string, matrix *Matrix) {
 			v.add("TRL-VAL-0008", legPath+".id", fmt.Sprintf("duplicate matrix leg id %q", leg.ID))
 		}
 		seen[leg.ID] = true
-		for key := range leg.Values {
+		for _, key := range slices.Sorted(maps.Keys(leg.Values)) {
 			literal := leg.Values[key]
 			v.literal(legPath+".values."+key, &literal)
 		}
@@ -295,7 +358,7 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 	} else {
 		v.cond(path+".if", step.If, jobID)
 	}
-	for key := range step.Env {
+	for _, key := range slices.Sorted(maps.Keys(step.Env)) {
 		expr := step.Env[key]
 		v.expr(path+".env."+key, &expr, jobID)
 	}
@@ -345,7 +408,7 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 		if step.Action.Provider == "" || step.Action.Name == "" || step.Action.Version == "" {
 			v.add("TRL-VAL-0007", path+".action", "action provider, name, and version are required")
 		}
-		for key := range step.Action.With {
+		for _, key := range slices.Sorted(maps.Keys(step.Action.With)) {
 			expr := step.Action.With[key]
 			v.expr(path+".action.with."+key, &expr, jobID)
 		}
@@ -494,7 +557,12 @@ func (v *irValidator) expr(path string, expression *Expr, jobID string) {
 	}
 }
 
+var decimalPattern = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
+
 func (v *irValidator) literal(path string, literal *Literal) {
+	if literal != nil && literal.Type == LiteralNumber && !decimalPattern.MatchString(literal.Number) {
+		v.add("TRL-VAL-0012", path+".number", "number must be an exact decimal string")
+	}
 	if literal == nil || !oneOf(literal.Type, LiteralNull, LiteralString, LiteralBool, LiteralNumber) {
 		v.add("TRL-VAL-0012", path+".type", "invalid literal type")
 	}
@@ -544,7 +612,7 @@ func (v *irValidator) validateDAG() {
 			return
 		}
 		if state[jobID] == 1 {
-			v.add("TRL-VAL-0009", "jobs", fmt.Sprintf("dependency cycle reaches job %q", jobID))
+			v.add("TRL-VAL-0009", v.jobPath(jobID), fmt.Sprintf("dependency cycle reaches job %q", jobID))
 			return
 		}
 		state[jobID] = 1
@@ -562,13 +630,13 @@ func (v *irValidator) validateDAG() {
 }
 
 func (v *irValidator) metadata(path string, metadata Metadata) {
-	if !oneOf(metadata.Fidelity, FidelityExact, FidelityApproximated, FidelityNeedsManual, FidelityUnsupported) {
+	if !oneOf(metadata.Fidelity, diag.FidelityExact, diag.FidelityApproximated, diag.FidelityNeedsManual, diag.FidelityUnsupported) {
 		v.add("TRL-VAL-0012", path+".fidelity", "invalid or missing fidelity")
 	}
-	if !oneOf(metadata.Provenance, ProvenanceDeterministic, ProvenanceLLM) {
+	if !oneOf(metadata.Provenance, diag.ProvenanceDeterministic, diag.ProvenanceLLM) {
 		v.add("TRL-VAL-0012", path+".provenance", "invalid or missing provenance")
 	}
-	for key := range metadata.Extensions {
+	for _, key := range slices.Sorted(maps.Keys(metadata.Extensions)) {
 		if !strings.HasPrefix(key, "x-") || len(key) < 3 {
 			v.add("TRL-VAL-0012", path+".extensions."+key, "extension key must be x-<provider>")
 		}
@@ -578,7 +646,7 @@ func (v *irValidator) metadata(path string, metadata Metadata) {
 	}
 	if metadata.Origin != nil {
 		origin := metadata.Origin
-		if origin.Provider == "" || origin.File == "" || origin.OriginalTextHash == "" {
+		if origin.Source.Platform == "" || origin.Source.File == "" || origin.OriginalTextHash == "" {
 			v.add("TRL-VAL-0007", path+".origin", "origin provider, file, and originalTextHash are required")
 		}
 	}
@@ -597,31 +665,15 @@ func (v *irValidator) raw(path string, raw *Raw) {
 }
 
 func (v *irValidator) add(code, path, message string) {
-	options := []any{
-		diag.WithMessage(message),
-		diag.WithParams(map[string]any{"path": path}),
+	options := []diag.Option{
+		diag.WithMessage(message), diag.WithParams(map[string]any{"path": path}),
 		diag.WithResource(diag.Resource{Kind: "pipeline", Key: pipelineKey(v.pipeline), Name: pipelineName(v.pipeline)}),
+		diag.WithRedactor(v.redactor),
 	}
-	if v.pipeline != nil && v.pipeline.Origin != nil {
-		origin := v.pipeline.Origin
-		options = append(options, diag.WithSource(diag.Source{
-			Platform: origin.Provider,
-			File:     origin.File,
-			Line:     origin.Line,
-			Col:      origin.Col,
-			EndLine:  origin.EndLine,
-			EndCol:   origin.EndCol,
-		}))
+	if origin := v.originAt(path); origin != nil {
+		options = append(options, diag.WithSource(origin.Source))
 	}
-	diagnostic, err := diag.New(code, options...)
-	if err != nil {
-		fallback, fallbackErr := diag.New("TRL-INT-0002", diag.WithMessage("IR validator could not construct a diagnostic: "+err.Error()))
-		if fallbackErr == nil {
-			v.diagnostics = append(v.diagnostics, fallback)
-		}
-		return
-	}
-	v.diagnostics = append(v.diagnostics, diagnostic)
+	v.diagnostics.Add(diag.MustNew(code, options...))
 }
 
 func pipelineKey(pipeline *Pipeline) string {

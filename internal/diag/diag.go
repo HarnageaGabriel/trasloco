@@ -163,11 +163,61 @@ func ValidateRegistry(data []byte) error {
 func ValidCode(code string) bool { return codePattern.MatchString(code) }
 
 // Option refines a diagnostic instance.
-type Option func(*Diagnostic) error
+type Option func(*construction) error
+
+type construction struct {
+	Diagnostic
+	redactor *redact.Redactor
+	args     map[string]any
+}
+
+// Error carries a registered finding through an ordinary error chain.
+type Error struct{ Finding Diagnostic }
+
+// Error implements error; use errors.As to retrieve the finding.
+func (e *Error) Error() string { return e.Finding.Code + ": " + e.Finding.Message }
+
+// WithRedactor uses the invocation's registered secrets when constructing output.
+func WithRedactor(r *redact.Redactor) Option {
+	return func(d *construction) error {
+		if r != nil {
+			d.redactor = r
+		}
+		return nil
+	}
+}
+
+// WithArgs supplies named registry template arguments and diagnostic parameters.
+func WithArgs(args map[string]any) Option {
+	return func(d *construction) error { d.args = cloneMap(args); d.Params = cloneMap(args); return nil }
+}
+
+// WithFidelity records the conversion fidelity independently of severity.
+func WithFidelity(fidelity Fidelity) Option {
+	return func(d *construction) error {
+		switch fidelity {
+		case FidelityExact, FidelityApproximated, FidelityNeedsManual, FidelityUnsupported:
+			d.Fidelity = &fidelity
+			return nil
+		default:
+			return fmt.Errorf("invalid diagnostic fidelity %q", fidelity)
+		}
+	}
+}
+
+// MustNew constructs a finding for a statically registered code and valid options.
+// Invalid programming-time options panic; dynamic callers should use New.
+func MustNew(code string, opts ...Option) Diagnostic {
+	d, err := New(code, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
 
 // WithSeverity verifies severity against the fixed registry value.
 func WithSeverity(severity Severity) Option {
-	return func(d *Diagnostic) error {
+	return func(d *construction) error {
 		entry, ok := Lookup(d.Code)
 		if !ok {
 			return fmt.Errorf("unknown diagnostic code %q", d.Code)
@@ -182,7 +232,7 @@ func WithSeverity(severity Severity) Option {
 
 // WithProvenance records how the finding's subject was produced.
 func WithProvenance(provenance Provenance) Option {
-	return func(d *Diagnostic) error {
+	return func(d *construction) error {
 		if provenance != ProvenanceDeterministic && provenance != ProvenanceLLM {
 			return fmt.Errorf("invalid diagnostic provenance %q", provenance)
 		}
@@ -193,86 +243,79 @@ func WithProvenance(provenance Provenance) Option {
 
 // WithSource sets the diagnostic source location.
 func WithSource(source Source) Option {
-	return func(d *Diagnostic) error { d.Source = &source; return nil }
+	return func(d *construction) error { d.Source = &source; return nil }
 }
 
 // WithResource sets the affected resource.
 func WithResource(resource Resource) Option {
-	return func(d *Diagnostic) error { d.Resource = &resource; return nil }
+	return func(d *construction) error { d.Resource = &resource; return nil }
 }
 
 // WithMessage replaces the registry title for a more specific instance message.
 func WithMessage(message string) Option {
-	return func(d *Diagnostic) error { d.Message = message; return nil }
+	return func(d *construction) error { d.Message = message; return nil }
 }
 
 // WithParams sets non-secret machine-readable parameters.
 func WithParams(params map[string]any) Option {
-	return func(d *Diagnostic) error { d.Params = cloneMap(params); return nil }
+	return func(d *construction) error { d.Params = cloneMap(params); return nil }
 }
 
 // WithRemediation refines the registry remediation for this instance.
 func WithRemediation(remediation string) Option {
-	return func(d *Diagnostic) error { d.Remediation = remediation; return nil }
+	return func(d *construction) error { d.Remediation = remediation; return nil }
 }
 
-// New constructs a diagnostic. Args may contain Option values, a Redactor,
-// one map used by a Go text/template title, or positional fmt arguments.
-func New(code string, args ...any) (Diagnostic, error) {
+// New constructs a registered finding using typed options.
+func New(code string, opts ...Option) (Diagnostic, error) {
 	entry, ok := Lookup(code)
 	if !ok {
 		return Diagnostic{}, fmt.Errorf("unknown diagnostic code %q", code)
 	}
-	d := Diagnostic{
+	d := construction{Diagnostic: Diagnostic{
 		Code: code, Severity: entry.Severity, Fidelity: entry.Fidelity,
-		Provenance: ProvenanceDeterministic,
-		Message:    entry.Title, Remediation: entry.Remediation,
-		DocsURL: docsURL(code),
-	}
+		Provenance: ProvenanceDeterministic, Message: entry.Title,
+		Remediation: entry.Remediation, DocsURL: docsURL(code),
+	}, redactor: redact.New()}
 	if entry.Provenance != nil {
 		d.Provenance = *entry.Provenance
 	}
-	r := redact.New()
-	var positional []any
-	var templateData map[string]any
-	for _, arg := range args {
-		switch value := arg.(type) {
-		case Option:
-			if err := value(&d); err != nil {
-				return Diagnostic{}, err
-			}
-		case *redact.Redactor:
-			if value != nil {
-				r = value
-			}
-		case map[string]any:
-			templateData = value
-			d.Params = cloneMap(value)
-		default:
-			positional = append(positional, value)
+	for _, opt := range opts {
+		if opt == nil {
+			return Diagnostic{}, fmt.Errorf("nil diagnostic option")
+		}
+		if err := opt(&d); err != nil {
+			return Diagnostic{}, err
 		}
 	}
-	if templateData != nil && strings.Contains(d.Message, "{{") {
+	if d.args != nil && strings.Contains(d.Message, "{{") {
 		parsed, err := template.New(code).Option("missingkey=error").Parse(d.Message)
 		if err != nil {
 			return Diagnostic{}, fmt.Errorf("parse diagnostic template %s: %w", code, err)
 		}
 		var rendered bytes.Buffer
-		if err := parsed.Execute(&rendered, templateData); err != nil {
+		if err := parsed.Execute(&rendered, d.args); err != nil {
 			return Diagnostic{}, fmt.Errorf("render diagnostic template %s: %w", code, err)
 		}
 		d.Message = rendered.String()
-	} else if len(positional) > 0 {
-		d.Message = fmt.Sprintf(d.Message, positional...)
 	}
-	d.Message = oneLine(r.Redact(d.Message))
-	d.Remediation = oneLine(r.Redact(d.Remediation))
-	redactedParams, err := redactParams(r, d.Params)
+	d.Message = oneLine(d.redactor.Redact(d.Message))
+	d.Remediation = oneLine(d.redactor.Redact(d.Remediation))
+	params, err := redactParams(d.redactor, d.Params)
 	if err != nil {
 		return Diagnostic{}, err
 	}
-	d.Params = redactedParams
-	return d, nil
+	d.Params = params
+	if d.Source != nil {
+		d.Source.File = d.redactor.Redact(d.Source.File)
+		d.Source.Platform = d.redactor.Redact(d.Source.Platform)
+	}
+	if d.Resource != nil {
+		d.Resource.Kind = d.redactor.Redact(d.Resource.Kind)
+		d.Resource.Key = d.redactor.Redact(d.Resource.Key)
+		d.Resource.Name = d.redactor.Redact(d.Resource.Name)
+	}
+	return d.Diagnostic, nil
 }
 
 // ExitClassFor returns the registry exit class for a diagnostic.

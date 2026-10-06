@@ -28,7 +28,7 @@ func TestFleetListingAndRevalidation(t *testing.T) {
 	defer server.Close()
 	host, _ := url.Parse(server.URL())
 	pool, err := credpool.New(map[string][]credpool.Credential{
-		host.Host: {{ID: "fleet-1", ScopeID: "read-org", Source: credpool.StaticToken("test-token")}},
+		host.Host: {{ID: "fleet-1", Actor: "fleet-actor", TargetScope: "org", ScopeID: "read-org", Source: credpool.StaticToken("test-token")}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -41,11 +41,11 @@ func TestFleetListingAndRevalidation(t *testing.T) {
 	}
 	observer := &countingObserver{}
 	githubClient := httpx.NewClient(httpx.Options{
-		Platform: "github", Credentials: pool, Cache: store, Clock: clock, Observer: observer,
+		Platform: "github", Credentials: pool, TargetScope: "org", Cache: store, Clock: clock, Observer: observer,
 		MaxConcurrency: 16, Jitter: noJitter,
 	})
 	azureClient := httpx.NewClient(httpx.Options{
-		Platform: "azuredevops", Credentials: pool, Cache: store, Clock: clock, Observer: observer,
+		Platform: "azuredevops", Credentials: pool, TargetScope: "org", Cache: store, Clock: clock, Observer: observer,
 		MaxConcurrency: 16, Jitter: noJitter,
 	})
 
@@ -96,6 +96,7 @@ func TestFleetListingAndRevalidation(t *testing.T) {
 func listGitHub(t *testing.T, client *http.Client, endpoint string) int {
 	t.Helper()
 	request, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, endpoint, nil)
+	request = httpx.WithCache(request)
 	total := 0
 	//nolint:bodyclose // Each yielded response is closed in the loop.
 	for response, err := range httpx.LinkPages(request.Context(), client, request) {
@@ -116,6 +117,7 @@ func listGitHub(t *testing.T, client *http.Client, endpoint string) int {
 func listAzure(t *testing.T, client *http.Client, endpoint string) int {
 	t.Helper()
 	request, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, endpoint, nil)
+	request = httpx.WithCache(request)
 	total := 0
 	//nolint:bodyclose // Each yielded response is closed in the loop.
 	for response, err := range httpx.AzureDevOpsPages(request.Context(), client, request) {

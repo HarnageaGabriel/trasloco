@@ -210,11 +210,7 @@ func wrap(raw *yaml.Node, ctx *nodeContext) *Node {
 }
 
 func newDiagnostic(code string, source diag.Source, options ...diag.Option) diag.Diagnostic {
-	args := make([]any, 0, len(options)+1)
-	args = append(args, diag.WithSource(source))
-	for _, option := range options {
-		args = append(args, option)
-	}
+	args := append([]diag.Option{diag.WithSource(source)}, options...)
 	diagnostic, err := diag.New(code, args...)
 	if err != nil {
 		panic(fmt.Sprintf("yamlx: construct registered diagnostic %s: %v", code, err))

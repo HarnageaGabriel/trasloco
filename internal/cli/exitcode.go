@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -68,6 +69,9 @@ func (e *NotImplementedError) Error() string {
 func CodeFor(err error) int {
 	if err == nil {
 		return ExitOK
+	}
+	if errors.Is(err, context.Canceled) {
+		return ExitInterrupted
 	}
 	var ee *CodedError
 	if errors.As(err, &ee) {

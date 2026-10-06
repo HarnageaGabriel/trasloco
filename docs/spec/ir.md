@@ -10,7 +10,7 @@ The persisted form is UTF-8 JSON with top-level integer `schemaVersion`. Version
 
 Every valid pipeline obeys all of these invariants:
 
-1. `jobs` and `needs` form a directed acyclic graph. Every dependency names an existing job.
+1. `jobs` and `needs` form a directed acyclic graph. Every dependency names an existing job. A job MUST NOT depend on a later stage across a `barrier: true` boundary, including the target stage.
 2. Stable IDs are non-empty and unique within their namespace. Pipeline-level namespaces are inputs, triggers, stages, and jobs; step IDs are unique within a job; matrix-leg IDs are unique within a matrix.
 3. Every `OutputRef` resolves to an existing stage, job, step, and `setOutput` operation. A consuming job MUST directly depend on the producing job unless it is the producer.
 4. `stages` are a partition of `jobs`: every job appears in exactly one stage and no unknown job appears. Stage order is declaration order. A stage with `barrier: true` requires every job in all preceding stages to reach a terminal result before any job in that stage starts; `false` preserves only explicit DAG edges.
@@ -19,7 +19,7 @@ Every valid pipeline obeys all of these invariants:
 7. Secrets appear only as `SecretRef`; secret values MUST NOT occur in the IR, extensions, raw nodes, debug output, or fixtures.
 8. All implicit source behavior is explicit as described in section 3. Absence then means intentionally disabled or inapplicable, never “use the provider default.”
 
-`Validate(*Pipeline)` emits stable diagnostics: `TRL-VAL-0007` for a schema version or required field, `TRL-VAL-0008` for duplicate IDs, `TRL-VAL-0009` for a cycle, `TRL-VAL-0010` for an unresolved reference, `TRL-VAL-0011` for an invalid stage partition, and `TRL-VAL-0012` for an invalid union or enum.
+`Validate(*Pipeline)` emits diagnostics through `diag.Collector`, deduplicated and sorted by source position and code; map keys are visited in sorted order. Each node finding uses that node's origin, never the pipeline origin. `Fidelity` and `Provenance` are shared diag types. Stable diagnostics: `TRL-VAL-0007` for a schema version or required field, `TRL-VAL-0008` for duplicate IDs, `TRL-VAL-0009` for a cycle, `TRL-VAL-0010` for an unresolved reference, `TRL-VAL-0011` for an invalid stage partition, and `TRL-VAL-0012` for an invalid union or enum.
 
 ## 2. Common metadata
 
@@ -36,10 +36,8 @@ Every valid pipeline obeys all of these invariants:
 
 | Field | Type | Req | Semantics |
 |---|---|---|---|
-| `provider` | string | yes | Source dialect/provider identifier, for example `azure-pipelines` or `github-actions`. |
-| `file` | string | yes | Repository-relative `/` path or stable API-object URI. |
-| `line`, `col` | integer | when known | One-based start position; `col` counts Unicode code points. |
-| `endLine`, `endCol` | integer | no | One-based exclusive end position when known. |
+| `source` | `diag.Source` | yes | Shared source position: platform, file, line/col and exclusive endLine/endCol. Byte spans belong to the shared Source model (ADR 0003). |
+| `chain` | `diag.Source[]` | no | Template instantiation chain, outermost first. |
 | `originalTextHash` | string | yes | `sha256:<hex>` of the exact source bytes for the construct before decoding or normalization. |
 
 `Raw` is the explicit escape hatch: `provider`, provider node `kind`, serialization `format`, and exactly one of textual `text` or JSON `json`, plus optional `origin`. Raw content is never silently executed by another dialect. A cross-dialect emitter emits a failing placeholder or manual task according to fidelity.
@@ -99,12 +97,15 @@ Normalization MUST materialize provider defaults:
 
 ### Stage and Job
 
-`Stage` has common metadata, stable `id`, display `name`, ordered job-ID list `jobs`, and `barrier` semantics defined in section 1.
+`Stage` has common metadata, stable `id`, display `name`, ordered job-ID list `jobs`, optional condition `if`, explicit stage-ID dependencies `dependsOn`, ordered `variables`, and `barrier` semantics defined in section 1. Dependencies must resolve and form a DAG.
 
 | Job field | Type | Req | Semantics |
 |---|---|---|---|
 | common metadata | `Metadata` | yes | Job loss/provenance data. |
 | `id`, `name` | string | yes | Stable identity and display name. |
+| `uses` | `ReusableCall` | no | Reusable workflow call with required `ref`, expression map `with`, and `secrets` mapping input names to `SecretRef`. Mutually exclusive with non-empty `steps`. |
+| `permissions` | object | no | Explicit permission names mapped to `read`, `write`, or `none`. |
+| `concurrency` | `Concurrency` | no | Job scheduling intent, using the pipeline concurrency model. |
 | `needs` | string[] | no | Direct incoming DAG edges. |
 | `if` | `Cond` | yes | Explicit creation/runtime gate, including the normalized success gate. |
 | `runner` | `RunnerReq` | yes | Portable runner constraints. Empty fields mean no constraint, not a provider default. |
@@ -121,7 +122,7 @@ Normalization MUST materialize provider defaults:
 
 `OutputDef` has public `name` and `from: OutputRef`. `OutputRef` has mandatory `stage`, `job`, `step`, and output `name`; it is syntax-free and emitters select target syntax.
 
-`Matrix` has explicit `legs`, optional positive `maxParallel` (`0` means unbounded), and explicit `failFast`. Each `MatrixLeg` has unique `id` and scalar-literal `values`. Parsers expand include/exclude rules before producing IR; dynamic unbounded matrices become opaque/manual rather than invented legs.
+`Matrix` has exactly one of non-empty explicit `legs` or `opaque: Raw`, optional positive `maxParallel` (`0` means unbounded), and explicit `failFast`. Each `MatrixLeg` has unique `id` and scalar-literal `values`. Parsers expand include/exclude rules before producing IR; dynamic unbounded matrices use `opaque`, retaining source text and origin without inventing legs.
 
 `Concurrency` has expression `group` and mode `cancel-in-progress`, `queue-latest`, or `serialize`. These are intents: capability checking grades any destination approximation. `DeploymentIntent` has target `environment`, optional portable `strategy`, and optional source lifecycle `hook`; unmodeled strategy detail remains in extensions.
 
@@ -154,7 +155,7 @@ Normalization MUST materialize provider defaults:
 
 `Expr` is a tagged tree with `kind` and exactly one matching payload: `literal`, `ref`, or `call`.
 
-- `Literal` has type `null`, `string`, `bool`, or `number`, and the corresponding scalar field. Numbers use the finite IEEE-754 binary64 interoperability domain required by JCS.
+- `Literal` has type `null`, `string`, `bool`, or `number`, and the corresponding scalar field. The `number` field is a JSON string containing a decimal number (optional fraction and exponent, JSON number grammar). This preserves integers beyond 2^53 through serialization, equality, and JCS digests. It is never converted to binary64 by the IR.
 - `RefExpr` has context and either non-empty `path` or typed `output`. Context is `variables`, `parameters`, `env`, `secrets`, `dependencyOutputs`, `matrix`, `runner`, or `run`. Only `dependencyOutputs` uses `output`; other contexts use path segments, never a dialect expression string.
 - `CallExpr` has a closed `function` and ordered `args`.
 

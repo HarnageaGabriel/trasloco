@@ -138,6 +138,8 @@
       "required": ["name", "auth"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "pattern": "\\S" },
+        "targetScope": { "type": "string", "pattern": "\\S" },
         "auth": { "$ref": "#/$defs/auth" }
       }
     }

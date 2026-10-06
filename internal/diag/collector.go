@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"bytes"
 	"encoding/json"
 	"sort"
 	"sync"
@@ -43,10 +44,15 @@ func (c *Collector) Add(d Diagnostic) bool {
 	key := string(encoded)
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.seen == nil {
+		c.seen = make(map[string]struct{})
+		c.counts = make(map[string]int)
+		c.suppressed = make(map[string]int)
+		c.perCodeCap = defaultPerCodeCap
+	}
 	if _, exists := c.seen[key]; exists {
 		return false
 	}
-	c.seen[key] = struct{}{}
 	if c.perCodeCap > 0 && c.counts[d.Code] >= c.perCodeCap {
 		c.suppressed[d.Code]++
 		return false
@@ -55,6 +61,7 @@ func (c *Collector) Add(d Diagnostic) bool {
 	if err := json.Unmarshal(encoded, &snapshot); err != nil {
 		return false
 	}
+	c.seen[key] = struct{}{}
 	c.counts[d.Code]++
 	c.items = append(c.items, snapshot)
 	return true
@@ -113,5 +120,10 @@ func lessDiagnostic(a, b Diagnostic) bool {
 	if b.Resource != nil {
 		bKey = b.Resource.Key
 	}
-	return aKey < bKey
+	if aKey != bKey {
+		return aKey < bKey
+	}
+	aJSON, _ := json.Marshal(a)
+	bJSON, _ := json.Marshal(b)
+	return bytes.Compare(aJSON, bJSON) < 0
 }
