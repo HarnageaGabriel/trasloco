@@ -1,6 +1,10 @@
 package httpx
 
-import "time"
+import (
+	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/ratelimit"
+)
 
 // Observer receives sanitized transport events. URL contains scheme, host and
 // path only; authorization and query parameters are never exposed.
@@ -22,12 +26,7 @@ type RequestObservation struct {
 }
 
 // ThrottleObservation describes a limiter adjustment or enforced delay.
-type ThrottleObservation struct {
-	Host         string
-	CredentialID string
-	Budget       Budget
-	Concurrency  int
-}
+type ThrottleObservation = ratelimit.ThrottleObservation
 
 // RetryObservation describes a scheduled retry.
 type RetryObservation struct {

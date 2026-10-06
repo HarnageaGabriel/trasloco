@@ -25,7 +25,7 @@ func BenchmarkList5000Repos(benchmark *testing.B) {
 	defer server.Close()
 	parsed, _ := url.Parse(server.URL())
 	pool, err := credpool.New(map[string][]credpool.Credential{
-		parsed.Host: {{ID: "benchmark", ScopeID: "repo-read", Source: credpool.StaticToken("benchmark-token")}},
+		parsed.Host: {{ID: "benchmark", Actor: "bench-actor", TargetScope: "org", ScopeID: "repo-read", Source: credpool.StaticToken("benchmark-token")}},
 	})
 	if err != nil {
 		benchmark.Fatal(err)
@@ -38,7 +38,7 @@ func BenchmarkList5000Repos(benchmark *testing.B) {
 	}
 	observer := &benchmarkObserver{}
 	client := httpx.NewClient(httpx.Options{
-		Platform: "github", Credentials: pool, Cache: store, Clock: clock, Observer: observer,
+		Platform: "github", Credentials: pool, TargetScope: "org", Cache: store, Clock: clock, Observer: observer,
 		MaxConcurrency: 16, Jitter: func(duration time.Duration) time.Duration { return duration },
 	})
 	defer client.CloseIdleConnections()
@@ -63,6 +63,7 @@ func BenchmarkList5000Repos(benchmark *testing.B) {
 func list(benchmark *testing.B, client *http.Client, endpoint string) int {
 	benchmark.Helper()
 	request, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, endpoint, nil)
+	request = httpx.WithCache(request)
 	total := 0
 	//nolint:bodyclose // Each yielded response is closed in the loop.
 	for response, err := range httpx.LinkPages(request.Context(), client, request) {

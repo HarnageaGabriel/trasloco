@@ -86,8 +86,10 @@ type SecretSource struct {
 
 // Credential is a named credential in a rotation pool.
 type Credential struct {
-	Name string `koanf:"name" json:"name"`
-	Auth Auth   `koanf:"auth" json:"auth"`
+	Actor       string `koanf:"actor" json:"actor,omitempty"`
+	TargetScope string `koanf:"targetScope" json:"targetScope,omitempty"`
+	Name        string `koanf:"name" json:"name"`
+	Auth        Auth   `koanf:"auth" json:"auth"`
 }
 
 // Output controls where artifacts are written.
