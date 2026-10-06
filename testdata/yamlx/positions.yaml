@@ -1,0 +1,6 @@
+# first document
+name: on # ambiguous string
+steps:
+  - script: echo hello
+---
+enabled: true

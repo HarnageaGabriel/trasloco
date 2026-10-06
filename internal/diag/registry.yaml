@@ -378,6 +378,34 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-PARSE-0006",
+                      "area":  "PARSE",
+                      "title":  "YAML value has unexpected type",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use the value type required by the dialect at this position.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "actual",
+                                     "expected"
+                                 ]
+                  },
+                  {
+                      "code":  "TRL-PARSE-0007",
+                      "area":  "PARSE",
+                      "title":  "YAML alias expansion limit exceeded",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Reduce aliases or raise the trusted-input expansion limit.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "expanded",
+                                     "limit"
+                                 ]
+                  },
+                  {
                       "code":  "TRL-EXPR-0001",
                       "area":  "EXPR",
                       "title":  "Expression syntax error",

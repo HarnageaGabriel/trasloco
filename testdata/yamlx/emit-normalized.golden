@@ -1,0 +1,11 @@
+# preserved head
+"on": "on"
+"yes": "yes"
+"no": "no"
+float: "1.0"
+tilde: "~"
+"null": "null" # preserved line
+directive: ${{ if eq(parameters.x, true) }}
+sequence:
+  - first
+  - second
