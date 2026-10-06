@@ -906,6 +906,66 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-VAL-0007",
+                      "area":  "VAL",
+                      "title":  "IR schema version or required field is invalid",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Regenerate the IR with the current compiler and provide every required field.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-VAL-0008",
+                      "area":  "VAL",
+                      "title":  "IR identifier is duplicated",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Assign a unique stable identifier within the reported IR namespace.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-VAL-0009",
+                      "area":  "VAL",
+                      "title":  "IR job dependency graph contains a cycle",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Remove the reported dependency edge so the job graph is acyclic.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-VAL-0010",
+                      "area":  "VAL",
+                      "title":  "IR reference cannot be resolved",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Correct the reference or retain the source construct as an explicit raw node.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-VAL-0011",
+                      "area":  "VAL",
+                      "title":  "IR stages do not partition jobs",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Assign every job to exactly one stage and remove unknown stage members.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-VAL-0012",
+                      "area":  "VAL",
+                      "title":  "IR node shape or enum value is invalid",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use a documented enum and set exactly the payload selected by the node kind.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-PLAN-0001",
                       "area":  "PLAN",
                       "title":  "Plan stale: source changed",
