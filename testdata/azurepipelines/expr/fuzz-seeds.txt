@@ -1,0 +1,10 @@
+variables['Build.SourceBranch']
+dependencies.build.outputs['step.value']
+stageDependencies.stage.job.result
+format('{{hello}} {0}', 'world')
+notIn(variables.mode, 'debug', 'trace')
+containsValue(parameters.matrix, 'linux')
+1.2.3.4
+'single '' quote'
+foo.*.id
+counter('daily', 100)
