@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/trasloco-logo-dark.svg">
+    <img src="docs/assets/trasloco-logo.svg" alt="trasloco" width="420">
+  </picture>
+</p>
+
 # trasloco
 
 `trasloco` is an open-source Go CLI for planning and executing auditable CI/CD

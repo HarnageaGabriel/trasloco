@@ -5,3 +5,5 @@
 go.mod text eol=lf
 go.sum text eol=lf
 Makefile text eol=lf
+*.svg text eol=lf
+*.py text eol=lf
