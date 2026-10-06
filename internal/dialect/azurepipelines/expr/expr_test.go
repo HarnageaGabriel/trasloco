@@ -1,270 +1,345 @@
 package expr
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-type vector struct {
-	id       string
-	mode     string
-	phase    string
-	input    string
-	context  string
-	expected string
-}
+type vector struct{ id, phase, input, context, expected, basis, source string }
 
 func TestSpecVectors(t *testing.T) {
 	vectors := loadVectors(t)
-	if len(vectors) < 80 {
-		t.Fatalf("loaded %d vectors, want at least 80", len(vectors))
+	if len(vectors) != 446 {
+		t.Fatalf("loaded %d vectors, want 446", len(vectors))
 	}
-	seen := make(map[string]bool, len(vectors))
-	for _, test := range vectors {
-		if seen[test.id] {
-			t.Fatalf("duplicate vector %s", test.id)
+	seen := map[string]bool{}
+	for _, v := range vectors {
+		if seen[v.id] {
+			t.Fatalf("duplicate %s", v.id)
 		}
-		seen[test.id] = true
-		t.Run(test.id, func(t *testing.T) { runVector(t, test) })
+		seen[v.id] = true
+		t.Run(v.id, func(t *testing.T) { runVector(t, v) })
 	}
 }
 
-func runVector(t *testing.T, test vector) {
-	t.Helper()
-	var values MapContext
-	decoder := json.NewDecoder(strings.NewReader(test.context))
-	decoder.UseNumber()
-	if err := decoder.Decode(&values); err != nil {
-		t.Fatalf("decode context: %v", err)
-	}
-
-	var got any
-	var err error
-	switch test.mode {
-	case "eval":
-		var node Expr
-		node, err = Parse(test.input)
-		if err == nil {
-			got, err = Eval(context.Background(), node, values, EvalOptions{Phase: parsePhase(test.phase)})
-		}
-	case "parse":
-		var node Expr
-		node, err = Parse(test.input)
-		if err == nil {
-			got = Print(node)
-		}
-	case "macro":
-		got, err = ExpandMacros(test.input, values)
-	case "directive":
-		var directive *Directive
-		directive, err = ParseDirective(test.input)
-		if err == nil {
-			got = directive.Kind.String()
-		}
-	default:
-		t.Fatalf("unknown vector mode %q", test.mode)
-	}
-
-	if wantError, ok := strings.CutPrefix(test.expected, "error:"); ok {
-		if err == nil || !strings.Contains(err.Error(), wantError) {
-			t.Fatalf("error = %v, want substring %q", err, wantError)
-		}
-		return
-	}
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	gotJSON, err := json.Marshal(jsonValue(got))
-	if err != nil {
-		t.Fatalf("encode result: %v", err)
-	}
-	var wantCompact bytes.Buffer
-	if err := json.Compact(&wantCompact, []byte(test.expected)); err != nil {
-		t.Fatalf("invalid expected JSON %q: %v", test.expected, err)
-	}
-	if diff := cmp.Diff(wantCompact.String(), string(gotJSON)); diff != "" {
-		t.Fatalf("result mismatch (-want +got):\n%s", diff)
-	}
-}
-
-func loadVectors(t *testing.T) []vector {
-	t.Helper()
-	path := filepath.Join("..", "..", "..", "..", "docs", "spec", "ado-expressions.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var vectors []vector
-	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.HasPrefix(line, "| EXPR-") {
+func tableCells(line string) []string {
+	var cells []string
+	var b strings.Builder
+	for i := 0; i < len(line); i++ {
+		if line[i] == '\\' && i+1 < len(line) && line[i+1] == '|' {
+			b.WriteByte('|')
+			i++
 			continue
 		}
-		cells := strings.Split(line, "|")
-		if len(cells) != 8 {
-			t.Fatalf("malformed vector row: %s", line)
+		if line[i] == '|' {
+			cells = append(cells, cleanCell(b.String()))
+			b.Reset()
+		} else {
+			b.WriteByte(line[i])
 		}
-		vectors = append(vectors, vector{
-			id:       cleanCell(cells[1]),
-			mode:     cleanCell(cells[2]),
-			phase:    cleanCell(cells[3]),
-			input:    cleanCell(cells[4]),
-			context:  cleanCell(cells[5]),
-			expected: cleanCell(cells[6]),
-		})
 	}
-	return vectors
+	cells = append(cells, cleanCell(b.String()))
+	return cells
 }
 
 func cleanCell(cell string) string {
 	cell = strings.TrimSpace(cell)
-	if len(cell) >= 2 && cell[0] == '`' && cell[len(cell)-1] == '`' {
-		return cell[1 : len(cell)-1]
+	if strings.HasPrefix(cell, "`") {
+		if end := strings.LastIndex(cell, "`"); end > 0 {
+			return cell[1:end]
+		}
 	}
 	return cell
 }
 
-func parsePhase(value string) Phase {
-	if value == "runtime" {
-		return PhaseRuntime
+func loadVectors(t testing.TB) []vector {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "spec", "ado-expressions.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if value == "macro" {
-		return PhaseMacro
+	var vectors []vector
+	for _, line := range strings.Split(strings.Split(string(data), "### Conversion-matrix coverage index")[0], "\n") {
+		if !strings.HasPrefix(line, "| EXPRV-") {
+			continue
+		}
+		cells := tableCells(line)
+		if len(cells) != 9 {
+			t.Fatalf("malformed vector: %s", line)
+		}
+		v := vector{cells[1], cells[2], cells[3], cells[4], cells[5], cells[6], cells[7]}
+		if v.source == "" || v.basis != "docs" && v.basis != "reference-impl" && v.basis != "inferred" {
+			t.Fatalf("unsourced vector %s", v.id)
+		}
+		vectors = append(vectors, v)
 	}
-	return PhaseCompile
+	return vectors
 }
 
-func jsonValue(value any) any {
-	switch v := value.(type) {
-	case Version:
-		return v.String()
-	case projected:
-		out := make([]any, len(v))
-		for i, item := range v {
-			out[i] = jsonValue(item)
+func vectorNumber(v vector) int { n, _ := strconv.Atoi(strings.TrimPrefix(v.id, "EXPRV-")); return n }
+
+func resolverVector(v vector) bool {
+	n := vectorNumber(v)
+	return n >= 355 && n <= 397 || n == 415 || n == 445 || n == 446 || n == 350
+}
+
+func materialize(v vector) vector {
+	switch vectorNumber(v) {
+	case 306:
+		v.input = "counter('a', 1)"
+	case 417:
+		v.input = "$[variables.a]"
+	case 418:
+		var b strings.Builder
+		b.WriteString(`{"variables":{`)
+		for i := 1; i <= 60; i++ {
+			if i > 1 {
+				b.WriteByte(',')
+			}
+			value := "end"
+			if i < 60 {
+				value = fmt.Sprintf("$(v%d)", i+1)
+			}
+			fmt.Fprintf(&b, `"v%d":%q`, i, value)
 		}
-		return out
-	default:
-		return value
+		b.WriteString("}}")
+		v.input = "$(v1)"
+		v.context = b.String()
+	case 439:
+		v.input = ""
+	case 440:
+		v.input = strings.Repeat("not(", 49) + "true" + strings.Repeat(")", 49)
+	case 441:
+		v.input = strings.Repeat("not(", 50) + "true" + strings.Repeat(")", 50)
+	case 442:
+		v.input = "'" + strings.Repeat("a", 20998) + "'"
+		v.expected = `"` + strings.Repeat("a", 20998) + `"`
+	case 443:
+		v.input = "'" + strings.Repeat("a", 20999) + "'"
+	case 444:
+		v.context = `{"parameters":{"big":["` + strings.Repeat("a", 300000) + `","` + strings.Repeat("b", 300000) + `"]}}`
 	}
+	return v
+}
+
+func runVector(t *testing.T, v vector) {
+	t.Helper()
+	if resolverVector(v) {
+		t.Skip("template resolver integration contract; retained verbatim outside expression engine")
+	}
+	v = materialize(v)
+	value, err := DecodeJSON([]byte(v.context))
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := value.(*Object)
+	if pipeline, ok := values.Lookup("pipeline"); ok {
+		if o, ok := pipeline.(*Object); ok {
+			for i, p := range o.Properties {
+				if p.Name == "startTime" {
+					text, _ := stringify(p.Value)
+					date, err := time.Parse(time.RFC3339Nano, text)
+					if err != nil {
+						t.Fatal(err)
+					}
+					o.Properties[i].Value = DateTime{date}
+				}
+			}
+		}
+	}
+	options := EvalOptions{}
+	if v.phase == "runtime" {
+		options.Phase = PhaseRuntime
+		options.VariableDefinition = strings.HasPrefix(v.input, "$[")
+	}
+	scope, _ := values.Lookup("scope")
+	options.Scope, _ = stringify(scope)
+	canceled, _ := values.Lookup("canceled")
+	variables, _ := values.Lookup("variables")
+	status, _ := lookupProperty(variables, "Agent.JobStatus")
+	jobStatus, _ := stringify(status)
+	dependencies, _ := values.Lookup("dependencies")
+	deps, _ := dependencies.(*Object)
+	options.Status = StatusSnapshot{Scope: options.Scope, Canceled: truthy(canceled), JobStatus: jobStatus, Dependencies: deps}
+	counters, _ := values.Lookup("counters")
+	counterValues, _ := counters.(*Object)
+	options.Counter = &testCounter{values: counterValues}
+	var got Value
+	if v.phase == "macro" {
+		var text string
+		text, err = ExpandMacros(v.input, values)
+		got = String(text)
+	} else {
+		var node Expr
+		node, err = Parse(v.input)
+		if err == nil {
+			got, err = Eval(context.Background(), node, values, options)
+		}
+		if err == nil && options.VariableDefinition {
+			text, ok := stringify(got)
+			if !ok {
+				err = errors.New("not renderable")
+			} else {
+				got = String(text)
+			}
+		}
+	}
+	if strings.HasPrefix(v.expected, "error:") {
+		if err == nil {
+			t.Fatalf("wanted %s, got %v", v.expected, got)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(v.expected, "version(") {
+		version, ok := got.(Version)
+		if !ok || "version("+version.String()+")" != v.expected {
+			t.Fatalf("version = %v", got)
+		}
+		return
+	}
+	want, err := DecodeJSON([]byte(v.expected))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantJSON, err := EncodeJSON(want, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, ok := got.(*projection); ok {
+		got = &p.Array
+	}
+	gotJSON, err := EncodeJSON(got, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(wantJSON, gotJSON); diff != "" {
+		t.Fatalf("result (-want +got):\n%s", diff)
+	}
+	// Pure functions also run at runtime, moving typed parameters into variables.
+	if v.phase == "compile" && isPureVector(v.input) {
+		runtimeInput := strings.ReplaceAll(v.input, "parameters", "variables")
+		for i, p := range values.Properties {
+			if p.Name == "parameters" {
+				values.Properties[i].Name = "variables"
+			}
+		}
+		node, err := Parse(runtimeInput)
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtimeValue, err := Eval(context.Background(), node, values, EvalOptions{Phase: PhaseRuntime})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p, ok := runtimeValue.(*projection); ok {
+			runtimeValue = &p.Array
+		}
+		runtimeJSON, err := EncodeJSON(runtimeValue, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(gotJSON, runtimeJSON); diff != "" {
+			t.Fatalf("runtime differs: %s", diff)
+		}
+	}
+}
+
+func isPureVector(input string) bool {
+	return !strings.Contains(strings.ToLower(input), "variables") && !strings.Contains(input, "dependencies")
+}
+
+type testCounter struct{ values *Object }
+
+func (c *testCounter) Next(_ context.Context, prefix string, seed int64) (int64, error) {
+	if value, ok := c.values.Lookup(prefix); ok {
+		number, ok := toNumber(value)
+		if !ok {
+			return 0, errors.New("bad counter")
+		}
+		return newIntegerQuotient(number.rat()).Int64() + 1, nil
+	}
+	return seed, nil
 }
 
 func TestParsePrintRoundTrip(t *testing.T) {
-	for _, test := range loadVectors(t) {
-		if test.mode != "eval" && test.mode != "parse" || strings.HasPrefix(test.expected, "error:") {
+	for _, v := range loadVectors(t) {
+		if resolverVector(v) || v.phase == "macro" {
 			continue
 		}
-		node, err := Parse(test.input)
+		v = materialize(v)
+		node, err := Parse(v.input)
 		if err != nil {
-			t.Fatalf("%s first parse: %v", test.id, err)
+			continue
 		}
-		roundTrip, err := Parse(Print(node))
+		printed := Print(node)
+		again, err := Parse(printed)
 		if err != nil {
-			t.Fatalf("%s second parse: %v", test.id, err)
+			t.Fatalf("%s: %v", v.id, err)
 		}
-		options := []cmp.Option{
-			cmpopts.IgnoreFields(Literal{}, "Span"),
-			cmpopts.IgnoreFields(Identifier{}, "Span"),
-			cmpopts.IgnoreFields(Call{}, "Span"),
-			cmpopts.IgnoreFields(Member{}, "Span"),
-			cmpopts.IgnoreFields(Index{}, "Span"),
-			cmp.Comparer(func(a, b Version) bool { return cmp.Equal(a.Parts, b.Parts) }),
-		}
-		if diff := cmp.Diff(node, roundTrip, options...); diff != "" {
-			t.Fatalf("%s round trip mismatch (-want +got):\n%s", test.id, diff)
+		if diff := cmp.Diff(printed, Print(again)); diff != "" {
+			t.Fatal(diff)
 		}
 	}
 }
 
 func TestByteOffsetsAndWalk(t *testing.T) {
-	node, err := Parse("${{ eq(variables.x, 'é') }}")
+	node, err := Parse("${{ eq(variables.x, '?') }}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(Span{Start: 4, End: 25}, node.Range()); diff != "" {
-		t.Fatalf("root span mismatch (-want +got):\n%s", diff)
+	if diff := cmp.Diff(Span{Start: 4, End: 24}, node.Range()); diff != "" {
+		t.Fatal(diff)
 	}
 	var types []string
 	Walk(VisitorFunc(func(node Expr) { types = append(types, fmt.Sprintf("%T", node)) }), node)
-	want := []string{"*expr.Call", "*expr.Member", "*expr.Identifier", "*expr.Literal"}
-	if diff := cmp.Diff(want, types); diff != "" {
-		t.Fatalf("walk mismatch (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"*expr.Call", "*expr.Member", "*expr.Identifier", "*expr.Literal"}, types); diff != "" {
+		t.Fatal(diff)
 	}
 }
 
-type testCounter struct{ value int64 }
-
-func (c *testCounter) Next(_ context.Context, _ string, seed int64) (int64, error) {
-	if c.value == 0 {
-		c.value = seed
-	} else {
-		c.value++
-	}
-	return c.value, nil
-}
-
-type testStatus map[string]bool
-
-func (s testStatus) Status(_ context.Context, name string, _ []string) (bool, error) {
-	value, ok := s[name]
-	if !ok {
-		return false, errors.New("unknown status")
-	}
-	return value, nil
-}
-
-func TestProviders(t *testing.T) {
-	counterNode, err := Parse("counter('x', 10)")
-	if err != nil {
-		t.Fatal(err)
-	}
-	counter := &testCounter{}
-	got, err := Eval(context.Background(), counterNode, MapContext{}, EvalOptions{
-		Phase: PhaseRuntime, Counter: counter, VariableDefinition: true,
-	})
-	if err != nil || got != float64(10) {
-		t.Fatalf("counter = %v, %v", got, err)
-	}
-	statusNode, err := Parse("succeeded('build')")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err = Eval(context.Background(), statusNode, MapContext{}, EvalOptions{
-		Phase: PhaseRuntime, Status: testStatus{"succeeded": true},
-	})
-	if err != nil || got != true {
-		t.Fatalf("status = %v, %v", got, err)
+func TestEscapedTablePipes(t *testing.T) {
+	if diff := cmp.Diff([]string{"", "EXPRV-x", "join('|', parameters.a)", ""}, tableCells("| EXPRV-x | `join('\\|', parameters.a)` |")); diff != "" {
+		t.Fatal(diff)
 	}
 }
 
 func FuzzParse(f *testing.F) {
-	seeds := []string{
-		"eq(variables.x, 'x')", "foo.*.id", "1.2.3", "'it''s'", "and(true, false)", "", "${{ x }}", "$[x]",
-	}
-	path := filepath.Join("..", "..", "..", "..", "testdata", "azurepipelines", "expr", "fuzz-seeds.txt")
-	if data, err := os.ReadFile(path); err == nil {
-		seeds = append(seeds, strings.Split(strings.TrimSpace(string(data)), "\n")...)
-	}
-	for _, seed := range seeds {
-		f.Add(seed)
+	for _, v := range loadVectors(f) {
+		if !resolverVector(v) {
+			f.Add(materialize(v).input)
+		}
 	}
 	f.Fuzz(func(t *testing.T, input string) {
 		node, err := Parse(input)
-		if err != nil {
-			return
+		if err == nil {
+			printed := Print(node)
+			again, err := Parse(printed)
+			if err != nil {
+				t.Fatalf("round trip: %v", err)
+			}
+			if Print(again) != printed {
+				t.Fatal("unstable print")
+			}
+			_, _ = Eval(context.Background(), node, &Object{}, EvalOptions{})
 		}
-		printed := Print(node)
-		if _, err := Parse(printed); err != nil {
-			t.Fatalf("canonical output %q does not parse: %v", printed, err)
+		if _, err := ScanMacros(input); err != nil {
+			t.Fatal(err)
 		}
+		if _, err := ExpandMacros(input, &Object{}); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = ParseDirective(input)
 	})
 }

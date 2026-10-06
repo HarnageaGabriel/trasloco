@@ -27,7 +27,7 @@ const (
 	NullLiteral LiteralKind = iota
 	// BooleanLiteral represents a true or false keyword.
 	BooleanLiteral
-	// NumberLiteral represents a floating-point number.
+	// NumberLiteral represents a decimal number.
 	NumberLiteral
 	// StringLiteral represents a single-quoted string.
 	StringLiteral
@@ -39,7 +39,7 @@ const (
 type Literal struct {
 	Span  Span
 	Kind  LiteralKind
-	Value any
+	Value Value
 }
 
 func (*Literal) exprNode() {}
@@ -116,7 +116,7 @@ func parseVersion(s string) (Version, error) {
 	parts := make([]int, len(fields))
 	for i, field := range fields {
 		part, err := strconv.Atoi(field)
-		if err != nil || part < 0 {
+		if err != nil || part < 0 || part > 2147483647 {
 			return Version{}, fmt.Errorf("invalid version component %q", field)
 		}
 		parts[i] = part

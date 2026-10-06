@@ -3,7 +3,6 @@ package expr
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -38,6 +37,9 @@ func Parse(input string) (Expr, error) {
 	if token := p.peek(); token.Kind != TokenEOF {
 		return nil, p.err(token, fmt.Sprintf("unexpected token %q", token.Text))
 	}
+	if astDepth(node) > MaxDepth {
+		return nil, syntaxError(base, "expression exceeds depth limit")
+	}
 	return node, nil
 }
 
@@ -62,12 +64,18 @@ func unwrap(input string) (string, int, error) {
 }
 
 type parser struct {
+	depth  int
 	tokens []Token
 	pos    int
 	base   int
 }
 
 func (p *parser) parseExpr() (Expr, error) {
+	if p.depth >= MaxDepth {
+		return nil, p.err(p.peek(), "expression exceeds depth limit")
+	}
+	p.depth++
+	defer func() { p.depth-- }()
 	token := p.next()
 	var node Expr
 	switch token.Kind {
@@ -81,17 +89,17 @@ func (p *parser) parseExpr() (Expr, error) {
 		} else {
 			switch strings.ToLower(token.Text) {
 			case "true", "false":
-				node = &Literal{Span: p.span(token.Span), Kind: BooleanLiteral, Value: strings.EqualFold(token.Text, "true")}
+				node = &Literal{Span: p.span(token.Span), Kind: BooleanLiteral, Value: Bool(strings.EqualFold(token.Text, "true"))}
 			case "null":
-				node = &Literal{Span: p.span(token.Span), Kind: NullLiteral}
+				return nil, p.err(token, "null is not a literal")
 			default:
 				node = &Identifier{Span: p.span(token.Span), Name: token.Text}
 			}
 		}
 	case TokenString:
-		node = &Literal{Span: p.span(token.Span), Kind: StringLiteral, Value: token.Text}
+		node = &Literal{Span: p.span(token.Span), Kind: StringLiteral, Value: String(token.Text)}
 	case TokenNumber:
-		number, err := strconv.ParseFloat(token.Text, 64)
+		number, err := ParseNumber(token.Text)
 		if err != nil {
 			return nil, p.err(token, "invalid number")
 		}
@@ -107,6 +115,9 @@ func (p *parser) parseExpr() (Expr, error) {
 	}
 
 	for {
+		if _, literal := node.(*Literal); literal && (p.peek().Kind == TokenDot || p.peek().Kind == TokenLeftBracket) {
+			return nil, p.err(p.peek(), "literal cannot be indexed")
+		}
 		switch p.peek().Kind {
 		case TokenDot:
 			p.next()
@@ -123,6 +134,15 @@ func (p *parser) parseExpr() (Expr, error) {
 			}
 		case TokenLeftBracket:
 			p.next()
+			if p.peek().Kind == TokenStar {
+				p.next()
+				closeToken := p.next()
+				if closeToken.Kind != TokenRightBracket {
+					return nil, p.err(closeToken, "expected ]")
+				}
+				node = &Member{Span: Span{node.Range().Start, closeToken.Span.End + p.base}, Receiver: node, Name: "*", Wildcard: true}
+				continue
+			}
 			key, err := p.parseExpr()
 			if err != nil {
 				return nil, err
@@ -181,4 +201,21 @@ func shiftSyntaxError(err error, base int) error {
 		return syntaxError(e.Offset+base, e.Msg)
 	}
 	return err
+}
+
+func astDepth(node Expr) int {
+	switch n := node.(type) {
+	case *Call:
+		depth := 0
+		for _, arg := range n.Args {
+			depth = maxInt(depth, astDepth(arg))
+		}
+		return depth + 1
+	case *Member:
+		return astDepth(n.Receiver) + 1
+	case *Index:
+		return maxInt(astDepth(n.Receiver), astDepth(n.Key)) + 1
+	default:
+		return 1
+	}
 }

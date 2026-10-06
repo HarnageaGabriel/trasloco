@@ -2,24 +2,12 @@ package expr
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 )
 
-// Context resolves named expression roots such as variables, parameters,
-// dependencies, stageDependencies, and pipeline.
-type Context interface {
-	Lookup(name string) (any, bool)
-}
-
-// MapContext is a convenient case-insensitive Context implementation.
-type MapContext map[string]any
-
-// Lookup implements Context.
-func (m MapContext) Lookup(name string) (any, bool) { return lookupStringMap(m, name) }
+// Context resolves typed expression roots without unordered Go maps.
+type Context interface{ Lookup(string) (Value, bool) }
 
 // CounterProvider supplies persistent counter values. Implementations own
 // concurrency and persistence; the evaluator keeps no mutable global state.
@@ -38,9 +26,12 @@ type EvalOptions struct {
 	Counter            CounterProvider
 	Status             StatusProvider
 	VariableDefinition bool
+	// Scope is step or job; names are invalid in step conditions.
+	Scope string
 }
 
-// EvalError is an expression type, lookup, arity, or phase error.
+// EvalError carries an expression failure and relative byte offsets.
+// ADR 0002 migration awaits diag.Error in the shared diagnostics package.
 type EvalError struct {
 	Code string
 	Span Span
@@ -51,12 +42,24 @@ func (e *EvalError) Error() string {
 	return fmt.Sprintf("%s at bytes %d:%d: %s", e.Code, e.Span.Start, e.Span.End, e.Msg)
 }
 
-// Eval evaluates an AST without mutating it or its Context.
-func Eval(ctx context.Context, node Expr, values Context, options EvalOptions) (any, error) {
-	if options.Phase == PhaseMacro {
-		return nil, &EvalError{Code: "TRL-EXPR-0001", Span: node.Range(), Msg: "macro phase uses ExpandMacros"}
-	}
+// MaxDepth and MaxExpressionLength are DTExpressions v1 parser limits.
+const (
+	MaxDepth            = 50
+	MaxExpressionLength = 21000
+)
+
+// MaxEvaluationMemory is the reference evaluator's one MiB memory budget.
+const MaxEvaluationMemory = 1048576
+
+// Eval evaluates typed values without mutating the AST or context.
+func Eval(ctx context.Context, node Expr, values Context, options EvalOptions) (Value, error) {
 	e := evaluator{ctx: ctx, values: values, options: options}
+	if node == nil {
+		return nil, syntaxError(0, "nil expression")
+	}
+	if options.Phase == PhaseMacro {
+		return nil, e.failure(node, "macro phase uses ExpandMacros")
+	}
 	return e.eval(node)
 }
 
@@ -64,46 +67,65 @@ type evaluator struct {
 	ctx     context.Context
 	values  Context
 	options EvalOptions
+	depth   int
+	memory  int
 }
 
-func (e evaluator) eval(node Expr) (any, error) {
+func (e *evaluator) eval(node Expr) (Value, error) {
+	if err := e.ctx.Err(); err != nil {
+		return nil, err
+	}
+	if e.depth >= MaxDepth {
+		return nil, e.failure(node, "expression exceeds depth limit")
+	}
+	e.depth++
+	defer func() { e.depth-- }()
+	value, err := e.evalNode(node)
+	if err != nil {
+		return nil, err
+	}
+	cost := valueMemory(value, MaxDepth)
+	if cost > MaxEvaluationMemory-e.memory {
+		return nil, e.failure(node, "expression exceeds evaluation memory")
+	}
+	e.memory += cost
+	return value, nil
+}
+
+func (e *evaluator) evalNode(node Expr) (Value, error) {
 	switch n := node.(type) {
 	case *Literal:
 		return n.Value, nil
 	case *Identifier:
-		if e.options.Phase == PhaseRuntime && strings.EqualFold(n.Name, "parameters") {
-			return nil, e.failure(n, "parameters are unavailable at runtime")
+		name := strings.ToLower(n.Name)
+		if e.options.Phase == PhaseRuntime && name == "parameters" {
+			return nil, e.failure(n, "parameters unavailable at runtime")
 		}
-		if e.options.Phase == PhaseCompile && (strings.EqualFold(n.Name, "dependencies") || strings.EqualFold(n.Name, "stageDependencies")) {
-			return nil, e.failure(n, n.Name+" is unavailable at compile time")
+		if e.options.Phase == PhaseCompile && (name == "dependencies" || name == "stagedependencies") {
+			return nil, e.failure(n, "dependencies unavailable at compile time")
 		}
-		if e.values == nil {
-			return nil, e.failure(n, "unknown name "+n.Name)
+		if e.values != nil {
+			if v, ok := e.values.Lookup(n.Name); ok {
+				return v, nil
+			}
 		}
-		value, ok := e.values.Lookup(n.Name)
-		if !ok {
-			return nil, e.failure(n, "unknown name "+n.Name)
+		switch name {
+		case "variables", "parameters", "dependencies", "stagedependencies", "pipeline":
+			return &Object{}, nil
 		}
-		return value, nil
+		return nil, e.failure(n, "unknown named value")
 	case *Member:
-		value, err := e.eval(n.Receiver)
+		v, err := e.eval(n.Receiver)
 		if err != nil {
 			return nil, err
 		}
 		if n.Wildcard {
-			items, ok := valuesOf(value)
-			if !ok {
-				return nil, e.typeFailure(n, "wildcard requires an array or object")
-			}
-			return projected(items), nil
+			items, _ := valuesOf(v)
+			return &projection{Array: Array{Items: items}}, nil
 		}
-		value, ok := selectMember(value, n.Name)
-		if !ok {
-			return nil, e.failure(n, "property not found: "+n.Name)
-		}
-		return value, nil
+		return selectIndex(v, String(n.Name)), nil
 	case *Index:
-		receiver, err := e.eval(n.Receiver)
+		v, err := e.eval(n.Receiver)
 		if err != nil {
 			return nil, err
 		}
@@ -111,173 +133,106 @@ func (e evaluator) eval(node Expr) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		value, ok := selectIndex(receiver, key)
-		if !ok {
-			return nil, e.failure(n, "index not found: "+stringify(key))
-		}
-		return value, nil
+		return selectIndex(v, key), nil
 	case *Call:
 		return e.evalCall(n)
 	default:
-		return nil, e.failure(node, fmt.Sprintf("unsupported node %T", node))
+		return nil, e.failure(node, "unsupported expression node")
 	}
 }
 
-type projected []any
+type projection struct{ Array }
 
-func selectMember(value any, name string) (any, bool) {
-	if list, ok := value.(projected); ok {
-		out := make(projected, 0, len(list))
-		for _, item := range list {
-			if selected, found := lookupProperty(item, name); found {
-				out = append(out, selected)
+func selectIndex(v, key Value) Value {
+	if p, ok := v.(*projection); ok {
+		out := &projection{}
+		for _, item := range p.Items {
+			selected := selectIndex(item, key)
+			if _, missing := selected.(Null); !missing {
+				out.Items = append(out.Items, selected)
 			}
+		}
+		return out
+	}
+	switch v := v.(type) {
+	case *Object:
+		if s, ok := stringify(key); ok {
+			result, _ := v.Lookup(s)
+			return result
+		}
+	case *Array:
+		if n, ok := toNumber(key); ok {
+			r := n.rat()
+			index := newIntegerQuotient(r)
+			if index.IsInt64() {
+				i := index.Int64()
+				if i >= 0 && i < int64(len(v.Items)) {
+					return v.Items[i]
+				}
+			}
+		}
+	}
+	return Null{}
+}
+
+func lookupProperty(v Value, name string) (Value, bool) {
+	if o, ok := v.(*Object); ok {
+		return o.Lookup(name)
+	}
+	return Null{}, false
+}
+
+func valuesOf(v Value) ([]Value, bool) {
+	switch v := v.(type) {
+	case *Array:
+		return v.Items, true
+	case *projection:
+		return v.Items, true
+	case *Object:
+		out := make([]Value, len(v.Properties))
+		for i, p := range v.Properties {
+			out[i] = p.Value
 		}
 		return out, true
-	}
-	return lookupProperty(value, name)
-}
-
-func selectIndex(value, key any) (any, bool) {
-	if list, ok := value.(projected); ok {
-		out := make(projected, 0, len(list))
-		for _, item := range list {
-			if selected, found := selectIndex(item, key); found {
-				out = append(out, selected)
-			}
-		}
-		return out, true
-	}
-	if text, ok := key.(string); ok {
-		return lookupProperty(value, text)
-	}
-	number, ok := toFloat(key)
-	if !ok || number < 0 || number != float64(int(number)) {
-		return nil, false
-	}
-	rv := indirect(reflect.ValueOf(value))
-	if !rv.IsValid() || (rv.Kind() != reflect.Array && rv.Kind() != reflect.Slice) || int(number) >= rv.Len() {
-		return nil, false
-	}
-	return rv.Index(int(number)).Interface(), true
-}
-
-func lookupProperty(value any, name string) (any, bool) {
-	if value == nil {
-		return nil, false
-	}
-	if m, ok := value.(map[string]any); ok {
-		return lookupStringMap(m, name)
-	}
-	if m, ok := value.(MapContext); ok {
-		return lookupStringMap(m, name)
-	}
-	rv := indirect(reflect.ValueOf(value))
-	if !rv.IsValid() {
-		return nil, false
-	}
-	switch rv.Kind() {
-	case reflect.Map:
-		if rv.Type().Key().Kind() != reflect.String {
-			return nil, false
-		}
-		iter := rv.MapRange()
-		for iter.Next() {
-			if strings.EqualFold(iter.Key().String(), name) {
-				return iter.Value().Interface(), true
-			}
-		}
-	case reflect.Struct:
-		typ := rv.Type()
-		for i := range rv.NumField() {
-			field := typ.Field(i)
-			if !field.IsExported() || !rv.Field(i).CanInterface() {
-				continue
-			}
-			jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
-			if strings.EqualFold(field.Name, name) || jsonName != "" && strings.EqualFold(jsonName, name) {
-				return rv.Field(i).Interface(), true
-			}
-		}
-	}
-	return nil, false
-}
-
-func lookupStringMap[V any](m map[string]V, name string) (V, bool) {
-	if value, ok := m[name]; ok {
-		return value, true
-	}
-	for key, value := range m {
-		if strings.EqualFold(key, name) {
-			return value, true
-		}
-	}
-	var zero V
-	return zero, false
-}
-
-func valuesOf(value any) ([]any, bool) {
-	rv := indirect(reflect.ValueOf(value))
-	if !rv.IsValid() {
-		return nil, false
-	}
-	var out []any
-	switch rv.Kind() {
-	case reflect.Array, reflect.Slice:
-		out = make([]any, rv.Len())
-		for i := range rv.Len() {
-			out[i] = rv.Index(i).Interface()
-		}
-	case reflect.Map:
-		out = make([]any, 0, rv.Len())
-		iter := rv.MapRange()
-		for iter.Next() {
-			out = append(out, iter.Value().Interface())
-		}
 	default:
 		return nil, false
 	}
-	return out, true
 }
 
-func indirect(value reflect.Value) reflect.Value {
-	for value.IsValid() && (value.Kind() == reflect.Interface || value.Kind() == reflect.Pointer) {
-		if value.IsNil() {
-			return reflect.Value{}
-		}
-		value = value.Elem()
-	}
-	return value
-}
-
-func (e evaluator) failure(node Expr, msg string) error {
+func (e *evaluator) failure(node Expr, msg string) error {
 	return &EvalError{Code: "TRL-EXPR-0001", Span: node.Range(), Msg: msg}
 }
 
-func (e evaluator) typeFailure(node Expr, msg string) error {
+func (e *evaluator) typeFailure(node Expr, msg string) error {
 	return &EvalError{Code: "TRL-EXPR-0005", Span: node.Range(), Msg: msg}
 }
 
-func stringify(value any) string {
-	switch v := value.(type) {
-	case nil:
-		return ""
-	case string:
-		return v
-	case bool:
-		if v {
-			return "True"
+func utf16Length(s string) int {
+	n := 0
+	for _, r := range s {
+		n++
+		if r > 0xffff {
+			n++
 		}
-		return "False"
-	case Version:
-		return v.String()
-	case float64:
-		return strconv.FormatFloat(v, 'g', -1, 64)
-	case float32:
-		return strconv.FormatFloat(float64(v), 'g', -1, 32)
-	case json.Number:
-		return v.String()
-	default:
-		return fmt.Sprint(value)
 	}
+	return n
+}
+
+func valueMemory(v Value, depth int) int {
+	if depth == 0 {
+		return MaxEvaluationMemory + 1
+	}
+	if s, ok := v.(String); ok {
+		return 26 + 2*utf16Length(string(s))
+	}
+	total := 24
+	if values, ok := valuesOf(v); ok {
+		for _, item := range values {
+			total += valueMemory(item, depth-1)
+			if total > MaxEvaluationMemory {
+				return total
+			}
+		}
+	}
+	return total
 }
