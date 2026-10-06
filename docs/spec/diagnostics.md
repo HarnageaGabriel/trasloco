@@ -267,6 +267,12 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-VAL-0004 | error | - | E | Reusable workflow contract mismatch | Fix inputs/secrets/outputs between caller and callee. |
 | TRL-VAL-0005 | error | - | E | Emitted ADO YAML fails the service schema | Internal bug or catalog error; report. |
 | TRL-VAL-0006 | info | - | - | Remote validation unavailable | Re-run with `--verify-remote` and a reachable organization. |
+| TRL-VAL-0007 | error | - | E | IR schema version or required field is invalid | Regenerate the IR with the current compiler and provide every required field. |
+| TRL-VAL-0008 | error | - | E | IR identifier is duplicated | Assign a unique stable identifier within the reported IR namespace. |
+| TRL-VAL-0009 | error | - | E | IR job dependency graph contains a cycle | Remove the reported dependency edge so the job graph is acyclic. |
+| TRL-VAL-0010 | error | - | E | IR reference cannot be resolved | Correct the reference or retain the source construct as an explicit raw node. |
+| TRL-VAL-0011 | error | - | E | IR stages do not partition jobs | Assign every job to exactly one stage and remove unknown stage members. |
+| TRL-VAL-0012 | error | - | E | IR node shape or enum value is invalid | Use a documented enum and set exactly the payload selected by the node kind. |
 
 ### PLAN
 
