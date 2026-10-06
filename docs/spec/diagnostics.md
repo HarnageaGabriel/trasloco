@@ -179,6 +179,9 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-PARSE-0005 | error | - | E | File exceeds size limit | Split the file; limit is 20 MiB per file. |
 | TRL-PARSE-0006 | error | - | E | YAML value has unexpected type | Use the value type required by the dialect at this position. |
 | TRL-PARSE-0007 | error | - | E | YAML alias expansion limit exceeded | Reduce aliases or raise the trusted-input expansion limit. |
+| TRL-PARSE-0008 | error | - | E | YAML anchors and aliases are not allowed | Remove the anchor or alias for this YAML dialect. |
+| TRL-PARSE-0009 | error | - | E | YAML merge keys are not allowed | Replace the merge key with explicit mapping entries. |
+| TRL-PARSE-0010 | error | - | E | YAML nesting depth limit exceeded | Reduce nesting or raise the trusted-input depth limit. |
 
 ### EXPR
 

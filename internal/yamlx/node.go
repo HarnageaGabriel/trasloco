@@ -12,8 +12,7 @@ import (
 type Node struct {
 	raw             *yaml.Node
 	commentFallback *yaml.Node
-	name            string
-	aliasMax        int
+	ctx             *nodeContext
 }
 
 // Pair is one ordered mapping entry.
@@ -54,7 +53,7 @@ func (n *Node) Position() diag.Source {
 	if n == nil {
 		return diag.Source{}
 	}
-	return sourceOf(n.name, n.raw)
+	return n.sourceOf(n.raw)
 }
 
 // Line returns the one-based source line.
@@ -70,7 +69,19 @@ func (n *Node) Provenance() diag.Source {
 		return diag.Source{}
 	}
 	resolved, _ := n.resolved()
-	return sourceOf(n.name, resolved)
+	return n.sourceOf(resolved)
+}
+
+// Scalar returns a scalar's decoded text regardless of its YAML tag.
+func (n *Node) Scalar() (string, []diag.Diagnostic) {
+	resolved, problem := n.resolved()
+	if problem != nil {
+		return "", []diag.Diagnostic{*problem}
+	}
+	if resolved == nil || resolved.Kind != yaml.ScalarNode {
+		return "", typeDiagnostic(n, "scalar")
+	}
+	return resolved.Value, nil
 }
 
 // HeadComment returns the comment preceding the node.
@@ -162,7 +173,7 @@ func (n *Node) Seq() ([]*Node, []diag.Diagnostic) {
 	}
 	items := make([]*Node, 0, len(resolved.Content))
 	for _, item := range resolved.Content {
-		items = append(items, wrap(item, n.name, n.aliasMax))
+		items = append(items, wrap(item, n.ctx))
 	}
 	return items, nil
 }
@@ -176,11 +187,11 @@ func (n *Node) Map() ([]Pair, []diag.Diagnostic) {
 	if resolved == nil || resolved.Kind != yaml.MappingNode {
 		return nil, typeDiagnostic(n, "mapping")
 	}
-	budget := n.aliasMax
+	budget := n.aliasLimit()
 	if budget <= 0 {
 		budget = int(^uint(0) >> 1)
 	}
-	pairs, diagnostic := n.mappingPairs(resolved, make(map[*yaml.Node]bool), &budget, false)
+	pairs, diagnostic := n.mappingPairs(resolved, make(map[*yaml.Node]bool), &budget, false, 1)
 	if diagnostic != nil {
 		return nil, []diag.Diagnostic{*diagnostic}
 	}
@@ -211,9 +222,15 @@ func (n *Node) mappingPairs(
 	active map[*yaml.Node]bool,
 	budget *int,
 	chargeExpansion bool,
+	depth int,
 ) ([]Pair, *diag.Diagnostic) {
+	if n.depthExceeded(depth) {
+		diagnostic := newDiagnostic("TRL-PARSE-0010", n.sourceOf(mapping),
+			diag.WithParams(map[string]any{"limit": n.depthLimit()}))
+		return nil, &diagnostic
+	}
 	if active[mapping] {
-		diagnostic := newDiagnostic("TRL-PARSE-0007", sourceOf(n.name, mapping))
+		diagnostic := newDiagnostic("TRL-PARSE-0007", n.sourceOf(mapping))
 		return nil, &diagnostic
 	}
 	active[mapping] = true
@@ -225,14 +242,14 @@ func (n *Node) mappingPairs(
 	for index := 0; index+1 < len(mapping.Content); index += 2 {
 		if chargeExpansion {
 			if *budget == 0 {
-				diagnostic := newDiagnostic("TRL-PARSE-0007", sourceOf(n.name, mapping))
+				diagnostic := newDiagnostic("TRL-PARSE-0007", n.sourceOf(mapping))
 				return nil, &diagnostic
 			}
 			*budget--
 		}
 		key, value := mapping.Content[index], mapping.Content[index+1]
 		if key.ShortTag() == "!!merge" || key.Value == "<<" {
-			mergePairs, problem := n.mergedPairs(value, active, budget)
+			mergePairs, problem := n.mergedPairs(value, active, budget, depth+1)
 			if problem != nil {
 				return nil, problem
 			}
@@ -240,7 +257,7 @@ func (n *Node) mappingPairs(
 			continue
 		}
 		seen[key.Value] = struct{}{}
-		explicit = append(explicit, Pair{Key: wrap(key, n.name, n.aliasMax), Value: wrap(value, n.name, n.aliasMax)})
+		explicit = append(explicit, Pair{Key: wrap(key, n.ctx), Value: wrap(value, n.ctx)})
 	}
 	for _, pair := range merged {
 		key, problems := pair.Key.String()
@@ -260,6 +277,7 @@ func (n *Node) mergedPairs(
 	node *yaml.Node,
 	active map[*yaml.Node]bool,
 	budget *int,
+	depth int,
 ) ([]Pair, *diag.Diagnostic) {
 	resolved, diagnostic := n.resolveRaw(node)
 	if diagnostic != nil {
@@ -267,7 +285,7 @@ func (n *Node) mergedPairs(
 	}
 	switch resolved.Kind {
 	case yaml.MappingNode:
-		return n.mappingPairs(resolved, active, budget, true)
+		return n.mappingPairs(resolved, active, budget, true, depth)
 	case yaml.SequenceNode:
 		var result []Pair
 		for _, child := range resolved.Content {
@@ -276,11 +294,11 @@ func (n *Node) mergedPairs(
 				return nil, problem
 			}
 			if mapping.Kind != yaml.MappingNode {
-				diagnostic := newDiagnostic("TRL-PARSE-0006", sourceOf(n.name, child),
+				diagnostic := newDiagnostic("TRL-PARSE-0006", n.sourceOf(child),
 					diag.WithParams(map[string]any{"actual": Kind(mapping.Kind).String(), "expected": "mapping"}))
 				return nil, &diagnostic
 			}
-			pairs, problem := n.mappingPairs(mapping, active, budget, true)
+			pairs, problem := n.mappingPairs(mapping, active, budget, true, depth)
 			if problem != nil {
 				return nil, problem
 			}
@@ -288,7 +306,7 @@ func (n *Node) mergedPairs(
 		}
 		return result, nil
 	default:
-		diagnostic := newDiagnostic("TRL-PARSE-0006", sourceOf(n.name, node),
+		diagnostic := newDiagnostic("TRL-PARSE-0006", n.sourceOf(node),
 			diag.WithParams(map[string]any{"actual": Kind(resolved.Kind).String(), "expected": "mapping"}))
 		return nil, &diagnostic
 	}
@@ -304,12 +322,30 @@ func (n *Node) resolved() (*yaml.Node, *diag.Diagnostic) {
 func (n *Node) resolveRaw(node *yaml.Node) (*yaml.Node, *diag.Diagnostic) {
 	seen := make(map[*yaml.Node]bool)
 	for expansions := 0; node != nil && node.Kind == yaml.AliasNode; expansions++ {
-		if node.Alias == nil || seen[node] || (n.aliasMax > 0 && expansions >= n.aliasMax) {
-			diagnostic := newDiagnostic("TRL-PARSE-0007", sourceOf(n.name, node))
+		if node.Alias == nil || seen[node] || (n.aliasLimit() > 0 && expansions >= n.aliasLimit()) {
+			diagnostic := newDiagnostic("TRL-PARSE-0007", n.sourceOf(node))
 			return nil, &diagnostic
 		}
 		seen[node] = true
 		node = node.Alias
 	}
 	return node, nil
+}
+
+func (n *Node) aliasLimit() int {
+	if n == nil || n.ctx == nil {
+		return 0
+	}
+	return n.ctx.aliasMax
+}
+
+func (n *Node) depthLimit() int {
+	if n == nil || n.ctx == nil {
+		return 0
+	}
+	return n.ctx.depthMax
+}
+
+func (n *Node) depthExceeded(depth int) bool {
+	return n.depthLimit() > 0 && depth > n.depthLimit()
 }
