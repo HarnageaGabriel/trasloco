@@ -3,12 +3,18 @@ package httpx
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/ratelimit"
 
 	responsecache "github.com/HarnageaGabriel/trasloco/internal/cache"
 	"github.com/HarnageaGabriel/trasloco/internal/credpool"
@@ -19,7 +25,6 @@ type credentialContextKey struct{}
 type requestCredential struct {
 	ID      string
 	ScopeID string
-	pool    *credpool.Pool
 }
 
 func credentialFrom(ctx context.Context) requestCredential {
@@ -29,6 +34,10 @@ func credentialFrom(ctx context.Context) requestCredential {
 
 // Options configures a complete HTTP transport chain.
 type Options struct {
+	TargetScope    string
+	Limiter        *ratelimit.Limiter
+	MaxCacheBody   int64
+	CacheError     func(error)
 	Platform       string
 	Credentials    *credpool.Pool
 	Cache          *responsecache.Store
@@ -46,10 +55,10 @@ type Options struct {
 
 // NewClient builds an http.Client using the adaptive transport chain.
 func NewClient(opts Options) *http.Client {
-	return &http.Client{Transport: NewTransport(opts)}
+	return &http.Client{Transport: NewTransport(opts), CheckRedirect: CheckRedirect}
 }
 
-// NewTransport builds auth -> limiter -> retry -> cache -> base transport.
+// NewTransport builds auth -> observation -> cache -> retry -> limiter -> base transport.
 func NewTransport(opts Options) http.RoundTripper {
 	if opts.Clock == nil {
 		opts.Clock = RealClock{}
@@ -67,43 +76,54 @@ func NewTransport(opts Options) http.RoundTripper {
 	if base == nil {
 		base = newHostTransport(opts.MaxConcurrency)
 	}
-	base = drainingTransport{next: base}
-	chain := base
-	if opts.Cache != nil {
-		chain = &cacheTransport{next: chain, store: opts.Cache, observer: opts.Observer}
+	limiter := opts.Limiter
+	if limiter == nil {
+		limiter = NewLimiter(LimiterOptions{
+			Clock: opts.Clock, OnThrottle: opts.Observer.OnThrottle, Policy: opts.Policy,
+			MinConcurrency: opts.MinConcurrency, MaxConcurrency: opts.MaxConcurrency,
+		})
 	}
-	limiter := NewLimiter(LimiterOptions{
-		Clock: opts.Clock, Observer: opts.Observer, Policy: opts.Policy,
-		MinConcurrency: opts.MinConcurrency, MaxConcurrency: opts.MaxConcurrency, Jitter: opts.Jitter,
-	})
+	var chain http.RoundTripper = &limiterTransport{next: base, limiter: limiter, policy: opts.Policy}
 	chain = newRetryTransport(chain, RetryOptions{
-		Clock: opts.Clock, Observer: opts.Observer, Policy: opts.Policy,
+		Clock: opts.Clock, Observer: opts.Observer, Policy: opts.Policy, Jitter: opts.Jitter,
 		MaxAttempts: opts.MaxAttempts, MaxTotalWait: opts.MaxTotalWait,
-		OnThrottle: func(request *http.Request, response *http.Response) {
-			credential := credentialFrom(request.Context())
-			limiter.observe(limitKey(request.URL.Hostname(), credential.ID), response)
+		BlockedUntil: func(request *http.Request) time.Time {
+			return limiter.BlockedUntil(limitKey(request.URL.Host, credentialFrom(request.Context()).ID))
 		},
 	})
-	chain = &limiterTransport{next: chain, limiter: limiter}
+	if opts.Cache != nil {
+		if opts.MaxCacheBody <= 0 {
+			opts.MaxCacheBody = 1 << 20
+		}
+		chain = &cacheTransport{next: chain, store: opts.Cache, observer: opts.Observer, maxBody: opts.MaxCacheBody, onError: opts.CacheError}
+	}
 	chain = &observingTransport{next: chain, clock: opts.Clock, observer: opts.Observer}
 	return &authTransport{
-		next: chain, pool: opts.Credentials, policy: opts.Policy, authScheme: opts.AuthScheme,
+		next: chain, pool: opts.Credentials, policy: opts.Policy, authScheme: opts.AuthScheme, targetScope: opts.TargetScope,
 	}
 }
 
 type authTransport struct {
-	next       http.RoundTripper
-	pool       *credpool.Pool
-	policy     RateLimitPolicy
-	authScheme string
+	next        http.RoundTripper
+	pool        *credpool.Pool
+	policy      RateLimitPolicy
+	authScheme  string
+	targetScope string
 }
 
 func (transport *authTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if anonymousFrom(request) || presigned(request.URL) {
+		return transport.next.RoundTrip(Anonymous(request))
+	}
 	if transport.pool == nil {
 		return transport.next.RoundTrip(request)
 	}
-	cost := transport.policy.Cost(request.Method, contentCreationFrom(request.Context()))
-	credential, err := transport.pool.Acquire(request.Context(), request.URL.Hostname(), cost)
+	cost := requestCost(request, transport.policy)
+	scope, _ := request.Context().Value(targetScopeKey).(string)
+	if scope == "" {
+		scope = transport.targetScope
+	}
+	credential, err := transport.pool.Acquire(request.Context(), request.URL.Host, scope, cost.Points)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +132,7 @@ func (transport *authTransport) RoundTrip(request *http.Request) (*http.Response
 		return nil, err
 	}
 	cloned := request.Clone(context.WithValue(request.Context(), credentialContextKey{}, requestCredential{
-		ID: credential.ID, ScopeID: credential.ScopeID, pool: transport.pool,
+		ID: pacingIdentity(credential.Actor), ScopeID: credential.ScopeID,
 	}))
 	cloned.Header = request.Header.Clone()
 	scheme := transport.authScheme
@@ -135,7 +155,7 @@ func (transport *observingTransport) RoundTrip(request *http.Request) (*http.Res
 	credential := credentialFrom(request.Context())
 	transport.observer.OnRequest(RequestObservation{
 		Method: request.Method, URL: sanitizedURL(request), CredentialID: credential.ID,
-		StatusCode: statusCode(response), Duration: transport.clock.Now().Sub(started), Err: err,
+		StatusCode: statusCode(response), Duration: transport.clock.Now().Sub(started), Err: safeError(err),
 	})
 	return response, err
 }
@@ -149,15 +169,22 @@ type cacheTransport struct {
 	next     http.RoundTripper
 	store    *responsecache.Store
 	observer Observer
+	maxBody  int64
+	onError  func(error)
 }
 
 func (transport *cacheTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if request.Method != http.MethodGet && request.Method != http.MethodHead {
+	enabled, _ := request.Context().Value(cacheKey).(bool)
+	if !enabled || anonymousFrom(request) || request.Method != http.MethodGet {
 		return transport.next.RoundTrip(request)
 	}
 	credential := credentialFrom(request.Context())
 	key := responsecache.Key(request, credential.ScopeID)
-	cached, found, _ := transport.store.Get(key)
+	cached, found, cacheErr := transport.store.Get(key)
+	if cacheErr != nil {
+		transport.cacheError("cache lookup failed")
+	}
+	found = found && int64(len(cached.Body)) <= transport.maxBody && (cached.Entry.ETag != "" || cached.Entry.Header.Get("Last-Modified") != "")
 	cloned := request.Clone(request.Context())
 	cloned.Header = request.Header.Clone()
 	if found {
@@ -182,18 +209,17 @@ func (transport *cacheTransport) RoundTrip(request *http.Request) (*http.Respons
 			ContentLength: int64(len(cached.Body)), Request: request,
 		}, nil
 	}
-	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		body, readErr := io.ReadAll(response.Body)
-		_ = response.Body.Close()
-		if readErr != nil {
-			return nil, readErr
-		}
-		if _, cacheErr := transport.store.Put(key, response.StatusCode, response.Header, body); cacheErr != nil {
-			return nil, cacheErr
-		}
-		response.Body = io.NopCloser(bytes.NewReader(body))
-		response.ContentLength = int64(len(body))
+	if response.StatusCode == http.StatusOK && response.Body != nil &&
+		(response.Header.Get("ETag") != "" || response.Header.Get("Last-Modified") != "") &&
+		response.ContentLength <= transport.maxBody {
+		header := response.Header.Clone()
+		response.Body = &cacheBody{ReadCloser: response.Body, cap: transport.maxBody, save: func(body []byte) {
+			if _, putErr := transport.store.Put(key, response.StatusCode, header, body); putErr != nil {
+				transport.cacheError("cache write failed")
+			}
+		}}
 	}
+
 	return response, nil
 }
 
@@ -202,23 +228,6 @@ func cachedStatus(code int) string {
 		code = http.StatusOK
 	}
 	return strconv.Itoa(code) + " " + http.StatusText(code)
-}
-
-type drainingTransport struct{ next http.RoundTripper }
-
-func (transport drainingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	response, err := transport.next.RoundTrip(request)
-	if response != nil && response.Body != nil {
-		response.Body = &drainingBody{ReadCloser: response.Body}
-	}
-	return response, err
-}
-
-type drainingBody struct{ io.ReadCloser }
-
-func (body *drainingBody) Close() error {
-	_, _ = io.Copy(io.Discard, body.ReadCloser)
-	return body.ReadCloser.Close()
 }
 
 type hostTransport struct {
@@ -244,4 +253,139 @@ func (transport *hostTransport) RoundTrip(request *http.Request) (*http.Response
 	}
 	transport.mu.Unlock()
 	return base.RoundTrip(request)
+}
+
+// cacheBody buffers only as the caller reads, stops at the cap, and writes only
+// a complete successful body. A partial read or close never populates the cache.
+type cacheBody struct {
+	io.ReadCloser
+	cap  int64
+	data []byte
+	done bool
+	save func([]byte)
+}
+
+func (body *cacheBody) Read(p []byte) (int, error) {
+	n, err := body.ReadCloser.Read(p)
+	if !body.done {
+		if int64(len(body.data))+int64(n) > body.cap || (err != nil && err != io.EOF) {
+			body.done = true
+			body.data = nil
+		} else {
+			body.data = append(body.data, p[:n]...)
+			if err == io.EOF {
+				body.done = true
+				body.save(body.data)
+				body.data = nil
+			}
+		}
+	}
+	return n, err
+}
+
+func (transport *cacheTransport) cacheError(message string) {
+	if transport.onError != nil {
+		transport.onError(errors.New(message))
+	}
+}
+
+func safeError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	return errors.New("HTTP request failed")
+}
+
+// WithTargetScope selects the preflight-verified credential target.
+func WithTargetScope(request *http.Request, scope string) *http.Request {
+	return request.WithContext(context.WithValue(request.Context(), targetScopeKey, scope))
+}
+
+// WithCost overrides provider request cost (including GraphQL query points).
+func WithCost(request *http.Request, cost ratelimit.Cost) *http.Request {
+	return request.WithContext(context.WithValue(request.Context(), costKey, cost))
+}
+
+// WithCache opts a request into bounded validator-based revalidation.
+func WithCache(request *http.Request) *http.Request {
+	return request.WithContext(context.WithValue(request.Context(), cacheKey, true))
+}
+
+func requestCost(request *http.Request, policy RateLimitPolicy) ratelimit.Cost {
+	cost, _ := request.Context().Value(costKey).(ratelimit.Cost)
+	if cost.Points <= 0 {
+		cost.Points = policy.Cost(request.Method, false)
+	}
+	cost.ContentCreation = cost.ContentCreation || contentCreationFrom(request.Context())
+	return cost
+}
+
+// Anonymous prevents credential selection and removes caller-provided secrets.
+// Only representation headers are retained; URL signatures are left intact.
+func Anonymous(request *http.Request) *http.Request {
+	cloned := request.Clone(context.WithValue(request.Context(), anonymousKey, true))
+	cloned.URL.User = nil
+	cloned.Header = make(http.Header)
+	for _, key := range []string{"Accept", "Accept-Encoding", "User-Agent", "Range"} {
+		if values := request.Header.Values(key); len(values) > 0 {
+			cloned.Header[key] = append([]string(nil), values...)
+		}
+	}
+	return cloned
+}
+
+func anonymousFrom(request *http.Request) bool {
+	value, _ := request.Context().Value(anonymousKey).(bool)
+	return value
+}
+
+func presigned(value *url.URL) bool {
+	for key := range value.Query() {
+		switch strings.ToLower(key) {
+		case "x-amz-signature", "x-goog-signature", "signature", "sig":
+			return true
+		}
+	}
+	return false
+}
+
+func origin(value *url.URL) string {
+	port := value.Port()
+	if port == "" {
+		if strings.EqualFold(value.Scheme, "https") {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return strings.ToLower(value.Scheme) + "://" + strings.ToLower(strings.TrimSuffix(value.Hostname(), ".")) + ":" + port
+}
+
+// CheckRedirect keeps cross-origin and pre-signed redirects anonymous for the
+// entire remaining chain, including a redirect back to the initial origin.
+func CheckRedirect(request *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	for _, previous := range via {
+		if anonymousFrom(previous) || origin(previous.URL) != origin(request.URL) || presigned(previous.URL) {
+			*request = *Anonymous(request)
+			return nil
+		}
+	}
+	if presigned(request.URL) {
+		*request = *Anonymous(request)
+	}
+	return nil
+}
+
+func pacingIdentity(actor string) string {
+	sum := sha256.Sum256([]byte(actor))
+	return hex.EncodeToString(sum[:])
 }
