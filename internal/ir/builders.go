@@ -1,5 +1,7 @@
 package ir
 
+import "github.com/HarnageaGabriel/trasloco/internal/diag"
+
 // NewPipeline returns an empty current-version pipeline with deterministic,
 // exact metadata. Callers add jobs and a stage partition before validation.
 func NewPipeline(id, name string) *Pipeline {
@@ -15,7 +17,7 @@ func NewPipeline(id, name string) *Pipeline {
 
 // DefaultMetadata is the default for constructs produced without AI or loss.
 func DefaultMetadata() Metadata {
-	return Metadata{Fidelity: FidelityExact, Provenance: ProvenanceDeterministic}
+	return Metadata{Fidelity: diag.FidelityExact, Provenance: diag.ProvenanceDeterministic}
 }
 
 // NewJob returns a job with an explicit success gate and result model.

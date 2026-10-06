@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
+
 	// Register the pure-Go SQLite database/sql driver.
 	_ "modernc.org/sqlite"
 )
@@ -37,6 +39,7 @@ type writeRequest struct {
 
 // Store is a crash-safe SQLite ledger with one batched writer and concurrent readers.
 type Store struct {
+	clock      clock.Clock
 	db         *sql.DB
 	writes     chan writeRequest
 	gate       sync.RWMutex
@@ -49,7 +52,11 @@ type Store struct {
 
 // Open creates or opens <outputDir>/ledger.db, applies embedded migrations,
 // enables WAL and starts the writer.
-func Open(ctx context.Context, outputDir string) (*Store, error) {
+func Open(ctx context.Context, outputDir string, clocks ...clock.Clock) (*Store, error) {
+	var c clock.Clock = clock.Real{}
+	if len(clocks) > 0 && clocks[0] != nil {
+		c = clocks[0]
+	}
 	if strings.TrimSpace(outputDir) == "" {
 		return nil, fmt.Errorf("output directory is required")
 	}
@@ -81,11 +88,11 @@ func Open(ctx context.Context, outputDir string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("enable WAL: %w", err)
 	}
-	if err := applyMigrations(ctx, db); err != nil {
+	if err := applyMigrations(ctx, db, c); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
-	store := &Store{db: db, writes: make(chan writeRequest, batchSize), writerDone: make(chan struct{})}
+	store := &Store{clock: c, db: db, writes: make(chan writeRequest, batchSize), writerDone: make(chan struct{})}
 	go store.writer(context.WithoutCancel(ctx))
 	return store, nil
 }
@@ -99,7 +106,7 @@ func (s *Store) BeginRun(ctx context.Context, run Run) error {
 		run.Status = "running"
 	}
 	if run.StartedAt.IsZero() {
-		run.StartedAt = time.Now().UTC()
+		run.StartedAt = s.clock.Now().UTC()
 	}
 	return s.submit(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO runs(id, command, status, started_at) VALUES(?,?,?,?)`, run.ID, run.Command, run.Status, timestamp(run.StartedAt)); err != nil {
@@ -132,7 +139,7 @@ func (s *Store) UpsertResource(ctx context.Context, resource Resource) error {
 		return fmt.Errorf("previous value must be valid JSON")
 	}
 	if resource.UpdatedAt.IsZero() {
-		resource.UpdatedAt = time.Now().UTC()
+		resource.UpdatedAt = s.clock.Now().UTC()
 	}
 	return s.submit(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -174,7 +181,7 @@ func (s *Store) Transition(ctx context.Context, runID, resourceKey string, to St
 		if err != nil {
 			return err
 		}
-		now := timestamp(time.Now().UTC())
+		now := timestamp(s.clock.Now().UTC())
 		if _, err := tx.ExecContext(ctx, `UPDATE resources SET state=?, retryable=?, failure_reason=?, updated_at=? WHERE run_id=? AND resource_key=?`, to, retryable, nullString(reason), now, runID, resourceKey); err != nil {
 			return fmt.Errorf("update resource state: %w", err)
 		}
@@ -279,7 +286,7 @@ func (s *Store) writer(ctx context.Context) {
 		}
 		batch := []writeRequest{first}
 		var closeRequest *writeRequest
-		timer := time.NewTimer(batchDelay)
+		timer := s.clock.NewTimer(batchDelay)
 	collect:
 		for len(batch) < batchSize {
 			select {
@@ -289,13 +296,13 @@ func (s *Store) writer(ctx context.Context) {
 					break collect
 				}
 				batch = append(batch, request)
-			case <-timer.C:
+			case <-timer.C():
 				break collect
 			}
 		}
 		if !timer.Stop() {
 			select {
-			case <-timer.C:
+			case <-timer.C():
 			default:
 			}
 		}
@@ -381,7 +388,7 @@ func transitionDetails(to State, failure *Failure) (bool, string, error) {
 	}
 }
 
-func applyMigrations(ctx context.Context, db *sql.DB) error {
+func applyMigrations(ctx context.Context, db *sql.DB, c clock.Clock) error {
 	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
 	}
@@ -414,7 +421,7 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %d: %w", version, err)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations(version, applied_at) VALUES(?,?)`, version, timestamp(time.Now().UTC())); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations(version, applied_at) VALUES(?,?)`, version, timestamp(c.Now().UTC())); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", version, err)
 		}

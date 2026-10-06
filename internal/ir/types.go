@@ -11,35 +11,11 @@ import (
 // SchemaVersion is the only IR schema version understood by this build.
 const SchemaVersion = 1
 
-// Fidelity describes how closely a node preserves source behavior.
-type Fidelity string
-
-// Supported fidelity grades.
-const (
-	FidelityExact        Fidelity = "exact"
-	FidelityApproximated Fidelity = "approximated"
-	FidelityNeedsManual  Fidelity = "needs-manual"
-	FidelityUnsupported  Fidelity = "unsupported"
-)
-
-// Provenance records how a node was produced, independently of fidelity.
-type Provenance string
-
-// Supported provenance values.
-const (
-	ProvenanceDeterministic Provenance = "deterministic"
-	ProvenanceLLM           Provenance = "llm"
-)
-
 // Origin identifies the source spelling and location of a construct.
 type Origin struct {
-	Provider         string `json:"provider"`
-	File             string `json:"file"`
-	Line             int    `json:"line,omitempty"`
-	Col              int    `json:"col,omitempty"`
-	EndLine          int    `json:"endLine,omitempty"`
-	EndCol           int    `json:"endCol,omitempty"`
-	OriginalTextHash string `json:"originalTextHash"`
+	Source           diag.Source   `json:"source"`
+	Chain            []diag.Source `json:"chain,omitempty"`
+	OriginalTextHash string        `json:"originalTextHash"`
 }
 
 // Extensions holds provider-owned JSON. Keys are x-<provider>.
@@ -47,10 +23,10 @@ type Extensions map[string]json.RawMessage
 
 // Metadata is embedded by semantic nodes for traceability and loss accounting.
 type Metadata struct {
-	Origin     *Origin    `json:"origin,omitempty"`
-	Fidelity   Fidelity   `json:"fidelity"`
-	Provenance Provenance `json:"provenance"`
-	Extensions Extensions `json:"extensions,omitempty"`
+	Origin     *Origin         `json:"origin,omitempty"`
+	Fidelity   diag.Fidelity   `json:"fidelity"`
+	Provenance diag.Provenance `json:"provenance"`
+	Extensions Extensions      `json:"extensions,omitempty"`
 }
 
 // Pipeline is a normalized pipeline with an explicit job DAG.
@@ -180,15 +156,21 @@ type Schedule struct {
 // Stage partitions jobs. Barrier requires all jobs in earlier stages to finish.
 type Stage struct {
 	Metadata
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Jobs    []string `json:"jobs"`
-	Barrier bool     `json:"barrier"`
+	If        *Cond      `json:"if,omitempty"`
+	DependsOn []string   `json:"dependsOn,omitempty"`
+	Variables []Variable `json:"variables,omitempty"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Jobs      []string   `json:"jobs"`
+	Barrier   bool       `json:"barrier"`
 }
 
 // Job is one DAG vertex.
 type Job struct {
 	Metadata
+	Uses         *ReusableCall     `json:"uses,omitempty"`
+	Permissions  map[string]string `json:"permissions,omitempty"`
+	Concurrency  *Concurrency      `json:"concurrency,omitempty"`
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
 	Needs        []string          `json:"needs,omitempty"`
@@ -205,6 +187,13 @@ type Job struct {
 	AllowFailure bool              `json:"allowFailure"`
 	Deployment   *DeploymentIntent `json:"deployment,omitempty"`
 	Result       ResultModel       `json:"result"`
+}
+
+// ReusableCall binds inputs and secret references to a reusable workflow.
+type ReusableCall struct {
+	Ref     string               `json:"ref"`
+	With    map[string]Expr      `json:"with,omitempty"`
+	Secrets map[string]SecretRef `json:"secrets,omitempty"`
 }
 
 // ResultModel is the portable terminal result taxonomy.
@@ -235,6 +224,7 @@ type OutputRef struct {
 
 // Matrix is a fully expanded set of execution legs.
 type Matrix struct {
+	Opaque      *Raw        `json:"opaque,omitempty"`
 	Legs        []MatrixLeg `json:"legs"`
 	MaxParallel int         `json:"maxParallel,omitempty"`
 	FailFast    bool        `json:"failFast"`
@@ -492,7 +482,7 @@ type Literal struct {
 	Type   LiteralType `json:"type"`
 	String string      `json:"string,omitempty"`
 	Bool   bool        `json:"bool,omitempty"`
-	Number float64     `json:"number,omitempty"`
+	Number string      `json:"number,omitempty"`
 }
 
 // RefContext is a closed portable context namespace.

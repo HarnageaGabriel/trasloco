@@ -9,6 +9,12 @@ import (
 type slogHandler struct {
 	next     slog.Handler
 	redactor *Redactor
+	bindings []slogBinding
+}
+
+type slogBinding struct {
+	group string
+	attrs []slog.Attr
 }
 
 // NewSlogHandler wraps a handler and redacts record messages and attributes.
@@ -29,28 +35,41 @@ func (h *slogHandler) Handle(ctx context.Context, record slog.Record) error {
 		clean.AddAttrs(h.redactAttr(attr))
 		return true
 	})
-	return h.next.Handle(ctx, clean)
+	next := h.next
+	for _, binding := range h.bindings {
+		if binding.attrs != nil {
+			attrs := make([]slog.Attr, len(binding.attrs))
+			for i, attr := range binding.attrs {
+				attrs[i] = h.redactAttr(attr)
+			}
+			next = next.WithAttrs(attrs)
+		} else {
+			next = next.WithGroup(h.redactor.Redact(binding.group))
+		}
+	}
+	return next.Handle(ctx, clean)
 }
 
 func (h *slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	clean := make([]slog.Attr, len(attrs))
-	for i, attr := range attrs {
-		clean[i] = h.redactAttr(attr)
-	}
-	return &slogHandler{next: h.next.WithAttrs(clean), redactor: h.redactor}
+	bindings := append([]slogBinding(nil), h.bindings...)
+	bindings = append(bindings, slogBinding{attrs: append([]slog.Attr{}, attrs...)})
+	return &slogHandler{next: h.next, redactor: h.redactor, bindings: bindings}
 }
 
 func (h *slogHandler) WithGroup(name string) slog.Handler {
-	return &slogHandler{next: h.next.WithGroup(name), redactor: h.redactor}
+	bindings := append([]slogBinding(nil), h.bindings...)
+	bindings = append(bindings, slogBinding{group: name})
+	return &slogHandler{next: h.next, redactor: h.redactor, bindings: bindings}
 }
 
 func (h *slogHandler) redactAttr(attr slog.Attr) slog.Attr {
+	attr.Key = h.redactor.Redact(attr.Key)
 	value := attr.Value.Resolve()
 	switch value.Kind() {
 	case slog.KindString:
 		attr.Value = slog.StringValue(h.redactor.Redact(value.String()))
 	case slog.KindGroup:
-		group := value.Group()
+		group := append([]slog.Attr(nil), value.Group()...)
 		for i := range group {
 			group[i] = h.redactAttr(group[i])
 		}

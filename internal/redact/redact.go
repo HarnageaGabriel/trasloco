@@ -3,6 +3,7 @@ package redact
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/url"
 	"regexp"
@@ -14,11 +15,15 @@ import (
 
 const replacement = "[REDACTED]"
 
+// MinSecretLength avoids masking ordinary short words and punctuation.
+const MinSecretLength = 4
+
 var builtinPatterns = []struct {
 	re   *regexp.Regexp
 	repl string
 }{
 	{regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`), replacement},
+	{regexp.MustCompile(`\b[A-Za-z0-9]{75}AZDO[A-Za-z0-9]{5}\b`), replacement},
 	{regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{20,}\b`), replacement},
 	{regexp.MustCompile(`\bgh[opusr]_[A-Za-z0-9_]{20,}\b`), replacement},
 	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b`), replacement},
@@ -37,15 +42,25 @@ type Redactor struct {
 // New constructs an empty redactor. Secrets may be added at any time.
 func New() *Redactor { return &Redactor{} }
 
-// Add registers a secret and its common encodings. Empty values are ignored.
+// Add registers a secret, its encodings and each non-empty line. Values shorter
+// than MinSecretLength bytes are ignored.
 func (r *Redactor) Add(secret string) {
-	if secret == "" {
+	if len(secret) < MinSecretLength {
 		return
+	}
+	for _, line := range strings.Split(strings.ReplaceAll(secret, "\r\n", "\n"), "\n") {
+		if line != secret && len(line) >= MinSecretLength {
+			r.Add(line)
+		}
 	}
 	values := []string{
 		secret,
 		base64.StdEncoding.EncodeToString([]byte(secret)),
 		base64.RawStdEncoding.EncodeToString([]byte(secret)),
+		base64.URLEncoding.EncodeToString([]byte(secret)),
+		base64.RawURLEncoding.EncodeToString([]byte(secret)),
+		hex.EncodeToString([]byte(secret)),
+		strings.ToUpper(hex.EncodeToString([]byte(secret))),
 		url.QueryEscape(secret),
 		url.PathEscape(secret),
 	}

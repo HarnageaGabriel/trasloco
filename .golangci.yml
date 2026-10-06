@@ -6,6 +6,8 @@ run:
 linters:
   default: none
   enable:
+    - depguard
+    - forbidigo
     - bodyclose
     - contextcheck
     - errcheck
@@ -22,8 +24,36 @@ linters:
     - staticcheck
     - unconvert
     - unused
+  settings:
+    depguard:
+      rules:
+        pure:
+          list-mode: lax
+          files:
+            - "**/internal/ir/**/*.go"
+            - "**/internal/diag/**/*.go"
+            - "**/internal/dialect/**/*.go"
+            - "**/internal/yamlx/**/*.go"
+            - "!$test"
+          deny:
+            - pkg: "net/http$"
+              desc: "Pure packages must not perform I/O (CONVENTIONS.md)."
+            - pkg: "os$"
+              desc: "Pure packages must not perform I/O (CONVENTIONS.md)."
+            - pkg: "os/exec$"
+              desc: "Pure packages must not perform I/O (CONVENTIONS.md)."
+            - pkg: "database/sql$"
+              desc: "Pure packages must not perform I/O (CONVENTIONS.md)."
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^time\.Now$'
+          msg: "Inject internal/clock.Clock (ADR 0010)."
   exclusions:
     rules:
+      - path: 'internal[\/](clock|cache|httpx)[\/]'
+        linters:
+          - forbidigo
       - path: _test\.go
         linters:
           - gosec
