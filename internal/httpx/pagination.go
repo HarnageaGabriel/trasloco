@@ -195,7 +195,7 @@ func OffsetPages(ctx context.Context, client *http.Client, first *http.Request, 
 				yield(nil, err)
 				return
 			}
-			body, err := io.ReadAll(response.Body)
+			body, err := readPageBody(response.Body)
 			_ = response.Body.Close()
 			if err != nil {
 				yield(nil, err)
@@ -252,13 +252,17 @@ func pageRequest(ctx context.Context, template *http.Request, rawURL string) (*h
 		return nil, fmt.Errorf("parse pagination URL: %w", err)
 	}
 	request := template.Clone(ctx)
-	request.URL = parsed
+	request.URL = template.URL.ResolveReference(parsed)
+	request.Host = ""
 	request.Header = template.Header.Clone()
+	if origin(request.URL) != origin(template.URL) {
+		request = Anonymous(request)
+	}
 	return request, nil
 }
 
 func inspectJSON(response *http.Response, target any) error {
-	body, err := io.ReadAll(response.Body)
+	body, err := readPageBody(response.Body)
 	_ = response.Body.Close()
 	if err != nil {
 		return err
@@ -268,4 +272,16 @@ func inspectJSON(response *http.Response, target any) error {
 		return fmt.Errorf("decode pagination envelope: %w", err)
 	}
 	return nil
+}
+
+func readPageBody(body io.Reader) ([]byte, error) {
+	const maximum = 16 << 20
+	data, err := io.ReadAll(io.LimitReader(body, maximum+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maximum {
+		return nil, errors.New("pagination body exceeds size cap")
+	}
+	return data, nil
 }

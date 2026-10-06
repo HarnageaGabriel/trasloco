@@ -1,34 +1,10 @@
-// Package httpx provides adaptive, retrying, cache-aware HTTP transport.
+// Package httpx provides retrying, cache-aware HTTP transport.
 package httpx
 
-import (
-	"context"
-	"time"
-)
+import "github.com/HarnageaGabriel/trasloco/internal/ratelimit"
 
-// Clock makes all transport waiting deterministic in tests.
-type Clock interface {
-	Now() time.Time
-	Sleep(context.Context, time.Duration) error
-}
+// Clock is the shared pacing clock.
+type Clock = ratelimit.Clock
 
 // RealClock uses the process wall clock.
-type RealClock struct{}
-
-// Now returns the current time.
-func (RealClock) Now() time.Time { return time.Now() }
-
-// Sleep waits for duration or context cancellation.
-func (RealClock) Sleep(ctx context.Context, duration time.Duration) error {
-	if duration <= 0 {
-		return ctx.Err()
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
+type RealClock = ratelimit.RealClock

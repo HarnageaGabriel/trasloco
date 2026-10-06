@@ -1,11 +1,14 @@
 package httpx
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -15,6 +18,10 @@ const (
 	idempotentKey requestFlagKey = iota
 	idempotencyGuardKey
 	contentCreationKey
+	targetScopeKey
+	costKey
+	cacheKey
+	anonymousKey
 )
 
 // IdempotencyGuard must confirm whether a POST/PATCH attempt may be repeated.
@@ -49,7 +56,8 @@ type RetryOptions struct {
 	MaxAttempts  int
 	MaxTotalWait time.Duration
 	BaseWait     time.Duration
-	OnThrottle   func(*http.Request, *http.Response)
+	BlockedUntil func(*http.Request) time.Time
+	Jitter       func(time.Duration) time.Duration
 }
 
 type retryTransport struct {
@@ -60,7 +68,8 @@ type retryTransport struct {
 	maxAttempts  int
 	maxTotalWait time.Duration
 	baseWait     time.Duration
-	onThrottle   func(*http.Request, *http.Response)
+	blockedUntil func(*http.Request) time.Time
+	jitter       func(time.Duration) time.Duration
 }
 
 func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTripper {
@@ -82,10 +91,14 @@ func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTrip
 	if opts.BaseWait <= 0 {
 		opts.BaseWait = 250 * time.Millisecond
 	}
+	if opts.Jitter == nil {
+		//nolint:gosec // Retry jitter is scheduling randomness, not security material.
+		opts.Jitter = func(ceiling time.Duration) time.Duration { return time.Duration(rand.Int64N(int64(ceiling) + 1)) }
+	}
 	return &retryTransport{
 		next: next, clock: opts.Clock, observer: opts.Observer, policy: opts.Policy,
 		maxAttempts: opts.MaxAttempts, maxTotalWait: opts.MaxTotalWait, baseWait: opts.BaseWait,
-		onThrottle: opts.OnThrottle,
+		blockedUntil: opts.BlockedUntil, jitter: opts.Jitter,
 	}
 }
 
@@ -104,13 +117,10 @@ func (transport *retryTransport) RoundTrip(request *http.Request) (*http.Respons
 		if attempt >= transport.maxAttempts || !shouldRetry {
 			return response, roundTripErr
 		}
-		if response != nil && transport.onThrottle != nil {
-			budget := transport.policy.Parse(response, transport.clock.Now())
-			if budget.Throttled || budget.NearLimit || budget.RetryAfter > 0 || budget.Delay > 0 || budget.Remaining == 0 {
-				transport.onThrottle(attemptRequest, response)
-			}
-		}
 		wait := transport.retryWait(response, attempt)
+		if transport.blockedUntil != nil {
+			wait = max(wait, transport.blockedUntil(request).Sub(transport.clock.Now()))
+		}
 		if totalWait+wait > transport.maxTotalWait {
 			return response, roundTripErr
 		}
@@ -119,7 +129,7 @@ func (transport *retryTransport) RoundTrip(request *http.Request) (*http.Respons
 		}
 		transport.observer.OnRetry(RetryObservation{
 			Method: request.Method, URL: sanitizedURL(request), Attempt: attempt,
-			Wait: wait, StatusCode: statusCode(response), Err: roundTripErr,
+			Wait: wait, StatusCode: statusCode(response), Err: safeError(roundTripErr),
 		})
 		if err := transport.clock.Sleep(request.Context(), wait); err != nil {
 			return nil, err
@@ -148,15 +158,10 @@ func (transport *retryTransport) shouldRetry(request *http.Request, response *ht
 	if err != nil {
 		candidate = !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
 	} else if response != nil {
-		switch response.StatusCode {
-		case http.StatusRequestTimeout, http.StatusTooManyRequests, http.StatusInternalServerError,
-			http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-			candidate = true
-		case http.StatusForbidden:
-			if transport.policy.Name() == "github" {
-				budget := transport.policy.Parse(response, transport.clock.Now())
-				candidate = budget.RetryAfter > 0 || budget.Remaining >= 0
-			}
+		candidate = response.StatusCode == http.StatusRequestTimeout || response.StatusCode == http.StatusTooManyRequests || (response.StatusCode >= 500 && response.StatusCode <= 599)
+		if response.StatusCode == http.StatusForbidden {
+			budget := transport.policy.Parse(response, transport.clock.Now())
+			candidate = response.Header.Get("Retry-After") != "" || budget.Remaining == 0 || (transport.policy.Name() == "github" && secondaryLimit(response))
 		}
 	}
 	if !candidate {
@@ -169,25 +174,46 @@ func (transport *retryTransport) shouldRetry(request *http.Request, response *ht
 }
 
 func (transport *retryTransport) retryWait(response *http.Response, attempt int) time.Duration {
-	wait := transport.baseWait * time.Duration(1<<min(attempt-1, 10))
+	ceiling := transport.baseWait * time.Duration(1<<min(attempt-1, 10))
+	wait := min(ceiling, max(0, transport.jitter(ceiling)))
 	if response == nil {
 		return wait
 	}
-	budget := transport.policy.Parse(response, transport.clock.Now())
-	if budget.RetryAfter > 0 {
-		return budget.RetryAfter
+	now := transport.clock.Now()
+	budget := transport.policy.Parse(response, now)
+	wait = max(wait, budget.RetryAfter, budget.Delay)
+	if budget.Remaining == 0 {
+		wait = max(wait, budget.Reset.Sub(now))
 	}
-	if budget.Delay > 0 {
-		return budget.Delay
-	}
-	if budget.Remaining == 0 && budget.Reset.After(transport.clock.Now()) {
-		return budget.Reset.Sub(transport.clock.Now())
-	}
-	if response.StatusCode == http.StatusForbidden && transport.policy.Name() == "github" {
-		return max(time.Minute, wait)
+	if response.StatusCode == http.StatusForbidden && transport.policy.Name() == "github" && budget.Remaining != 0 && budget.RetryAfter == 0 {
+		wait = max(time.Minute, wait)
 	}
 	return wait
 }
+
+// secondaryLimit inspects at most 8 KiB and restores the exact response stream,
+// including a read error. The original body still owns Close.
+func secondaryLimit(response *http.Response) bool {
+	if response.Body == nil {
+		return false
+	}
+	body := response.Body
+	prefix, err := io.ReadAll(io.LimitReader(body, 8<<10))
+	reader := io.MultiReader(bytes.NewReader(prefix), body)
+	if err != nil {
+		reader = io.MultiReader(bytes.NewReader(prefix), errorReader{err}, body)
+	}
+	response.Body = &restoredBody{Reader: reader, Closer: body}
+	return strings.Contains(strings.ToLower(string(prefix)), "secondary rate limit")
+}
+
+type restoredBody struct {
+	io.Reader
+	io.Closer
+}
+type errorReader struct{ err error }
+
+func (reader errorReader) Read([]byte) (int, error) { return 0, reader.err }
 
 func cloneForAttempt(request *http.Request, attempt int) (*http.Request, error) {
 	cloned := request.Clone(request.Context())
@@ -210,7 +236,7 @@ func drainAndClose(body io.ReadCloser) {
 	if body == nil {
 		return
 	}
-	_, _ = io.Copy(io.Discard, body)
+	_, _ = io.CopyN(io.Discard, body, 32<<10)
 	_ = body.Close()
 }
 

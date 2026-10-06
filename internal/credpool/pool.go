@@ -8,30 +8,14 @@ package credpool
 import (
 	"context"
 	"errors"
-	"math"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
 )
-
-// Budget is the normalized rate-limit state observed for one credential.
-// A negative Remaining value means the server did not report a limit.
-type Budget struct {
-	Limit      int64
-	Remaining  int64
-	Used       int64
-	Reset      time.Time
-	RetryAfter time.Duration
-	Delay      time.Duration
-	Cost       int64
-	NearLimit  bool
-	Throttled  bool
-	Resource   string
-}
 
 // TokenSource returns current authentication material. Implementations may
 // refresh it; callers must not retain the token beyond one request.
@@ -54,7 +38,6 @@ type Credential struct {
 	TargetScope string
 	ScopeID     string
 	Source      TokenSource
-	Budget      Budget
 }
 
 // RegistrationError reports a credential-policy violation with its stable
@@ -80,7 +63,13 @@ type hostPool struct {
 // New constructs a pool. Map keys may be hostnames or absolute URLs.
 func New(credentials map[string][]Credential) (*Pool, error) {
 	p := &Pool{hosts: make(map[string]*hostPool, len(credentials))}
-	for host, entries := range credentials {
+	hosts := make([]string, 0, len(credentials))
+	for host := range credentials {
+		hosts = append(hosts, host)
+	}
+	sort.Strings(hosts)
+	for _, host := range hosts {
+		entries := credentials[host]
 		for _, credential := range entries {
 			if err := p.Add(host, credential); err != nil {
 				return nil, err
@@ -102,16 +91,10 @@ func (p *Pool) Add(host string, credential Credential) error {
 	if credential.ScopeID == "" {
 		credential.ScopeID = credential.ID
 	}
-	if credential.Actor == "" {
-		credential.Actor = credential.ID
-	}
 	credential.Actor = strings.TrimSpace(credential.Actor)
-	if credential.TargetScope == "" {
-		credential.TargetScope = credential.ScopeID
-	}
 	credential.TargetScope = strings.TrimSpace(credential.TargetScope)
-	if credential.Budget.Remaining == 0 && credential.Budget.Limit == 0 {
-		credential.Budget.Remaining = math.MaxInt64
+	if credential.Actor == "" || credential.TargetScope == "" {
+		return errors.New("verified actor and target scope are required")
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -141,57 +124,35 @@ func (p *Pool) Add(host string, credential Credential) error {
 	return nil
 }
 
-// Acquire reserves cost from the credential with most reported capacity.
-// Equal budgets rotate, preventing one token from receiving all requests.
-func (p *Pool) Acquire(ctx context.Context, host string, cost int64) (Credential, error) {
+// ActorResolver is implemented by platform preflight adapters. It must return a
+// verified, non-secret provider identity; configured labels are not identities.
+type ActorResolver interface {
+	ResolveActor(ctx context.Context, host, targetScope string, source TokenSource) (string, error)
+}
+
+// Acquire selects only within host and target scope. Cost is validated here;
+// reservations and pacing belong exclusively to ratelimit.
+func (p *Pool) Acquire(ctx context.Context, host, scope string, cost int64) (Credential, error) {
 	if err := ctx.Err(); err != nil {
 		return Credential{}, err
 	}
-	host = normalizeHost(host)
+	if cost < 0 {
+		return Credential{}, errors.New("credential cost must not be negative")
+	}
+	host, scope = normalizeHost(host), strings.TrimSpace(scope)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	hp := p.hosts[host]
-	if hp == nil || len(hp.credentials) == 0 {
-		return Credential{}, errors.New("no credentials for host " + host)
-	}
-	maxRemaining := int64(math.MinInt64)
-	for i := range hp.credentials {
-		if hp.credentials[i].Budget.Remaining > maxRemaining {
-			maxRemaining = hp.credentials[i].Budget.Remaining
-		}
-	}
-	chosen := -1
-	for offset := range len(hp.credentials) {
-		i := (hp.next + offset) % len(hp.credentials)
-		if hp.credentials[i].Budget.Remaining == maxRemaining {
-			chosen = i
-			break
-		}
-	}
-	hp.next = (chosen + 1) % len(hp.credentials)
-	if cost > 0 && hp.credentials[chosen].Budget.Remaining != math.MaxInt64 {
-		hp.credentials[chosen].Budget.Remaining = max(0, hp.credentials[chosen].Budget.Remaining-cost)
-	}
-	return hp.credentials[chosen], nil
-}
-
-// Release records server-observed state for a credential.
-func (p *Pool) Release(host, credentialID string, observed Budget) {
-	host = normalizeHost(host)
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	hp := p.hosts[host]
-	if hp == nil {
-		return
-	}
-	for i := range hp.credentials {
-		if hp.credentials[i].ID == credentialID {
-			if observed.Remaining >= 0 || observed.Limit > 0 || observed.Throttled {
-				hp.credentials[i].Budget = observed
+	if hp != nil && scope != "" {
+		for offset := range len(hp.credentials) {
+			i := (hp.next + offset) % len(hp.credentials)
+			if hp.credentials[i].TargetScope == scope {
+				hp.next = (i + 1) % len(hp.credentials)
+				return hp.credentials[i], nil
 			}
-			return
 		}
 	}
+	return Credential{}, errors.New("no credentials for requested host and target scope")
 }
 
 func normalizeHost(raw string) string {
@@ -201,9 +162,9 @@ func normalizeHost(raw string) string {
 			raw = parsed.Host
 		}
 	}
-	host, _, err := net.SplitHostPort(raw)
+	host, port, err := net.SplitHostPort(raw)
 	if err == nil {
-		return host
+		return net.JoinHostPort(strings.TrimSuffix(host, "."), port)
 	}
 	return strings.TrimSuffix(raw, ".")
 }

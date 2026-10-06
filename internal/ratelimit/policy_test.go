@@ -1,4 +1,4 @@
-package httpx
+package ratelimit
 
 import (
 	"net/http"
@@ -10,7 +10,7 @@ func TestRateLimitPolicies(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
 	tests := []struct {
 		name      string
-		policy    RateLimitPolicy
+		policy    Policy
 		status    int
 		header    http.Header
 		remaining int64
@@ -25,7 +25,7 @@ func TestRateLimitPolicies(t *testing.T) {
 				"X-Ratelimit-Limit": {"5000"}, "X-Ratelimit-Remaining": {"0"},
 				"X-Ratelimit-Reset": {"1700000060"},
 			},
-			remaining: 0, throttle: true,
+			remaining: 0, throttle: true, near: true,
 		},
 		{
 			name: "github secondary retry", policy: GitHubPolicy{}, status: 403,
