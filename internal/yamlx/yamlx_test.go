@@ -151,7 +151,10 @@ func TestEmitGolden(t *testing.T) {
 	if len(diagnostics) != 0 {
 		t.Fatal(diagnostics)
 	}
-	got := Emit(document, WithNormalize())
+	got, err := Emit(document, WithNormalize())
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := readFixture(t, "emit-normalized.golden")
 	if !bytes.Equal(got, want) {
 		t.Fatalf("Emit() mismatch\n--- got\n%s--- want\n%s", got, want)
@@ -173,7 +176,10 @@ func TestEmitPreservesBOMAndCRLF(t *testing.T) {
 	if len(diagnostics) != 0 {
 		t.Fatal(diagnostics)
 	}
-	got := Emit(document)
+	got, err := Emit(document)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !bytes.HasPrefix(got, []byte{0xef, 0xbb, 0xbf}) || bytes.Contains(bytes.TrimPrefix(got, []byte{0xef, 0xbb, 0xbf}), []byte("\n")) && !bytes.Contains(got, []byte("\r\n")) {
 		t.Fatalf("format not preserved: %q", got)
 	}
@@ -195,7 +201,7 @@ func FuzzParse(f *testing.F) {
 	f.Fuzz(func(_ *testing.T, data []byte) {
 		document, _ := ParseWithOptions("fuzz.yaml", data, WithSizeLimit(1<<20), WithAliasExpansionLimit(1_000))
 		if document != nil {
-			_ = Emit(document, WithNormalize())
+			_, _ = Emit(document, WithNormalize())
 			for _, root := range document.Documents {
 				_, _ = root.Map()
 				_, _ = root.Seq()

@@ -20,6 +20,20 @@ const (
 	DefaultSizeLimit int64 = 20 << 20
 	// DefaultAliasExpansionLimit bounds the number of nodes reached through aliases.
 	DefaultAliasExpansionLimit = 10_000
+	// DefaultDepthLimit bounds recursive YAML tree walks.
+	DefaultDepthLimit = 1_000
+)
+
+// AnchorPolicy controls acceptance of YAML anchors, aliases, and merge keys.
+type AnchorPolicy uint8
+
+const (
+	// AnchorAllow accepts anchors, aliases, and merge keys.
+	AnchorAllow AnchorPolicy = iota
+	// AnchorError reports anchors, aliases, and merge keys.
+	AnchorError
+	// AnchorAllowWithoutMerge accepts anchors and aliases but reports merge keys.
+	AnchorAllowWithoutMerge
 )
 
 // Kind identifies a YAML node kind without exposing the underlying parser.
@@ -48,6 +62,18 @@ type Document struct {
 	hadCRLF  bool
 	indent   int
 	aliasMax int
+	depthMax int
+	ctx      *nodeContext
+}
+
+type nodeContext struct {
+	name       string
+	data       []byte
+	original   []byte
+	baseOffset int
+	aliasMax   int
+	depthMax   int
+	roots      []*yaml.Node
 }
 
 // Root returns the first document root, or nil for an empty stream.
@@ -62,8 +88,10 @@ func (d *Document) Root() *Node {
 type ParseOption func(*parseConfig)
 
 type parseConfig struct {
-	sizeLimit  int64
-	aliasLimit int
+	sizeLimit    int64
+	aliasLimit   int
+	depthLimit   int
+	anchorPolicy AnchorPolicy
 }
 
 // WithSizeLimit sets the maximum input size in bytes. A non-positive value disables it.
@@ -76,6 +104,17 @@ func WithAliasExpansionLimit(limit int) ParseOption {
 	return func(config *parseConfig) { config.aliasLimit = limit }
 }
 
+// WithDepthLimit sets the maximum node nesting reached by YAML tree walkers.
+// A non-positive value disables it.
+func WithDepthLimit(limit int) ParseOption {
+	return func(config *parseConfig) { config.depthLimit = limit }
+}
+
+// WithAnchorPolicy applies a dialect's anchor and merge-key policy.
+func WithAnchorPolicy(policy AnchorPolicy) ParseOption {
+	return func(config *parseConfig) { config.anchorPolicy = policy }
+}
+
 // Parse parses a YAML stream using safe default limits.
 func Parse(name string, data []byte) (*Document, []diag.Diagnostic) {
 	return ParseWithOptions(name, data)
@@ -83,7 +122,10 @@ func Parse(name string, data []byte) (*Document, []diag.Diagnostic) {
 
 // ParseWithOptions parses a YAML stream with explicit resource limits.
 func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Document, []diag.Diagnostic) {
-	config := parseConfig{sizeLimit: DefaultSizeLimit, aliasLimit: DefaultAliasExpansionLimit}
+	config := parseConfig{
+		sizeLimit: DefaultSizeLimit, aliasLimit: DefaultAliasExpansionLimit,
+		depthLimit: DefaultDepthLimit, anchorPolicy: AnchorAllow,
+	}
 	for _, option := range options {
 		if option != nil {
 			option(&config)
@@ -95,9 +137,12 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 		return nil, []diag.Diagnostic{diagnostic}
 	}
 
+	original := append([]byte(nil), data...)
 	hadBOM := bytes.HasPrefix(data, []byte{0xef, 0xbb, 0xbf})
+	baseOffset := 0
 	if hadBOM {
 		data = data[3:]
+		baseOffset = 3
 	}
 	diagnostics := make([]diag.Diagnostic, 0)
 	if !utf8.Valid(data) {
@@ -111,7 +156,11 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 
 	document := &Document{
 		Name: name, hadBOM: hadBOM, hadCRLF: bytes.Contains(data, []byte("\r\n")),
-		indent: detectIndent(data), aliasMax: config.aliasLimit,
+		indent: detectIndent(data), aliasMax: config.aliasLimit, depthMax: config.depthLimit,
+	}
+	document.ctx = &nodeContext{
+		name: name, data: data, original: original, baseOffset: baseOffset,
+		aliasMax: config.aliasLimit, depthMax: config.depthLimit,
 	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	for {
@@ -131,11 +180,19 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 			continue
 		}
 		document.raw = append(document.raw, &raw)
-		root := wrap(raw.Content[0], name, config.aliasLimit)
+		document.ctx.roots = append(document.ctx.roots, raw.Content[0])
+		root := wrap(raw.Content[0], document.ctx)
 		root.commentFallback = &raw
 		document.Documents = append(document.Documents, root)
-		diagnostics = append(diagnostics, duplicateDiagnostics(root)...)
-		if config.aliasLimit > 0 {
+		offender, depthExceeded := checkDepth(root, config.depthLimit)
+		if depthExceeded {
+			diagnostics = append(diagnostics, newDiagnostic("TRL-PARSE-0010", root.sourceOf(offender),
+				diag.WithParams(map[string]any{"limit": config.depthLimit})))
+		} else {
+			diagnostics = append(diagnostics, duplicateDiagnostics(root)...)
+		}
+		diagnostics = append(diagnostics, anchorDiagnostics(root, config.anchorPolicy)...)
+		if config.aliasLimit > 0 && !depthExceeded {
 			if source, expanded, exceeded := checkAliasExpansion(root, config.aliasLimit); exceeded {
 				diagnostics = append(diagnostics, newDiagnostic("TRL-PARSE-0007", source,
 					diag.WithParams(map[string]any{"expanded": expanded, "limit": config.aliasLimit})))
@@ -145,11 +202,11 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 	return document, diagnostics
 }
 
-func wrap(raw *yaml.Node, name string, aliasMax int) *Node {
+func wrap(raw *yaml.Node, ctx *nodeContext) *Node {
 	if raw == nil {
 		return nil
 	}
-	return &Node{raw: raw, name: name, aliasMax: aliasMax}
+	return &Node{raw: raw, ctx: ctx}
 }
 
 func newDiagnostic(code string, source diag.Source, options ...diag.Option) diag.Diagnostic {
@@ -178,7 +235,7 @@ func duplicateDiagnostics(root *Node) []diag.Diagnostic {
 				key, value := node.Content[index], node.Content[index+1]
 				identity := nodeIdentity(key)
 				if first, ok := seen[identity]; ok {
-					source := sourceOf(root.name, key)
+					source := root.sourceOf(key)
 					diagnostics = append(diagnostics, newDiagnostic("TRL-PARSE-0003", source,
 						diag.WithMessage(fmt.Sprintf("duplicate mapping key %q; first defined at %d:%d", key.Value, first.Line, first.Column)),
 						diag.WithParams(map[string]any{
@@ -286,7 +343,7 @@ func checkAliasExpansion(root *Node, limit int) (diag.Source, int, bool) {
 		return false
 	}
 	exceeded := scan(root.raw)
-	return sourceOf(root.name, offender), count, exceeded
+	return root.sourceOf(offender), count, exceeded
 }
 
 func sourceOf(name string, node *yaml.Node) diag.Source {
@@ -294,6 +351,95 @@ func sourceOf(name string, node *yaml.Node) diag.Source {
 		return diag.Source{File: name}
 	}
 	return diag.Source{File: name, Line: node.Line, Col: node.Column}
+}
+
+func (n *Node) sourceOf(node *yaml.Node) diag.Source {
+	if n == nil || n.ctx == nil {
+		return sourceOf("", node)
+	}
+	if node == nil {
+		return diag.Source{File: n.ctx.name}
+	}
+	start := positionOffset(n.ctx.data, node.Line, node.Column) + n.ctx.baseOffset
+	end := start
+	if byteRange, err := rawNodeRange(n.ctx, node); err == nil {
+		start, end = byteRange.Start, byteRange.End
+	}
+	start = min(start, len(n.ctx.original))
+	end = min(end, len(n.ctx.original))
+	endLine, endCol := offsetPosition(n.ctx.data, max(0, end-n.ctx.baseOffset))
+	return diag.Source{
+		File: n.ctx.name, Line: node.Line, Col: node.Column,
+		EndLine: endLine, EndCol: endCol, Offset: start, EndOffset: end,
+	}
+}
+
+func positionOffset(data []byte, line, column int) int {
+	if line < 1 {
+		return 0
+	}
+	offset := 0
+	for current := 1; current < line && offset < len(data); current++ {
+		newline := bytes.IndexByte(data[offset:], '\n')
+		if newline < 0 {
+			return len(data)
+		}
+		offset += newline + 1
+	}
+	for current := 1; current < column && offset < len(data) && data[offset] != '\n'; current++ {
+		_, size := utf8.DecodeRune(data[offset:])
+		if size == 0 {
+			break
+		}
+		offset += size
+	}
+	return offset
+}
+
+func checkDepth(root *Node, limit int) (*yaml.Node, bool) {
+	if root == nil || root.raw == nil || limit <= 0 {
+		return nil, false
+	}
+	type item struct {
+		node  *yaml.Node
+		depth int
+	}
+	stack := []item{{root.raw, 1}}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		if current.depth > limit {
+			return current.node, true
+		}
+		for index := len(current.node.Content) - 1; index >= 0; index-- {
+			stack = append(stack, item{current.node.Content[index], current.depth + 1})
+		}
+	}
+	return nil, false
+}
+
+func anchorDiagnostics(root *Node, policy AnchorPolicy) []diag.Diagnostic {
+	if root == nil || root.raw == nil || policy == AnchorAllow {
+		return nil
+	}
+	var diagnostics []diag.Diagnostic
+	stack := []*yaml.Node{root.raw}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		isMerge := node.ShortTag() == "!!merge" || node.Value == "<<"
+		if isMerge {
+			diagnostics = append(diagnostics, newDiagnostic("TRL-PARSE-0009", root.sourceOf(node)))
+		} else if policy == AnchorError && (node.Anchor != "" || node.Kind == yaml.AliasNode) {
+			diagnostics = append(diagnostics, newDiagnostic("TRL-PARSE-0008", root.sourceOf(node)))
+		}
+		for index := len(node.Content) - 1; index >= 0; index-- {
+			stack = append(stack, node.Content[index])
+		}
+	}
+	return diagnostics
 }
 
 func firstInvalidUTF8(data []byte) int {
@@ -308,6 +454,12 @@ func firstInvalidUTF8(data []byte) int {
 }
 
 func offsetPosition(data []byte, offset int) (int, int) {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(data) {
+		offset = len(data)
+	}
 	line, column := 1, 1
 	for index := 0; index < offset; index++ {
 		if data[index] == '\n' {

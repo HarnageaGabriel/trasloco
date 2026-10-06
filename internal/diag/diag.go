@@ -68,12 +68,14 @@ const (
 
 // Source identifies a source location. Zero coordinates are omitted.
 type Source struct {
-	Platform string `json:"platform,omitempty"`
-	File     string `json:"file,omitempty"`
-	Line     int    `json:"line,omitempty"`
-	Col      int    `json:"col,omitempty"`
-	EndLine  int    `json:"endLine,omitempty"`
-	EndCol   int    `json:"endCol,omitempty"`
+	Platform  string `json:"platform,omitempty"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Col       int    `json:"col,omitempty"`
+	EndLine   int    `json:"endLine,omitempty"`
+	EndCol    int    `json:"endCol,omitempty"`
+	Offset    int    `json:"offset,omitempty"`
+	EndOffset int    `json:"endOffset,omitempty"`
 }
 
 // Resource identifies the affected migration resource.

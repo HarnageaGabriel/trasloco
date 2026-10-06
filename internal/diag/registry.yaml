@@ -406,6 +406,39 @@
                                  ]
                   },
                   {
+                      "code":  "TRL-PARSE-0008",
+                      "area":  "PARSE",
+                      "title":  "YAML anchors and aliases are not allowed",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Remove the anchor or alias for this YAML dialect.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-PARSE-0009",
+                      "area":  "PARSE",
+                      "title":  "YAML merge keys are not allowed",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Replace the merge key with explicit mapping entries.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-PARSE-0010",
+                      "area":  "PARSE",
+                      "title":  "YAML nesting depth limit exceeded",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Reduce nesting or raise the trusted-input depth limit.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "limit"
+                                 ]
+                  },
+                  {
                       "code":  "TRL-EXPR-0001",
                       "area":  "EXPR",
                       "title":  "Expression syntax error",
