@@ -14,6 +14,8 @@ permissions:
 jobs:
   analyze:
     name: Analyze Go
+    # Code scanning on private repositories requires GitHub Advanced Security.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

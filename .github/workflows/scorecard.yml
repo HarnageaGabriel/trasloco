@@ -12,6 +12,8 @@ permissions:
 jobs:
   analysis:
     name: Scorecard analysis
+    # Scorecard results can only be published for public repositories.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
