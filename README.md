@@ -3,8 +3,7 @@
 `trasloco` is an open-source Go CLI for planning and executing auditable CI/CD
 pipeline and DevOps migrations between platforms.
 
-> **Status:** pre-alpha, not usable yet. Commands other than `version` are
-> placeholders; no migration logic exists.
+> **Status:** pre-alpha — M0 foundations complete.
 
 ## Principles
 

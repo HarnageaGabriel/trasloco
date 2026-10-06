@@ -11,7 +11,7 @@ Every target name MUST pass through one deterministic naming service. Adapters p
 | GitHub repository | target owner | Length and allowed characters MUST come from the GitHub capability probe. The default policy accepts ASCII letters, digits, `.`, `-`, `_`, rejects empty/`.`/`..`, and compares case-insensitively. VERIFY: GitHub's current documented maximum and server-side canonicalization. |
 | GitHub Actions secret | organization, repository, or environment separately | ASCII letters, digits, `_`; MUST NOT start with `GITHUB_` (case-insensitive) or a digit; case-insensitive uniqueness; canonical output upper-case. |
 | GitHub Actions variable | organization, repository, or environment separately | Same lexical/reserved rules as Actions secrets; case-insensitive uniqueness; canonical output upper-case. VERIFY: confirm identical restrictions for configuration variables on supported GHES versions. |
-| GitHub environment | repository | Non-empty, at most 255 characters, case-insensitive uniqueness. `/`, spaces, and Unicode are preserved if accepted by capability probe. VERIFY: character restrictions and exact Unicode comparison. |
+| GitHub environment | repository | Trim surrounding whitespace; then require non-empty and at most 255 characters with case-insensitive uniqueness. `/`, internal spaces, and Unicode are preserved if accepted by capability probe. VERIFY: character restrictions and exact Unicode comparison. |
 | GitHub custom property | organization schema | Default policy: ASCII letters, digits, `_`, `-`; first character letter; case-insensitive uniqueness. VERIFY: current allowed characters, length, and case behavior. |
 | ADO variable | effective dictionary scope | ASCII letters, digits, `.`, `_`; MUST NOT begin with reserved prefixes `endpoint`, `input`, `secret`, `path`, or `securefile`, compared case-insensitively; comparison is case-insensitive. VERIFY: whether hyphen is accepted consistently across UI, YAML, and logging commands. |
 | ADO variable group | ADO project | Non-empty display name; trim surrounding whitespace; case-insensitive uniqueness. VERIFY: length, forbidden characters, and actual uniqueness behavior. |
@@ -29,7 +29,7 @@ The input to normalization is `(kind, sourceStableId, sourceName, targetScopeKey
 2. Normalize Unicode to NFC and remove leading/trailing Unicode whitespace.
 3. Apply kind-specific case policy. Upper-case GitHub secrets/variables; lower-case workflow basenames; preserve display case otherwise. For workflow files, remove one case-insensitive terminal `.yaml` or `.yml` before normalizing the basename; append canonical `.yml` after step 10.
 4. Transliterate non-ASCII to an ASCII approximation only for ASCII-only kinds. If no deterministic transliteration exists, encode each UTF-8 byte as `_UHH`; `HH` is uppercase hex and the encoding token is not processed as a separator. Display-name kinds preserve Unicode.
-5. Replace each maximal run of forbidden characters with the kind's separator: `_` for variables/secrets/job IDs/custom properties; `-` for repositories/workflow files. Display-name kinds remove prohibited control characters and use `-` only when removal would concatenate tokens.
+5. Replace each maximal run of forbidden characters with the kind's separator: `_` for variables/secrets/job IDs/custom properties; `-` for repositories/workflow files. Dots are allowed and preserved in repository names. Display-name kinds remove prohibited control characters and use `-` only when removal would concatenate tokens.
 6. Collapse repeated separators of the chosen kind. Remove leading/trailing separators when forbidden by that kind.
 7. If the first character is illegal, prefix `N_` for variables/secrets/job IDs/custom properties or `n-` for repository/workflow kinds.
 8. If the result is reserved, prefix `T_` or `t-` as appropriate. Case-insensitive reserved comparisons use Unicode simple case fold.
@@ -56,7 +56,7 @@ Suffixes are based on stable IDs, never enumeration order or current display nam
 
 ## Reserved names
 
-All kinds reserve empty string, `.` and `..`. Windows device basenames (`CON`, `PRN`, `AUX`, `NUL`, `COM1` through `COM9`, `LPT1` through `LPT9`) are reserved case-insensitively for generated files. Workflow basenames also reserve `README`, `.`, and `..`. GitHub secret/variable names reserve prefixes `GITHUB_` and `RUNNER_`; `RUNNER_` is a trasloco portability reservation. ADO variables reserve the prefixes listed in the table. The active `NamePolicy` MAY add endpoint-specific names and MUST record them in the plan.
+All kinds reserve empty string, `.` and `..`. Windows device basenames (`CON`, `PRN`, `AUX`, `NUL`, `COM1` through `COM9`, `LPT1` through `LPT9`) are reserved case-insensitively for generated files. Workflow basenames also reserve `README`, `.`, and `..`. GitHub secret/variable names reserve prefix `GITHUB_`. Prefix `RUNNER_` is preserved and emits warning `TRL-NAME-0007`; it is not an error or automatic rename. ADO variables reserve the prefixes listed in the table. The active `NamePolicy` MAY add endpoint-specific names and MUST record them in the plan.
 
 ## Rename decision records
 
@@ -89,7 +89,7 @@ Assume no target conflicts, limits large enough, and stable IDs shown unless sta
 | NAME-002 | GitHub secret / 1 / `Db Password` | `DB_PASSWORD` |
 | NAME-003 | GitHub secret / 1 / `9lives` | `N_9LIVES` |
 | NAME-004 | GitHub secret / 1 / `github_token2` | `T_GITHUB_TOKEN2`; reserved prefix |
-| NAME-005 | GitHub variable / 1 / `runner_arch` | `T_RUNNER_ARCH`; portability reservation |
+| NAME-005 | GitHub variable / 1 / `runner_arch` | `RUNNER_ARCH`; warning `TRL-NAME-0007` |
 | NAME-006 | GitHub secret / 1 / `__a__b__` | `_A_B_` |
 | NAME-007 | GitHub secret / 1 / ` café ` | `CAFE` |
 | NAME-008 | GitHub secret / 1 / `東京` | `_UE6_U9D_UB1_UE4_UBA_UAC` |
@@ -123,10 +123,6 @@ Assume no target conflicts, limits large enough, and stable IDs shown unless sta
 | NAME-036 | source renamed after plan, same stable ID | precondition drift; re-plan, not reuse stale decision |
 | NAME-037 | target match with explicit `adopt` and proven provenance | target name retained; reason `adopted` |
 | NAME-038 | collision suffix itself collides at 8 base32 chars | extend colliding tokens to 10 chars |
+| NAME-039 | repository / 1 / `api.v2` | `api.v2`; dots preserved |
 
-## Open questions
-
-1. Confirm every `VERIFY:` rule against GitHub.com, supported GHES versions, Azure DevOps Services, and supported Azure DevOps Server versions.
-2. Should GitHub environment display names preserve surrounding whitespace when the API accepts it, or keep the safer trim rule?
-3. Should repository normalization preserve dots or standardize all token separators to hyphens?
-4. Is `RUNNER_` too restrictive as a project-level portability reservation?
+The marked `VERIFY:` platform facts require live conformance tests in M1/M3 before their adapters freeze for 1.0.

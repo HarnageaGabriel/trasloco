@@ -44,7 +44,7 @@ func TestEventVectors(t *testing.T) {
 	})
 	t.Run("EVENT-005", func(t *testing.T) {
 		unit := "u1"
-		finished := baseEvent(2, UnitFinished, map[string]any{"outcome": "failed", "counts": map[string]int{}, "fidelity": "exact"})
+		finished := baseEvent(2, UnitFinished, map[string]any{"outcome": "failed", "counts": map[string]int{}, "fidelity": "exact", "provenance": "deterministic"})
 		finished.UnitKey = &unit
 		if _, err := readEvents(t, false, started(1), finished); err == nil {
 			t.Fatal("UnitFinished before UnitStarted accepted")
@@ -78,6 +78,7 @@ func TestEventVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		data = bytes.Replace(data, []byte(`"payload"`), []byte(`"attempt":1,"payload"`), 1)
 		data = bytes.TrimSuffix(data, []byte{'\n'})
 		stream, err := ReadJSONL(bytes.NewReader(data), false)
 		if err != nil || len(stream.Events) != 1 || stream.Complete {
@@ -114,7 +115,7 @@ func TestEventVectors(t *testing.T) {
 		}
 		<-sink.started
 		for completed := 1; completed <= 3; completed++ {
-			tick, _ := New(ProgressTick, map[string]any{"completed": completed, "total": nil, "unit": "items", "rate": 1.0})
+			tick, _ := New(ProgressTick, map[string]any{"completed": completed, "total": nil, "unit": "items"})
 			if err := bus.Publish(context.Background(), tick); err != nil {
 				t.Fatal(err)
 			}
@@ -193,6 +194,21 @@ func TestEventVectors(t *testing.T) {
 			t.Fatalf("query survived: %s", encoded)
 		}
 	})
+	t.Run("EVENT-017", func(t *testing.T) {
+		event := started(1)
+		event.Attempt = 0
+		if _, err := readEvents(t, false, event); err == nil {
+			t.Fatal("missing attempt accepted")
+		}
+	})
+	t.Run("EVENT-018", func(t *testing.T) {
+		phase := "future-phase"
+		event := baseEvent(2, PhaseStarted, map[string]any{"phaseId": phase, "name": "Future", "ordinal": 1})
+		event.Phase = &phase
+		if _, err := readEvents(t, false, started(1), event); err == nil {
+			t.Fatal("unknown phase accepted")
+		}
+	})
 }
 
 type blockingSink struct {
@@ -267,7 +283,7 @@ func readEvents(t *testing.T, planApply bool, events ...Event) (Stream, error) {
 }
 
 func baseEvent(sequence uint64, eventType Type, payload map[string]any) Event {
-	return Event{Version: Version, Sequence: sequence, Time: time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC), RunID: "run-1", Type: eventType, Payload: payload}
+	return Event{Version: Version, Sequence: sequence, Time: time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC), RunID: "run-1", Type: eventType, Attempt: 1, Payload: payload}
 }
 
 func started(sequence uint64) Event {
@@ -279,7 +295,7 @@ func finished(sequence uint64) Event {
 }
 
 func progress(sequence uint64, unit *string) Event {
-	event := baseEvent(sequence, ProgressTick, map[string]any{"completed": 1, "total": nil, "unit": "items", "rate": 1.0})
+	event := baseEvent(sequence, ProgressTick, map[string]any{"completed": 1, "total": nil, "unit": "items"})
 	event.UnitKey = unit
 	return event
 }
@@ -291,7 +307,7 @@ func unitStarted(sequence uint64, unit string) Event {
 }
 
 func unitFinished(sequence uint64, unit string) Event {
-	event := baseEvent(sequence, UnitFinished, map[string]any{"outcome": "succeeded", "counts": map[string]int{}, "fidelity": "exact"})
+	event := baseEvent(sequence, UnitFinished, map[string]any{"outcome": "succeeded", "counts": map[string]int{}, "fidelity": "exact", "provenance": "deterministic"})
 	event.UnitKey = &unit
 	return event
 }

@@ -48,7 +48,9 @@ CLI selectors and files are concatenated in command-line occurrence order for re
 5. De-duplicate by platform stable repository ID plus stable pipeline ID. Preserve all matching selector IDs as provenance.
 6. Sort the result by canonical platform URI, then stable ID, using unsigned UTF-8 byte order. API enumeration order MUST NOT affect output.
 
-A repository selector without `#` selects the repository and all discoverable pipelines in it. A selector with `#` selects the repository context plus only matching pipelines. An exclusion without `#` removes the entire repository. A pipeline exclusion removes only matching pipelines. A repository that remains selected but has zero selected pipelines remains a unit for resource/repository audit; commands requiring pipelines MUST report the empty set.
+A repository selector without `#` selects the repository and all discoverable pipelines in it. A selector with `#` selects the repository context plus only matching pipelines. An exclusion without `#` removes the entire repository. A pipeline exclusion removes only matching pipelines. A repository that remains selected but has zero selected pipelines remains a unit for `audit` and `plan`, including repository metadata. `convert` excludes that repository because it has no pipeline input and MUST report the exclusion in its selection summary.
+
+The prefix `kind:` is reserved for future resource-kind selectors in this grammar. Version 1 MUST reject it as unsupported rather than interpret it as a platform scheme or name, preserving forward compatibility.
 
 Name matches MUST NOT fall back to IDs. `id:` is the only ID marker. A pipeline-name selector matching multiple pipelines selects all for bulk commands; commands requiring one pipeline emit `TRL-SEL-0006`.
 
@@ -68,7 +70,7 @@ Glob matching uses the component's case rule. Percent-decoding occurs before com
 
 ## Endpoint containment
 
-All selectors in one invocation MUST belong to the configured source endpoint. `github://` denotes GitHub.com only. `ghes://host/...` denotes exactly that host and effective port. An ADO organization in a selector MUST equal the organization in the configured endpoint. Cross-endpoint entries emit `TRL-SEL-0008`.
+All selectors in one invocation MUST belong to the configured source endpoint. `github://` denotes GitHub.com only. `ghes://host/...` denotes exactly that host and effective port. An ADO organization in a selector MUST equal the organization in the configured endpoint or one of its explicitly configured aliases, including aliases for collection-bearing endpoint URLs. Aliases resolve to the canonical endpoint before matching and are preserved as selector provenance. Cross-endpoint entries emit `TRL-SEL-0008`.
 
 ## Errors
 
@@ -118,9 +120,7 @@ Assume inventory: ADO `Acme/Payments/API` with pipelines `(12, Build)`, `(13, De
 | SEL-036 | `github://Acme/caf%C3%A9` against decomposed Unicode spelling | match after NFC normalization |
 | SEL-037 | `github://Acme/%ZZ` | malformed percent escape; `TRL-SEL-0001` |
 | SEL-038 | `ado://Acme/Payments/API#Build#x` | syntax error; extra `#` |
-
-## Open questions
-
-1. Should a repository left with zero pipelines after exclusions remain selected for `convert`, or only for `audit` and `plan`?
-2. Should future selectors support resource kinds other than repositories and pipelines without introducing a second grammar?
-3. Should ADO organization aliases be permitted when the endpoint URL contains a collection name?
+| SEL-039 | repository remains after all pipelines excluded; command `plan` | keep repository unit for metadata planning |
+| SEL-040 | same selection; command `convert` | exclude repository; report zero-pipeline exclusion |
+| SEL-041 | `kind:environment/...` | reserved future prefix; unsupported in version 1 |
+| SEL-042 | ADO selector uses a configured organization alias for a collection URL | valid; canonical endpoint retained |

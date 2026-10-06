@@ -18,11 +18,13 @@ const (
 	ExitBlocked = 3
 	// ExitStale means apply was refused before mutation because plan preconditions changed.
 	ExitStale = 4
+	// ExitPolicy means a --fail-on policy threshold was exceeded.
+	ExitPolicy = 5
 	// ExitDrift is retained as a compatibility alias for ExitStale.
 	ExitDrift = ExitStale
 	// ExitUsage means the command line was malformed (BSD EX_USAGE).
 	ExitUsage = 64
-	// ExitInterrupted is used when a second interrupt forces termination.
+	// ExitInterrupted means the user cancelled the run.
 	ExitInterrupted = 130
 )
 
@@ -79,7 +81,7 @@ func CodeFor(err error) int {
 
 func validExitCode(code int) bool {
 	switch code {
-	case ExitOK, ExitError, ExitPartial, ExitBlocked, ExitStale, ExitUsage:
+	case ExitOK, ExitError, ExitPartial, ExitBlocked, ExitStale, ExitPolicy, ExitUsage, ExitInterrupted:
 		return true
 	default:
 		return false
@@ -99,8 +101,8 @@ type OutcomeSummary struct {
 	Cancelled           bool
 	RecoveredPanic      bool
 	DriftAfterMutation  bool
-	PolicyPromoted      bool
-	Audit               bool
+	PolicyThreshold     bool
+	Command             string
 }
 
 // ResolveExitCode applies docs/spec/exit-codes.md precedence.
@@ -108,11 +110,14 @@ func ResolveExitCode(summary OutcomeSummary) int {
 	if summary.InvalidInput {
 		return ExitUsage
 	}
+	if summary.Cancelled {
+		return ExitInterrupted
+	}
 	if summary.StaleBeforeMutation && !summary.MutationOccurred {
 		return ExitStale
 	}
-	hasError := summary.Failed > 0 || summary.FailureSkipped > 0 || summary.Cancelled ||
-		summary.RecoveredPanic || summary.DriftAfterMutation || summary.PolicyPromoted
+	hasError := summary.Failed > 0 || summary.FailureSkipped > 0 ||
+		summary.RecoveredPanic || summary.DriftAfterMutation
 	if summary.StaleBeforeMutation && summary.MutationOccurred {
 		hasError = true
 	}
@@ -122,7 +127,10 @@ func ResolveExitCode(summary OutcomeSummary) int {
 		}
 		return ExitError
 	}
-	if summary.ManualBlocked > 0 && !summary.Audit {
+	if summary.PolicyThreshold {
+		return ExitPolicy
+	}
+	if summary.ManualBlocked > 0 && (summary.Command == "plan" || summary.Command == "apply") {
 		return ExitBlocked
 	}
 	return ExitOK

@@ -10,6 +10,7 @@ Scripts can communicate with a runner through platform-specific command protocol
 |---|---|---|
 | `setOutput` | `name`, `valueExpr`, `stepId` | Publish a named value for downstream dependency edges. |
 | `setEnv` | `name`, `valueExpr` | Set an environment value for later steps in the current job. |
+| `setPipelineVar` | `name`, `valueExpr`, `isSecret` | Mutate an Azure Pipelines variable for later task evaluation; distinct from a shell-local environment assignment. |
 | `addPath` | `pathExpr` | Prepend a path for later steps in the current job. |
 | `mask` | `valueExpr` | Register a value for log redaction before it may be printed. |
 | `annotate` | `level`, `messageExpr`, optional location | Emit `error` or `warning` annotation. |
@@ -22,8 +23,8 @@ Scripts can communicate with a runner through platform-specific command protocol
 | Abstract | Azure Pipelines | GitHub Actions | Fidelity notes |
 |---|---|---|---|
 | `setOutput` | `##vso[task.setvariable variable=N;isOutput=true]V` | append `N=V` to `$GITHUB_OUTPUT` | Exact for single-line static names/values when the producer step has an ID. |
-| `setEnv` | `##vso[task.setvariable variable=N]V` | append `N=V` to `$GITHUB_ENV` | ADO mutation visibility and output syntax differ; later-step same-job use is exact. |
-| secret `setEnv` | `##vso[task.setvariable variable=N;issecret=true]V` | `::add-mask::V` then append `N=V` to `$GITHUB_ENV` | `needs-manual` unless value comes from an existing secret binding; masking does not create a GitHub secret. |
+| `setPipelineVar` | `##vso[task.setvariable variable=N]V` | append `N=V` to `$GITHUB_ENV` | Later-step same-job use is exact; broader ADO visibility is diagnosed when consumers cross the job boundary. |
+| secret `setPipelineVar` | `##vso[task.setvariable variable=N;issecret=true]V` | `::add-mask::V` then append `N=V` to `$GITHUB_ENV` | `needs-manual` unless value comes from an existing secret binding; masking does not create a GitHub secret. |
 | output + secret | `isOutput=true;issecret=true` | mask plus append to `$GITHUB_OUTPUT` | `needs-manual`; downstream secret propagation and redaction must be reviewed. |
 | `addPath` | `##vso[task.prependpath]P` | append `P` to `$GITHUB_PATH` | Exact for a single static line. |
 | `mask` | `##vso[task.setsecret]V` | `::add-mask::V` | Exact after escape validation; registration is not retroactive. |
@@ -57,7 +58,7 @@ $markdown | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
 For ADO targets, generated Bash uses `printf '##vso[...]%s\n' "$value"`; PowerShell uses `Write-Host "##vso[...]$value"`. Property values and payloads MUST be escaped using the destination protocol encoder, never string substitution alone.
 
-Multi-line GitHub values require a delimiter block with a freshly generated delimiter proven absent from the value. Because planning does not inspect secret values, secret multi-line translation MUST use a runtime helper or be `needs-manual`; the plan MUST NOT contain the delimiter/value. ADO percent/newline escape semantics differ and require target-specific encoding. VERIFY: exact agent escape sequences for current ADO and GitHub runners.
+Multi-line GitHub values require an inline delimiter block with a freshly generated delimiter proven absent from a static non-secret value. Trasloco ships no runtime helper and generated workflows MUST have no helper dependency. Dynamic or secret multi-line translation therefore becomes `needs-manual`; the plan MUST NOT contain the delimiter/value. ADO percent/newline escape semantics differ and require target-specific inline encoding. VERIFY: exact agent escape sequences for current ADO and GitHub runners.
 
 ## Scanner rules
 
@@ -70,15 +71,17 @@ The scanner MUST parse shell tokens/string literals sufficiently to distinguish 
 
 The scanner MUST ignore comments, quoted examples that are not emitted, escaped redirection operators, and writes to similarly named ordinary files. It MUST retain source byte ranges for every match.
 
-Dynamic variable names, computed protocol names, `eval`/`Invoke-Expression`, indirect environment/file-handle references, unbounded loops generating commands, multi-line values without a provably safe encoding, and data-dependent command construction MUST be graded `needs-manual`. The original step remains present and a diagnostic explains the unconverted operation; it MUST NOT be partially rewritten in a way that duplicates side effects.
+Bash and PowerShell (`pwsh`) receive full scanner and emitter support. A detected `cmd.exe`/batch step is retained unchanged and graded `needs-manual`; no partial protocol rewrite is allowed.
+
+Dynamic variable names, computed protocol names, `eval`/`Invoke-Expression`, indirect environment/file-handle references, unbounded loops generating commands, multi-line values without a provably safe inline encoding, and data-dependent command construction MUST be graded `needs-manual`. The original step remains present and a diagnostic explains the unconverted operation; it MUST NOT be partially rewritten in a way that duplicates side effects. Annotation file and line are preserved on a best-effort basis whenever path mapping is known; otherwise the message and level remain and location is omitted with an approximated-fidelity diagnostic.
 
 ## Test vectors
 
 | ID | Shell / input | Expected |
 |---|---|---|
-| SCRIPT-001 | bash `echo "##vso[task.setvariable variable=foo]bar"` | `setEnv(foo, bar)` |
+| SCRIPT-001 | bash `echo "##vso[task.setvariable variable=foo]bar"` | `setPipelineVar(foo, bar)`; map to `$GITHUB_ENV` |
 | SCRIPT-002 | bash `echo "##vso[task.setvariable variable=foo;isOutput=true]bar"` | `setOutput(foo, bar)` |
-| SCRIPT-003 | pwsh `Write-Host "##vso[task.setvariable variable=foo;issecret=true]$env:TOKEN"` | secret `setEnv`; `needs-manual` unless TOKEN binding known |
+| SCRIPT-003 | pwsh `Write-Host "##vso[task.setvariable variable=foo;issecret=true]$env:TOKEN"` | secret `setPipelineVar`; `needs-manual` unless TOKEN binding known |
 | SCRIPT-004 | bash `echo "##vso[task.prependpath]/opt/tool"` | `addPath(/opt/tool)` |
 | SCRIPT-005 | pwsh `Write-Host "##vso[task.setsecret]$value"` | `mask(value ref)` |
 | SCRIPT-006 | bash `echo "##[error]failed"` | `annotate(error, failed)` |
@@ -100,10 +103,5 @@ Dynamic variable names, computed protocol names, `eval`/`Invoke-Expression`, ind
 | SCRIPT-022 | ADO `isOutput=true;issecret=true` | output+secret; `needs-manual` |
 | SCRIPT-023 | static GitHub output then downstream dependency | output edge rewritten to target syntax |
 | SCRIPT-024 | unbounded loop emits names `X_$i` | `needs-manual`; retain whole step |
-
-## Open questions
-
-1. Should trasloco ship a small cross-runner helper for safe multi-line protocol writes?
-2. Which shell parsers are required for M0 beyond Bash and PowerShell?
-3. Should `setEnv` from ADO be modeled separately from an immutable pipeline variable mutation?
-4. How much annotation-location metadata can be preserved across path rewrites?
+| SCRIPT-025 | `cmd.exe` step emits `##vso[task.setvariable ...]` | retain step; `needs-manual`; no rewrite |
+| SCRIPT-026 | static annotation path with known source-to-target mapping | preserve mapped file and line |

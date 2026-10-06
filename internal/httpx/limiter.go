@@ -2,10 +2,13 @@ package httpx
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // LimiterOptions configures adaptive per-host, per-credential scheduling.
@@ -35,7 +38,7 @@ type limitState struct {
 	active       int
 	concurrency  int
 	blockedUntil time.Time
-	nextAllowed  time.Time
+	pacer        *rate.Limiter
 	notify       chan struct{}
 	minuteWrites []time.Time
 	hourWrites   []time.Time
@@ -71,13 +74,18 @@ func NewLimiter(opts LimiterOptions) *Limiter {
 func (l *Limiter) state(key string) *limitState {
 	state := l.states[key]
 	if state == nil {
-		state = &limitState{concurrency: l.max, notify: make(chan struct{})}
+		state = &limitState{
+			concurrency: l.max,
+			pacer:       rate.NewLimiter(rate.Inf, 1),
+			notify:      make(chan struct{}),
+		}
 		l.states[key] = state
 	}
 	return state
 }
 
 func (l *Limiter) acquire(ctx context.Context, key string, contentCreation bool) error {
+	paced := false
 	for {
 		now := l.clock.Now()
 		l.mu.Lock()
@@ -91,8 +99,24 @@ func (l *Limiter) acquire(ctx context.Context, key string, contentCreation bool)
 				state.blockedUntil = later(state.blockedUntil, state.hourWrites[0].Add(time.Hour))
 			}
 		}
-		waitUntil := later(state.blockedUntil, state.nextAllowed)
+		waitUntil := state.blockedUntil
 		if state.active < state.concurrency && !now.Before(waitUntil) {
+			if !paced {
+				reservation := state.pacer.ReserveN(now, 1)
+				if !reservation.OK() {
+					l.mu.Unlock()
+					return fmt.Errorf("rate limiter cannot reserve request")
+				}
+				if delay := reservation.DelayFrom(now); delay > 0 {
+					l.mu.Unlock()
+					if err := l.clock.Sleep(ctx, l.jitter(delay)); err != nil {
+						reservation.CancelAt(l.clock.Now())
+						return err
+					}
+					paced = true
+					continue
+				}
+			}
 			state.active++
 			if contentCreation && l.policy.Name() == "github" {
 				state.minuteWrites = append(state.minuteWrites, now)
@@ -160,8 +184,14 @@ func (l *Limiter) update(key string, budget Budget, response *http.Response, now
 		// Only pace when the server is signaling pressure. Full GitHub budgets
 		// should retain burst capacity; ADO TSTU headers are proactive signals.
 		if l.policy.Name() == "azuredevops" || budget.NearLimit {
-			state.nextAllowed = later(state.nextAllowed, now.Add(spacing))
+			state.pacer = rate.NewLimiter(rate.Every(spacing), 1)
+			// Account for the request whose response established this pace so
+			// the next request waits for one replenished token.
+			_ = state.pacer.ReserveN(now, 1)
 		}
+	} else if !throttled {
+		state.pacer.SetLimitAt(now, rate.Inf)
+		state.pacer.SetBurstAt(now, 1)
 	}
 	close(state.notify)
 	state.notify = make(chan struct{})

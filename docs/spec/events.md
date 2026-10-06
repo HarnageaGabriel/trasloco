@@ -2,7 +2,7 @@
 
 Status: draft for approval (M0). Normative.
 
-The headless engine exposes one typed append-only event stream consumed by the CLI and future UIs. JSONL is the canonical wire encoding.
+The headless engine exposes one typed append-only event stream consumed by the CLI and future UIs. JSONL is the only wire encoding through 1.0.
 
 ## Envelope
 
@@ -15,12 +15,15 @@ Every line is one UTF-8 JSON object followed by LF. Producers MUST emit compact 
 | `time` | RFC 3339 string | yes | UTC timestamp with at least millisecond precision; informational, not ordering. |
 | `runId` | string | yes | Opaque unique run identifier. |
 | `type` | enum | yes | Event type below. |
-| `phase` | string or null | yes | Current phase ID. |
+| `phase` | enum or null | yes | Current version-1 phase ID. |
 | `unitKey` | string or null | yes | Stable unit/shared-unit key. |
 | `operationId` | string or null | yes | Stable planned operation ID when applicable. |
+| `attempt` | integer | yes | At least 1. Retries of one operation increment it; events without an operation use 1. |
 | `payload` | object | yes | Type-specific fields. |
 
 Unknown top-level fields are invalid for version 1. Payloads MAY contain type-specific extension fields only under `payload.extensions`. Event schema version is independent from plan/report versions.
+
+Version 1 phases form a closed, versioned enum: `initialize|discover|audit|convert|modernize|plan|apply|verify|rollback|cutover|report|finalize`. Adding a phase requires an event-version change. `PhaseStarted` and `PhaseFinished` MUST use one of these values and their envelope `phase` MUST equal `payload.phaseId`.
 
 ## Event types
 
@@ -30,7 +33,7 @@ Unknown top-level fields are invalid for version 1. Payloads MAY contain type-sp
 | `PhaseStarted` | `phaseId`, `name`, `ordinal` | Opens a phase. |
 | `PhaseFinished` | `phaseId`, `outcome`, `counts` | Closes a started phase. |
 | `UnitStarted` | `kind`, `resourceRef` | Opens work for one unit. |
-| `UnitFinished` | `outcome`, `counts`, `fidelity` | Closes a started unit. |
+| `UnitFinished` | `outcome`, `counts`, `fidelity`, `provenance` | Closes a started unit; provenance is `deterministic|llm`. |
 | `RequestThrottled` | `platform`, `endpointClass`, `delayMs`, `reason` | Reports scheduled rate-limit delay; no credentials/URL query. |
 | `CacheHit` | `cacheKind`, `keyDigest` | Reports content-addressed reuse; digest only. |
 | `DiagnosticEmitted` | `diagnostic` | Contains the diagnostic object from `diagnostics.md`. |
@@ -38,7 +41,7 @@ Unknown top-level fields are invalid for version 1. Payloads MAY contain type-sp
 | `ChangeApplied` | `changeId`, `action`, `resourceRef`, `resultRef` | Mutation verified or accepted by endpoint. |
 | `ChangeFailed` | `changeId`, `resourceRef`, `retryable`, `diagnosticCode` | Terminal attempt failure for that operation. |
 | `ChangeSkipped` | `changeId`, `reason`, `prerequisiteId` | Not attempted because no-op or prerequisite failure. |
-| `ProgressTick` | `completed`, `total`, `unit`, `rate` | Coalescible progress snapshot; `total` may be null. |
+| `ProgressTick` | `completed`, `total`, `unit` | Coalescible progress snapshot; `total` may be null. Consumers calculate rates from sequence/time samples. |
 | `RollbackStarted` | `sourceRunId` | Opens compensating rollback. |
 | `RollbackApplied` | `changeId`, `result` | One compensation completed. |
 | `RunFinished` | `outcome`, `exitCode`, `counts`, `reportRef` | Last event. Exactly once for orderly shutdown. |
@@ -53,7 +56,7 @@ The engine assigns `sequence` at one serialization boundary after concurrent wor
 2. `PhaseStarted(P)` precedes any event whose `phase` is P; `PhaseFinished(P)` follows them.
 3. `UnitStarted(U)` precedes unit events and `UnitFinished(U)` follows them.
 4. `ChangePlanned(C)` precedes `ChangeApplied(C)`, `ChangeFailed(C)`, or `ChangeSkipped(C)` in a plan+apply stream.
-5. At most one terminal change event exists per operation attempt. Resume creates a new attempt field under extensions until version 1 defines a first-class attempt.
+5. At most one terminal change event exists per `(operationId, attempt)`. Resume increments the required first-class `attempt` field.
 6. `RunFinished` follows all engine events and is last.
 
 No ordering is guaranteed between different concurrently processed units beyond sequence serialization. Consumers MUST NOT infer dependency from adjacency or timestamps; use plan operation IDs. Within one unit, semantic operation dependency order MUST be reflected in sequence.
@@ -73,8 +76,8 @@ Version 1 consumers MUST reject other versions unless invoked with a documented 
 ## Example
 
 ```json
-{"version":1,"sequence":1,"time":"2026-10-06T12:00:00.000Z","runId":"run-01","type":"RunStarted","phase":null,"unitKey":null,"operationId":null,"payload":{"command":"plan","toolVersion":"0.1.0","configDigest":"sha256:abc"}}
-{"version":1,"sequence":2,"time":"2026-10-06T12:00:00.010Z","runId":"run-01","type":"PhaseStarted","phase":"discover","unitKey":null,"operationId":null,"payload":{"phaseId":"discover","name":"Discover","ordinal":1}}
+{"version":1,"sequence":1,"time":"2026-10-06T12:00:00.000Z","runId":"run-01","type":"RunStarted","phase":null,"unitKey":null,"operationId":null,"attempt":1,"payload":{"command":"plan","toolVersion":"0.1.0","configDigest":"sha256:abc"}}
+{"version":1,"sequence":2,"time":"2026-10-06T12:00:00.010Z","runId":"run-01","type":"PhaseStarted","phase":"discover","unitKey":null,"operationId":null,"attempt":1,"payload":{"phaseId":"discover","name":"Discover","ordinal":1}}
 ```
 
 ## Test vectors
@@ -97,10 +100,5 @@ Version 1 consumers MUST reject other versions unless invoked with a documented 
 | EVENT-014 | `DiagnosticEmitted` dropped under backpressure | invalid implementation |
 | EVENT-015 | version 2 read by strict v1 consumer | explicit refusal |
 | EVENT-016 | web resource URL with query token | query removed or opaque reference used |
-
-## Open questions
-
-1. Should operation attempts become a required v1 field before the schema freezes?
-2. Should phase IDs be a closed enum or remain engine-defined strings?
-3. Is a separate binary event transport needed, or is JSONL sufficient through 1.0?
-4. Should `ProgressTick.rate` be omitted to keep all derived/time-sensitive values in the UI?
+| EVENT-017 | missing or zero `attempt` | invalid |
+| EVENT-018 | phase ID outside the version-1 enum | invalid |

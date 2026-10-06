@@ -28,7 +28,7 @@ An implementation whose current version is `N`:
 - MUST explicitly refuse `> N` with remediation to upgrade trasloco.
 - MUST NOT guess a version when the field is absent.
 
-The tool MAY retain more than N-1 upgrader steps, but N-1 is the guaranteed window. Automatic upgrade is read-only/in-memory during normal commands; it MUST NOT overwrite the input. `trasloco upgrade FILE` is the explicit persisted upgrade, writes atomically, preserves a backup unless disabled, and reports source/target versions. Plans are never upgraded for apply: an old plan MAY be read for inspection, but apply MUST require a newly generated current-version plan.
+The tool MAY retain more than N-1 upgrader steps, but N-1 is the only compatibility window. No compatibility guarantee applies to pre-1.0 releases beyond this explicit N-1 rule. Automatic upgrade is read-only/in-memory during normal commands; it MUST NOT overwrite the input. `trasloco upgrade FILE` is the explicit persisted upgrade, writes atomically, preserves a backup unless disabled, and reports source/target versions. Plans are never upgraded for apply: an old plan MAY be read for inspection, but apply MUST require a newly generated current-version plan.
 
 Unknown fields on version N are errors except under fields explicitly named `extensions`. Upgraders MUST be pure, deterministic, idempotent, and covered by golden before/after vectors. They MUST NOT perform network calls, resolve identities, read secrets, or invent missing required decisions.
 
@@ -58,13 +58,15 @@ Artifacts also carry `toolVersion` as semantic-version text. `minimumReaderVersi
 }
 ```
 
-The source snapshot digest is SHA-256 over canonical JSON of sorted source object tuples and resolved template/catalog inputs. It MUST include content digests, stable IDs, source revisions/refs, and consumer-binding graph; it MUST exclude credentials, secret values, retrieval timestamps, and unordered API response order.
+All plan, snapshot, manifest, and report digests use SHA-256 over RFC 8785 JSON Canonicalization Scheme (JCS) bytes. Arrays whose semantics are unordered MUST be sorted by their specified stable key before JCS encoding. The source snapshot digest includes sorted source object tuples and resolved template/catalog inputs, including content digests, stable IDs, source revisions/refs, and consumer-binding graph; it MUST exclude credentials, secret values, retrieval timestamps, and unordered API response order.
+
+Every report MUST embed both `planDigest`, the exact JCS digest of its input plan, and `runManifestDigest`, the JCS digest of the run manifest containing that plan digest, configuration digest, tool version, and run ID. Neither digest may be recomputed from a lossy report projection.
 
 Before the first mutation, apply MUST re-read all material source and target preconditions. A changed source object/digest emits `TRL-PLAN-0001`; changed target ETag, existence, default branch, branch SHA, or relevant policy emits `TRL-PLAN-0002`; catalog, naming-policy, or incompatible tool producer emits `TRL-PLAN-0003`. Any such condition aborts with exit 4 and creates no ledger mutation entry beyond a read-only preflight record.
 
 ETags are opaque and compared byte-for-byte after removing transport quoting only as defined by the adapter. If an endpoint lacks ETags, the adapter MUST use a canonical content digest and record `preconditionKind: digest`. Absence is a precondition (`existence: absent`), not an omitted field. A branch SHA precondition applies to the exact target ref planned for atomic content delivery.
 
-`--allow-tool-version-difference` MAY permit patch-version differences only when schema, catalog, name policy, and canonical plan digest algorithms match. There is no force flag for source or target drift; the user MUST re-plan.
+Apply MUST use the same tool major.minor version as the plan producer; patch-version differences are permitted only when schema, catalog, name policy, and JCS digest algorithms match. `--allow-tool-version-difference` MUST NOT cross a major or minor boundary. There is no force flag for source or target drift; the user MUST re-plan.
 
 ## Test vectors
 
@@ -88,10 +90,7 @@ ETags are opaque and compared byte-for-byte after removing transport quoting onl
 | SCHEMA-016 | only retrieval timestamp changes | plan remains fresh |
 | SCHEMA-017 | secret value rotates; plan stores only unresolved secret ref | no value comparison; target secret write follows explicit operation policy |
 | SCHEMA-018 | upgrader run twice on already-N artifact | byte-equivalent canonical structure |
-
-## Open questions
-
-1. Should the compatibility guarantee extend to N-2 before 1.0 to reduce upgrader friction?
-2. Which canonical JSON profile will be normative for snapshot and plan digests?
-3. Should reports embed the exact input plan digest or a run manifest digest containing it?
-4. Which patch-level tool differences are proven safe for apply?
+| SCHEMA-019 | semantically equal JSON objects with different key order | same RFC 8785 JCS digest |
+| SCHEMA-020 | report produced from a plan | embeds both exact `planDigest` and `runManifestDigest` |
+| SCHEMA-021 | plan producer 1.4.2, apply tool 1.4.3 with matching algorithms | permitted |
+| SCHEMA-022 | plan producer 1.4.2, apply tool 1.5.0 | refuse; re-plan |

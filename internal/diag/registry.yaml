@@ -202,12 +202,26 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-AUTH-0006",
+                      "area":  "AUTH",
+                      "title":  "Duplicate credential actor for target scope",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use one credential per actor, host, and target scope; do not pool tokens to multiply rate-limit throughput.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "host",
+                                     "targetScope"
+                                 ]
+                  },
+                  {
                       "code":  "TRL-HTTP-0001",
                       "area":  "HTTP",
                       "title":  "Request throttled by rate limit",
                       "severity":  "info",
                       "exitClass":  "none",
-                      "remediation":  "None; the engine waits. Add credentials to the pool to increase throughput.",
+                      "remediation":  "None; the engine waits. Do not add tokens for the same actor to multiply throughput.",
                       "since":  "0.1.0",
                       "status":  "active"
                   },
@@ -627,6 +641,16 @@
                       "since":  "0.1.0",
                       "status":  "active",
                       "fidelity":  "approximated"
+                  },
+                  {
+                      "code":  "TRL-NAME-0007",
+                      "area":  "NAME",
+                      "title":  "RUNNER_ prefix may conflict with runner variables",
+                      "severity":  "warning",
+                      "exitClass":  "none",
+                      "remediation":  "Review the variable name for portability; the name is preserved.",
+                      "since":  "0.1.0",
+                      "status":  "active"
                   },
                   {
                       "code":  "TRL-CONV-0001",
@@ -1254,7 +1278,8 @@
                       "remediation":  "Pass `--accept-llm` or approve the entry.",
                       "since":  "0.1.0",
                       "status":  "active",
-                      "fidelity":  "llm"
+                      "fidelity":  "needs-manual",
+                      "provenance":  "llm"
                   },
                   {
                       "code":  "TRL-LLM-0003",

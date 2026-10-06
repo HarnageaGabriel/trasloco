@@ -4,6 +4,8 @@ Status: draft for approval (M0). Normative.
 
 Every finding the tool reports (parse problem, lossy conversion, drift, missing secret, internal error) is a **Diagnostic** with a stable code. Codes appear in reports, events (`DiagnosticEmitted`), CI output, and support requests.
 
+`internal/diag/registry.yaml` is the single source of truth. This specification's registry table and per-code diagnostic pages are generated views of that registry; until generation is automated, maintainers MUST keep the views byte-for-byte semantically equivalent to the registry.
+
 ## 1. Code format
 
 ```
@@ -57,8 +59,9 @@ A diagnostic instance in `report.json`, events, and logs has exactly these field
 | Field | Type | Req | Description |
 |---|---|---|---|
 | `code` | string | yes | `TRL-AREA-NNNN`, must exist in the registry. |
-| `severity` | enum | yes | `error` \| `warning` \| `info`. Registry default; an instance MAY lower or raise by at most one level only if the registry entry has `severityOverridable: true`. |
-| `fidelity` | enum or null | yes | `exact` \| `approximated` \| `needs-manual` \| `unsupported` \| `llm` \| `null` (when not a conversion finding). |
+| `severity` | enum | yes | `error` \| `warning` \| `info`. Fixed by the registry code; instances MUST NOT override it. Policy thresholds use `--fail-on` without changing stored severity. |
+| `fidelity` | enum or null | yes | `exact` \| `approximated` \| `needs-manual` \| `unsupported` \| `null` (when not a conversion finding). |
+| `provenance` | enum | yes | `deterministic` \| `llm`; orthogonal to fidelity. |
 | `message` | string | yes | Human-readable, English, single line, already redacted. MUST NOT contain secret values. |
 | `source` | object or null | yes | `{ "platform": "...", "file": "path-or-uri", "line": 1, "col": 1, "endLine": 1, "endCol": 1 }`. Lines and columns are 1-based; `col` counts Unicode code points. `file` is repo-relative with `/` separators, or a URI for API objects. Unknown parts are omitted, not zero. |
 | `resource` | object or null | yes | `{ "kind": "pipeline\|repo\|variable\|secret\|environment\|group\|connection\|unit\|run\|...", "key": "stable key", "name": "display name" }`. `key` equals the Unit key / stable source key when applicable. |
@@ -67,6 +70,8 @@ A diagnostic instance in `report.json`, events, and logs has exactly these field
 | `params` | object | no | Machine-readable parameters (e.g. `{"from":"db-pass","to":"DB_PASS"}`). No secrets. |
 
 Instances are ordered in reports by: `(source.file, source.line, source.col, code, resource.key)` ascending; instances without source sort last.
+
+At most 1,000 instances of one code may be stored per run. Additional distinct instances are suppressed and reports MUST include the summarized suppressed count per code. Exact duplicate instances count once.
 
 ## 5. Stability rules
 
@@ -78,7 +83,7 @@ Instances are ordered in reports by: `(source.file, source.line, source.col, cod
 6. Every code the implementation emits MUST exist in the registry; a unit test asserts the set of emitted codes (collected from source) is a subset of the registry, and every registry entry has a docs page.
 7. Codes in other specs (`docs/spec/*.md`) MUST exist in section 7 of this file. A test greps the specs and verifies this.
 
-## 6. Registry file schema (`docs/spec/diagnostics.yaml`, to be created later)
+## 6. Registry file schema (`internal/diag/registry.yaml`)
 
 The registry is YAML, validated by JSON Schema, with `schemaVersion` (see `schema-versioning.md`).
 
@@ -89,8 +94,8 @@ codes:
     area: NAME                     # required, must equal the code's area
     title: "Name collision resolved by suffix"   # required, <= 80 chars, English
     severity: warning              # required: error | warning | info
-    severityOverridable: false     # optional, default false
-    fidelity: approximated         # optional: exact|approximated|needs-manual|unsupported|llm; omit for non-conversion
+    fidelity: approximated         # optional: exact|approximated|needs-manual|unsupported; omit for non-conversion
+    provenance: deterministic      # optional: deterministic|llm; default deterministic
     exitClass: none                # required: none | error | blocked | drift | usage  (see exit-codes.md)
     remediation: "Review the rename decision in the plan or set an explicit name in the mapping file."  # required
     since: "0.1.0"                 # required, first version that emits it
@@ -140,12 +145,13 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-AUTH-0003 | error | - | E | Insufficient permission (HTTP 403) | Grant the permission named in `params.required` and re-run preflight. |
 | TRL-AUTH-0004 | warning | - | - | Deprecated authentication method in use | Switch to a GitHub App or an Entra service principal / workload identity. |
 | TRL-AUTH-0005 | error | - | E | Organization requires SSO authorization of the credential | Authorize the token for the organization's SSO and retry. |
+| TRL-AUTH-0006 | error | - | E | Duplicate credential actor for target scope | Use one credential per actor, host, and target scope; do not pool tokens to multiply rate-limit throughput. |
 
 ### HTTP
 
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
-| TRL-HTTP-0001 | info | - | - | Request throttled by rate limit | None; the engine waits. Add credentials to the pool to increase throughput. |
+| TRL-HTTP-0001 | info | - | - | Request throttled by rate limit | None; the engine waits. Do not add tokens for the same actor to multiply throughput. |
 | TRL-HTTP-0002 | error | - | E | Retries exhausted | Check connectivity and platform status; use `resume`. |
 | TRL-HTTP-0003 | error | - | E | Pagination loop detected | Report a bug with the redacted request log; the response repeated a continuation token. |
 | TRL-HTTP-0004 | error | - | E | TLS verification failed | Install the CA via `--ca-file`; do not disable verification (no such option exists). |
@@ -216,6 +222,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-NAME-0004 | error | - | E | Reserved name or prefix | Choose another name; reserved names cannot be provisioned. |
 | TRL-NAME-0005 | error | - | E | Name is empty after normalization | Provide an explicit target name. |
 | TRL-NAME-0006 | info | ap | - | Name truncated with hash | None; the hash keeps the name unique and stable. |
+| TRL-NAME-0007 | warning | - | - | RUNNER_ prefix may conflict with runner variables | Review the variable name for portability; the name is preserved. |
 
 ### CONV
 
@@ -331,7 +338,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
 | TRL-LLM-0001 | error | - | E | Remote data transfer not allowed | Set `llm.allowRemoteData: true` or use a local provider. |
-| TRL-LLM-0002 | warning | llm | B | LLM output not accepted | Pass `--accept-llm` or approve the entry. |
+| TRL-LLM-0002 | warning | nm | B | LLM output not accepted | Pass `--accept-llm` or approve the entry. Provenance is `llm`. |
 | TRL-LLM-0003 | error | - | E | LLM output failed validation | Output discarded; convert manually. |
 | TRL-LLM-0004 | error | - | E | LLM provider error | Check provider configuration and quota. |
 
@@ -343,7 +350,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0002 | error | - | E | Internal invariant violated | Report a bug. |
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 
-Total: 127 codes.
+Total: 129 codes.
 
 ## 8. Test vectors
 
@@ -354,15 +361,11 @@ Total: 127 codes.
 | DIAG-003 | `TRL-NAME-2` | invalid (digits) |
 | DIAG-004 | `TRL-XXX-0001` | invalid (unknown area) |
 | DIAG-005 | registry entry with `status: retired` and no `replacedBy` key | schema error |
-| DIAG-006 | instance with `severity: info` for TRL-PLAN-0001 (`severityOverridable` false) | rejected by constructor |
+| DIAG-006 | instance with `severity: info` for TRL-PLAN-0001 | rejected by constructor; severity fixed by code |
 | DIAG-007 | two diagnostics, same file, lines 3 and 10 | ordered 3 then 10 |
 | DIAG-008 | diagnostic without `source` | sorts after all with `source` |
 | DIAG-009 | `docsUrl` for `TRL-VAR-0003` | `https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-VAR-0003.md` |
 | DIAG-010 | message containing a canary secret | redacted before storage; test fails if canary survives |
+| DIAG-011 | 1,001 distinct instances of one code | store 1,000; summarize one suppressed instance |
 
-## Open questions
-
-1. Should docs pages be generated from the registry (single source) or hand-written per code?
-2. Is `exitClass: blocked` for `needs-manual` too aggressive for `convert` (offline) runs, or should it only apply to `plan/apply`? Current rule: applies to all except `audit`.
-3. Should `severityOverridable` exist at all, or should severity be fixed per code (simpler)?
-4. Instance counts: cap duplicates per code per run (e.g. 1000) to bound report size?
+`needs-manual` contributes exit 3 only for `plan` and `apply`. `audit`, `convert`, and `modernize` return 0 with warnings unless `--fail-on manual|warning` exceeds a policy threshold, which returns exit 5.

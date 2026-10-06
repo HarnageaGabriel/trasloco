@@ -12,9 +12,38 @@ import (
 // Version is the current event wire schema version.
 const Version = 1
 
+// Phase is a versioned engine phase identifier.
+type Phase string
+
+// Engine phases form a closed, versioned enum.
+const (
+	PhaseInitialize Phase = "initialize"
+	PhaseDiscover   Phase = "discover"
+	PhaseAudit      Phase = "audit"
+	PhaseConvert    Phase = "convert"
+	PhaseModernize  Phase = "modernize"
+	PhasePlan       Phase = "plan"
+	PhaseApply      Phase = "apply"
+	PhaseVerify     Phase = "verify"
+	PhaseRollback   Phase = "rollback"
+	PhaseCutover    Phase = "cutover"
+	PhaseReport     Phase = "report"
+	PhaseFinalize   Phase = "finalize"
+)
+
+var knownPhases = map[string]bool{
+	string(PhaseInitialize): true, string(PhaseDiscover): true,
+	string(PhaseAudit): true, string(PhaseConvert): true,
+	string(PhaseModernize): true, string(PhasePlan): true,
+	string(PhaseApply): true, string(PhaseVerify): true,
+	string(PhaseRollback): true, string(PhaseCutover): true,
+	string(PhaseReport): true, string(PhaseFinalize): true,
+}
+
 // Type identifies an event payload contract.
 type Type string
 
+// Type names an event kind.
 const (
 	// RunStarted opens a run and must be the first event.
 	RunStarted Type = "RunStarted"
@@ -69,6 +98,7 @@ type Event struct {
 	Phase       *string        `json:"phase"`
 	UnitKey     *string        `json:"unitKey"`
 	OperationID *string        `json:"operationId"`
+	Attempt     uint32         `json:"attempt"`
 	Payload     map[string]any `json:"payload"`
 }
 
@@ -81,6 +111,7 @@ type wireEvent struct {
 	Phase       *string        `json:"phase"`
 	UnitKey     *string        `json:"unitKey"`
 	OperationID *string        `json:"operationId"`
+	Attempt     uint32         `json:"attempt"`
 	Payload     map[string]any `json:"payload"`
 }
 
@@ -90,7 +121,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 		Version: e.Version, Sequence: e.Sequence,
 		Time:  e.Time.UTC().Format("2006-01-02T15:04:05.000000000Z"),
 		RunID: e.RunID, Type: e.Type, Phase: e.Phase, UnitKey: e.UnitKey,
-		OperationID: e.OperationID, Payload: e.Payload,
+		OperationID: e.OperationID, Attempt: e.Attempt, Payload: e.Payload,
 	}
 	return json.Marshal(wire)
 }
@@ -108,7 +139,8 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 	}
 	e.Version, e.Sequence, e.Time = wire.Version, wire.Sequence, parsed
 	e.RunID, e.Type, e.Phase = wire.RunID, wire.Type, wire.Phase
-	e.UnitKey, e.OperationID, e.Payload = wire.UnitKey, wire.OperationID, wire.Payload
+	e.UnitKey, e.OperationID, e.Attempt = wire.UnitKey, wire.OperationID, wire.Attempt
+	e.Payload = wire.Payload
 	return nil
 }
 
@@ -125,7 +157,7 @@ func New(eventType Type, payload any) (Event, error) {
 	if object == nil {
 		object = make(map[string]any)
 	}
-	return Event{Version: Version, Type: eventType, Payload: object}, nil
+	return Event{Version: Version, Type: eventType, Attempt: 1, Payload: object}, nil
 }
 
 // RunStartedPayload is the RunStarted payload contract.
@@ -137,14 +169,14 @@ type RunStartedPayload struct {
 
 // PhaseStartedPayload is the PhaseStarted payload contract.
 type PhaseStartedPayload struct {
-	PhaseID string `json:"phaseId"`
+	PhaseID Phase  `json:"phaseId"`
 	Name    string `json:"name"`
 	Ordinal int    `json:"ordinal"`
 }
 
 // PhaseFinishedPayload is the PhaseFinished payload contract.
 type PhaseFinishedPayload struct {
-	PhaseID string         `json:"phaseId"`
+	PhaseID Phase          `json:"phaseId"`
 	Outcome string         `json:"outcome"`
 	Counts  map[string]int `json:"counts"`
 }
@@ -157,9 +189,10 @@ type UnitStartedPayload struct {
 
 // UnitFinishedPayload is the UnitFinished payload contract.
 type UnitFinishedPayload struct {
-	Outcome  string         `json:"outcome"`
-	Counts   map[string]int `json:"counts"`
-	Fidelity string         `json:"fidelity"`
+	Outcome    string         `json:"outcome"`
+	Counts     map[string]int `json:"counts"`
+	Fidelity   string         `json:"fidelity"`
+	Provenance string         `json:"provenance"`
 }
 
 // RequestThrottledPayload is the RequestThrottled payload contract.
@@ -214,10 +247,9 @@ type ChangeSkippedPayload struct {
 
 // ProgressTickPayload is the ProgressTick payload contract.
 type ProgressTickPayload struct {
-	Completed int64   `json:"completed"`
-	Total     *int64  `json:"total"`
-	Unit      string  `json:"unit"`
-	Rate      float64 `json:"rate"`
+	Completed int64  `json:"completed"`
+	Total     *int64 `json:"total"`
+	Unit      string `json:"unit"`
 }
 
 // RollbackStartedPayload is the RollbackStarted payload contract.

@@ -38,8 +38,16 @@ const (
 	FidelityNeedsManual Fidelity = "needs-manual"
 	// FidelityUnsupported has no target equivalent.
 	FidelityUnsupported Fidelity = "unsupported"
-	// FidelityLLM identifies AI-assisted output.
-	FidelityLLM Fidelity = "llm"
+)
+
+// Provenance identifies how an output was produced, independently of fidelity.
+type Provenance string
+
+const (
+	// ProvenanceDeterministic identifies deterministic engine output.
+	ProvenanceDeterministic Provenance = "deterministic"
+	// ProvenanceLLM identifies output proposed by a language model.
+	ProvenanceLLM Provenance = "llm"
 )
 
 // ExitClass is the terminal class contributed by a diagnostic.
@@ -80,6 +88,7 @@ type Diagnostic struct {
 	Code        string         `json:"code"`
 	Severity    Severity       `json:"severity"`
 	Fidelity    *Fidelity      `json:"fidelity"`
+	Provenance  Provenance     `json:"provenance"`
 	Message     string         `json:"message"`
 	Source      *Source        `json:"source"`
 	Resource    *Resource      `json:"resource"`
@@ -90,19 +99,19 @@ type Diagnostic struct {
 
 // Entry is one stable registry definition.
 type Entry struct {
-	Code                string         `json:"code" yaml:"code"`
-	Area                string         `json:"area" yaml:"area"`
-	Title               string         `json:"title" yaml:"title"`
-	Severity            Severity       `json:"severity" yaml:"severity"`
-	SeverityOverridable bool           `json:"severityOverridable,omitempty" yaml:"severityOverridable,omitempty"`
-	Fidelity            *Fidelity      `json:"fidelity,omitempty" yaml:"fidelity,omitempty"`
-	ExitClass           ExitClass      `json:"exitClass" yaml:"exitClass"`
-	Remediation         string         `json:"remediation" yaml:"remediation"`
-	Since               string         `json:"since" yaml:"since"`
-	Status              string         `json:"status" yaml:"status"`
-	ReplacedBy          *string        `json:"replacedBy,omitempty" yaml:"replacedBy,omitempty"`
-	Params              []string       `json:"params,omitempty" yaml:"params,omitempty"`
-	History             []HistoryEntry `json:"history,omitempty" yaml:"history,omitempty"`
+	Code        string         `json:"code" yaml:"code"`
+	Area        string         `json:"area" yaml:"area"`
+	Title       string         `json:"title" yaml:"title"`
+	Severity    Severity       `json:"severity" yaml:"severity"`
+	Fidelity    *Fidelity      `json:"fidelity,omitempty" yaml:"fidelity,omitempty"`
+	Provenance  *Provenance    `json:"provenance,omitempty" yaml:"provenance,omitempty"`
+	ExitClass   ExitClass      `json:"exitClass" yaml:"exitClass"`
+	Remediation string         `json:"remediation" yaml:"remediation"`
+	Since       string         `json:"since" yaml:"since"`
+	Status      string         `json:"status" yaml:"status"`
+	ReplacedBy  *string        `json:"replacedBy,omitempty" yaml:"replacedBy,omitempty"`
+	Params      []string       `json:"params,omitempty" yaml:"params,omitempty"`
+	History     []HistoryEntry `json:"history,omitempty" yaml:"history,omitempty"`
 }
 
 // HistoryEntry records a compatible registry metadata change.
@@ -154,7 +163,7 @@ func ValidCode(code string) bool { return codePattern.MatchString(code) }
 // Option refines a diagnostic instance.
 type Option func(*Diagnostic) error
 
-// WithSeverity overrides severity when the registry permits it.
+// WithSeverity verifies severity against the fixed registry value.
 func WithSeverity(severity Severity) Option {
 	return func(d *Diagnostic) error {
 		entry, ok := Lookup(d.Code)
@@ -165,10 +174,17 @@ func WithSeverity(severity Severity) Option {
 			d.Severity = severity
 			return nil
 		}
-		if !entry.SeverityOverridable || severityDistance(entry.Severity, severity) != 1 {
-			return fmt.Errorf("diagnostic %s severity cannot change from %s to %s", d.Code, entry.Severity, severity)
+		return fmt.Errorf("diagnostic %s severity cannot change from %s to %s", d.Code, entry.Severity, severity)
+	}
+}
+
+// WithProvenance records how the finding's subject was produced.
+func WithProvenance(provenance Provenance) Option {
+	return func(d *Diagnostic) error {
+		if provenance != ProvenanceDeterministic && provenance != ProvenanceLLM {
+			return fmt.Errorf("invalid diagnostic provenance %q", provenance)
 		}
-		d.Severity = severity
+		d.Provenance = provenance
 		return nil
 	}
 }
@@ -207,8 +223,12 @@ func New(code string, args ...any) (Diagnostic, error) {
 	}
 	d := Diagnostic{
 		Code: code, Severity: entry.Severity, Fidelity: entry.Fidelity,
-		Message: entry.Title, Remediation: entry.Remediation,
+		Provenance: ProvenanceDeterministic,
+		Message:    entry.Title, Remediation: entry.Remediation,
 		DocsURL: docsURL(code),
+	}
+	if entry.Provenance != nil {
+		d.Provenance = *entry.Provenance
 	}
 	r := redact.New()
 	var positional []any
@@ -314,6 +334,10 @@ func cloneEntry(entry Entry) Entry {
 	if entry.Fidelity != nil {
 		fidelity := *entry.Fidelity
 		entry.Fidelity = &fidelity
+	}
+	if entry.Provenance != nil {
+		provenance := *entry.Provenance
+		entry.Provenance = &provenance
 	}
 	if entry.ReplacedBy != nil {
 		replacedBy := *entry.ReplacedBy

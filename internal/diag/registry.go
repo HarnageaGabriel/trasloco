@@ -56,6 +56,9 @@ func parseRegistry(data []byte) ([]Entry, map[string]Entry, error) {
 }
 
 func validateEntry(entry Entry, raw map[string]any) error {
+	if _, exists := raw["severityOverridable"]; exists {
+		return fmt.Errorf("severityOverridable is not allowed; severity is fixed per code")
+	}
 	required := []string{"code", "area", "title", "severity", "exitClass", "remediation", "since", "status"}
 	for _, key := range required {
 		value, ok := raw[key]
@@ -76,10 +79,13 @@ func validateEntry(entry Entry, raw map[string]any) error {
 		return fmt.Errorf("%s has invalid severity %q", entry.Code, entry.Severity)
 	}
 	if entry.Fidelity != nil {
-		valid := map[Fidelity]bool{FidelityExact: true, FidelityApproximated: true, FidelityNeedsManual: true, FidelityUnsupported: true, FidelityLLM: true}
+		valid := map[Fidelity]bool{FidelityExact: true, FidelityApproximated: true, FidelityNeedsManual: true, FidelityUnsupported: true}
 		if !valid[*entry.Fidelity] {
 			return fmt.Errorf("%s has invalid fidelity %q", entry.Code, *entry.Fidelity)
 		}
+	}
+	if entry.Provenance != nil && *entry.Provenance != ProvenanceDeterministic && *entry.Provenance != ProvenanceLLM {
+		return fmt.Errorf("%s has invalid provenance %q", entry.Code, *entry.Provenance)
 	}
 	validExit := map[ExitClass]bool{ExitNone: true, ExitError: true, ExitBlocked: true, ExitDrift: true, ExitUsage: true}
 	if !validExit[entry.ExitClass] {

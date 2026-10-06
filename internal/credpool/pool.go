@@ -1,4 +1,8 @@
 // Package credpool selects credentials independently for each platform host.
+//
+// Credentials are keyed by actor and target scope. Registering multiple tokens
+// for the same actor, host, and target scope is rejected: credential pooling
+// must not multiply one actor's platform rate-limit throughput.
 package credpool
 
 import (
@@ -10,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/diag"
 )
 
 // Budget is the normalized rate-limit state observed for one credential.
@@ -39,14 +45,26 @@ type StaticToken string
 // Token implements TokenSource.
 func (s StaticToken) Token(context.Context) (string, error) { return string(s), nil }
 
-// Credential identifies a token and its cache-equivalence scope. ScopeID,
+// Credential identifies a token, the actor it authenticates, and its target
+// scope. Actor and TargetScope must be stable non-secret identity keys. ScopeID,
 // unlike the token, is safe to persist in cache keys.
 type Credential struct {
-	ID      string
-	ScopeID string
-	Source  TokenSource
-	Budget  Budget
+	ID          string
+	Actor       string
+	TargetScope string
+	ScopeID     string
+	Source      TokenSource
+	Budget      Budget
 }
+
+// RegistrationError reports a credential-policy violation with its stable
+// diagnostic. Finding contains no token material.
+type RegistrationError struct {
+	Finding diag.Diagnostic
+}
+
+// Error implements error.
+func (e *RegistrationError) Error() string { return e.Finding.Message }
 
 // Pool holds credentials grouped by normalized host.
 type Pool struct {
@@ -84,6 +102,14 @@ func (p *Pool) Add(host string, credential Credential) error {
 	if credential.ScopeID == "" {
 		credential.ScopeID = credential.ID
 	}
+	if credential.Actor == "" {
+		credential.Actor = credential.ID
+	}
+	credential.Actor = strings.TrimSpace(credential.Actor)
+	if credential.TargetScope == "" {
+		credential.TargetScope = credential.ScopeID
+	}
+	credential.TargetScope = strings.TrimSpace(credential.TargetScope)
 	if credential.Budget.Remaining == 0 && credential.Budget.Limit == 0 {
 		credential.Budget.Remaining = math.MaxInt64
 	}
@@ -100,6 +126,15 @@ func (p *Pool) Add(host string, credential Credential) error {
 	for _, existing := range hp.credentials {
 		if existing.ID == credential.ID {
 			return errors.New("duplicate credential ID for host")
+		}
+		if existing.Actor == credential.Actor && existing.TargetScope == credential.TargetScope {
+			finding, err := diag.New("TRL-AUTH-0006", diag.WithParams(map[string]any{
+				"host": host, "targetScope": credential.TargetScope,
+			}))
+			if err != nil {
+				return err
+			}
+			return &RegistrationError{Finding: finding}
 		}
 	}
 	hp.credentials = append(hp.credentials, credential)

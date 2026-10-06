@@ -120,6 +120,9 @@ func (v *validator) add(event Event) error {
 	if event.RunID == "" {
 		return fmt.Errorf("runId is required")
 	}
+	if event.Attempt == 0 {
+		return fmt.Errorf("attempt must be at least 1")
+	}
 	if v.runID == "" {
 		v.runID = event.RunID
 	} else if event.RunID != v.runID {
@@ -159,12 +162,24 @@ func (v *validator) lifecycle(event Event) error {
 	switch event.Type {
 	case PhaseStarted:
 		id := stringField(event.Payload, "phaseId")
+		if !knownPhases[id] {
+			return fmt.Errorf("unknown phase %q for event version %d", id, Version)
+		}
+		if event.Phase == nil || *event.Phase != id {
+			return fmt.Errorf("PhaseStarted phase must equal phaseId %q", id)
+		}
 		if v.phases[id] {
 			return fmt.Errorf("phase %q already started", id)
 		}
 		v.phases[id] = true
 	case PhaseFinished:
 		id := stringField(event.Payload, "phaseId")
+		if !knownPhases[id] {
+			return fmt.Errorf("unknown phase %q for event version %d", id, Version)
+		}
+		if event.Phase == nil || *event.Phase != id {
+			return fmt.Errorf("PhaseFinished phase must equal phaseId %q", id)
+		}
 		if !v.phases[id] {
 			return fmt.Errorf("phase %q finished before start", id)
 		}
@@ -218,7 +233,7 @@ var requiredPayload = map[Type][]string{
 	PhaseStarted:      {"phaseId", "name", "ordinal"},
 	PhaseFinished:     {"phaseId", "outcome", "counts"},
 	UnitStarted:       {"kind", "resourceRef"},
-	UnitFinished:      {"outcome", "counts", "fidelity"},
+	UnitFinished:      {"outcome", "counts", "fidelity", "provenance"},
 	RequestThrottled:  {"platform", "endpointClass", "delayMs", "reason"},
 	CacheHit:          {"cacheKind", "keyDigest"},
 	DiagnosticEmitted: {"diagnostic"},
@@ -226,7 +241,7 @@ var requiredPayload = map[Type][]string{
 	ChangeApplied:     {"changeId", "action", "resourceRef", "resultRef"},
 	ChangeFailed:      {"changeId", "resourceRef", "retryable", "diagnosticCode"},
 	ChangeSkipped:     {"changeId", "reason", "prerequisiteId"},
-	ProgressTick:      {"completed", "total", "unit", "rate"},
+	ProgressTick:      {"completed", "total", "unit"},
 	RollbackStarted:   {"sourceRunId"},
 	RollbackApplied:   {"changeId", "result"},
 	RunFinished:       {"outcome", "exitCode", "counts", "reportRef"},

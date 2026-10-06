@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"testing"
@@ -53,5 +54,28 @@ func TestLimiterAIMD(t *testing.T) {
 	limiter.release(key, &http.Response{StatusCode: 200, Header: make(http.Header)})
 	if got := limiter.Concurrency("example.com", "one"); got != 5 {
 		t.Fatalf("successful concurrency = %d, want 5", got)
+	}
+}
+
+func TestLimiterHeaderPacingUsesInjectedClock(t *testing.T) {
+	clock := newTestClock()
+	limiter := NewLimiter(LimiterOptions{
+		Clock: clock, Policy: AzureDevOpsPolicy{}, MinConcurrency: 1, MaxConcurrency: 1,
+		Jitter: func(duration time.Duration) time.Duration { return duration },
+	})
+	key := limitKey("example.com", "one")
+	if err := limiter.acquire(context.Background(), key, false); err != nil {
+		t.Fatal(err)
+	}
+	reset := clock.Now().Add(2 * time.Second).Unix()
+	limiter.release(key, &http.Response{StatusCode: 200, Header: http.Header{
+		"X-Ratelimit-Remaining": {"1"},
+		"X-Ratelimit-Reset":     {fmt.Sprint(reset)},
+	}})
+	if err := limiter.acquire(context.Background(), key, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := clock.sleeps; len(got) != 1 || got[0] != 2*time.Second {
+		t.Fatalf("clock sleeps = %v, want [2s]", got)
 	}
 }
