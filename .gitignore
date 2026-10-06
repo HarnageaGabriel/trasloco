@@ -4,3 +4,4 @@
 /bin/
 *.exe
 coverage.out
+docs/assets/preview.html
