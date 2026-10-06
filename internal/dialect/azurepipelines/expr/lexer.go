@@ -15,7 +15,7 @@ const (
 	TokenEOF TokenKind = iota
 	// TokenIdentifier is a name.
 	TokenIdentifier
-	// TokenNumber is a decimal or exponential number.
+	// TokenNumber is a decimal number.
 	TokenNumber
 	// TokenVersion is a three- or four-part version.
 	TokenVersion
@@ -56,6 +56,9 @@ func (e *SyntaxError) Error() string {
 
 // Lex tokenizes one unwrapped expression.
 func Lex(input string) ([]Token, error) {
+	if utf16Length(input) > MaxExpressionLength {
+		return nil, syntaxError(0, "expression exceeds length limit")
+	}
 	var tokens []Token
 	for pos := 0; pos < len(input); {
 		r, size := utf8.DecodeRuneInString(input[pos:])
@@ -84,6 +87,20 @@ func Lex(input string) ([]Token, error) {
 			tokens = appendToken(tokens, TokenComma, input, start, start+size)
 			pos += size
 		case '.':
+			startsNumber := len(tokens) == 0
+			if len(tokens) > 0 {
+				k := tokens[len(tokens)-1].Kind
+				startsNumber = k == TokenLeftParen || k == TokenLeftBracket || k == TokenComma
+			}
+			if startsNumber {
+				end, kind, err := scanNumber(input, pos)
+				if err != nil {
+					return nil, err
+				}
+				tokens = appendToken(tokens, kind, input, start, end)
+				pos = end
+				continue
+			}
 			tokens = appendToken(tokens, TokenDot, input, start, start+size)
 			pos += size
 		case '*':
@@ -153,52 +170,34 @@ func scanNumber(input string, start int) (int, TokenKind, error) {
 	pos := start
 	if input[pos] == '-' {
 		pos++
-		if pos == len(input) || input[pos] < '0' || input[pos] > '9' {
-			return 0, 0, syntaxError(start, "minus must precede a number")
-		}
 	}
-	for pos < len(input) && input[pos] >= '0' && input[pos] <= '9' {
+	dots, digits := 0, 0
+	for pos < len(input) {
+		c := input[pos]
+		switch {
+		case c == '.':
+			dots++
+		case c >= '0' && c <= '9':
+			digits++
+		default:
+			goto done
+		}
 		pos++
 	}
-	dots := 0
-	for pos < len(input) && input[pos] == '.' {
-		if pos+1 == len(input) || input[pos+1] < '0' || input[pos+1] > '9' {
-			break
-		}
-		dots++
-		pos++
-		for pos < len(input) && input[pos] >= '0' && input[pos] <= '9' {
-			pos++
-		}
+done:
+	if digits == 0 {
+		return 0, 0, syntaxError(start, "invalid number")
 	}
 	if dots >= 2 {
-		if strings.HasPrefix(input[start:pos], "-") {
-			return 0, 0, syntaxError(start, "version literals cannot be negative")
-		}
-		if dots > 3 {
-			return 0, 0, syntaxError(start, "version has more than 4 components")
+		if dots > 3 || input[start] == '-' {
+			return 0, 0, syntaxError(start, "invalid version")
 		}
 		return pos, TokenVersion, nil
-	}
-	if pos < len(input) && (input[pos] == 'e' || input[pos] == 'E') {
-		pos++
-		if pos < len(input) && (input[pos] == '+' || input[pos] == '-') {
-			pos++
-		}
-		digit := pos
-		for pos < len(input) && input[pos] >= '0' && input[pos] <= '9' {
-			pos++
-		}
-		if digit == pos {
-			return 0, 0, syntaxError(start, "invalid exponent")
-		}
 	}
 	return pos, TokenNumber, nil
 }
 
-func isIdentStart(r rune) bool { return r == '_' || unicode.IsLetter(r) }
-func isIdentContinue(r rune) bool {
-	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
-}
+func isIdentStart(r rune) bool    { return r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' }
+func isIdentContinue(r rune) bool { return isIdentStart(r) || r >= '0' && r <= '9' }
 
 func syntaxError(offset int, msg string) error { return &SyntaxError{Offset: offset, Msg: msg} }

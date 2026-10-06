@@ -20,12 +20,12 @@ func printExpr(b *strings.Builder, node Expr) {
 		case NullLiteral:
 			b.WriteString("null")
 		case BooleanLiteral:
-			b.WriteString(strconv.FormatBool(n.Value.(bool)))
+			b.WriteString(strconv.FormatBool(bool(n.Value.(Bool))))
 		case NumberLiteral:
-			b.WriteString(strconv.FormatFloat(n.Value.(float64), 'g', -1, 64))
+			b.WriteString(n.Value.(Number).ExactString())
 		case StringLiteral:
 			b.WriteByte('\'')
-			b.WriteString(strings.ReplaceAll(n.Value.(string), "'", "''"))
+			b.WriteString(strings.ReplaceAll(string(n.Value.(String)), "'", "''"))
 			b.WriteByte('\'')
 		case VersionLiteral:
 			b.WriteString(n.Value.(Version).String())
