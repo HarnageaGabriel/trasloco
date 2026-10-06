@@ -177,6 +177,8 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-PARSE-0003 | error | - | E | Duplicate mapping key | Remove the duplicate key. |
 | TRL-PARSE-0004 | warning | - | - | Invalid UTF-8 replaced | Re-save the file as UTF-8. Lossy decoding is reported, never silent. |
 | TRL-PARSE-0005 | error | - | E | File exceeds size limit | Split the file; limit is 20 MiB per file. |
+| TRL-PARSE-0006 | error | - | E | YAML value has unexpected type | Use the value type required by the dialect at this position. |
+| TRL-PARSE-0007 | error | - | E | YAML alias expansion limit exceeded | Reduce aliases or raise the trusted-input expansion limit. |
 
 ### EXPR
 
@@ -350,7 +352,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0002 | error | - | E | Internal invariant violated | Report a bug. |
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 
-Total: 129 codes.
+Total: 131 codes.
 
 ## 8. Test vectors
 
