@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/quick"
@@ -60,7 +61,7 @@ func TestJSONRoundTripProperty(t *testing.T) {
 			Legs: []MatrixLeg{{
 				ID: "leg",
 				Values: map[string]Literal{
-					"value": {Type: LiteralNumber, Number: number},
+					"value": {Type: LiteralNumber, Number: strconv.FormatFloat(number, 'g', -1, 64)},
 				},
 			}},
 			FailFast: failFast,

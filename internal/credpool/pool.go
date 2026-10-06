@@ -42,12 +42,7 @@ type Credential struct {
 
 // RegistrationError reports a credential-policy violation with its stable
 // diagnostic. Finding contains no token material.
-type RegistrationError struct {
-	Finding diag.Diagnostic
-}
-
-// Error implements error.
-func (e *RegistrationError) Error() string { return e.Finding.Message }
+type RegistrationError = diag.Error
 
 // Pool holds credentials grouped by normalized host.
 type Pool struct {
@@ -117,7 +112,7 @@ func (p *Pool) Add(host string, credential Credential) error {
 			if err != nil {
 				return err
 			}
-			return &RegistrationError{Finding: finding}
+			return &diag.Error{Finding: finding}
 		}
 	}
 	hp.credentials = append(hp.credentials, credential)

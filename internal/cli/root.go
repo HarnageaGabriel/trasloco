@@ -13,6 +13,7 @@ import (
 
 	"github.com/HarnageaGabriel/trasloco/internal/config"
 	"github.com/HarnageaGabriel/trasloco/internal/logging"
+	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
 // Output modes accepted by --output.
@@ -26,6 +27,8 @@ const annotationNeedsConfig = "trasloco/needs-config"
 
 // IO bundles the process streams and environment so commands stay testable.
 type IO struct {
+	// Redactor belongs to this invocation and is shared with logs and diagnostics.
+	Redactor *redact.Redactor
 	// Out receives command results.
 	Out io.Writer
 	// Err receives diagnostics and logs. Never stdout.
@@ -50,6 +53,9 @@ type app struct {
 
 // NewRootCmd builds the root command and its subcommands.
 func NewRootCmd(streams IO) *cobra.Command {
+	if streams.Redactor == nil {
+		streams.Redactor = redact.New()
+	}
 	if streams.Getenv == nil {
 		streams.Getenv = os.LookupEnv
 	}
@@ -87,6 +93,12 @@ func NewRootCmd(streams IO) *cobra.Command {
 // Execute runs the CLI and returns the process exit code. Errors are printed
 // to streams.Err.
 func Execute(ctx context.Context, args []string, streams IO) int {
+	if streams.Redactor == nil {
+		streams.Redactor = redact.New()
+	}
+	if err := ctx.Err(); err != nil {
+		return CodeFor(err)
+	}
 	root := NewRootCmd(streams)
 	root.SetArgs(args)
 	err := root.ExecuteContext(ctx)
@@ -98,7 +110,7 @@ func Execute(ctx context.Context, args []string, streams IO) int {
 		err = usageError(err)
 	}
 	if msg := err.Error(); msg != "" {
-		_, _ = fmt.Fprintf(streams.Err, "trasloco: %s\n", msg)
+		_, _ = fmt.Fprintf(streams.Err, "trasloco: %s\n", streams.Redactor.Redact(msg))
 	}
 	return CodeFor(err)
 }
@@ -131,7 +143,7 @@ func (a *app) prepare(cmd *cobra.Command) error {
 		return usageError(err)
 	}
 	envFormat, _ := a.io.Getenv("TRASLOCO_LOG_FORMAT")
-	a.logger = logging.New(a.io.Err, lvl, logging.ResolveFormat(a.output, envFormat))
+	a.logger = logging.New(a.io.Err, lvl, logging.ResolveFormat(a.output, envFormat), a.io.Redactor)
 
 	if cmd.Annotations[annotationNeedsConfig] != "true" {
 		return nil

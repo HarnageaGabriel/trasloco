@@ -3,19 +3,19 @@ package event
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
+	"github.com/HarnageaGabriel/trasloco/internal/diag"
 	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
 // ErrRedaction means an event could not be proven safe for output.
-var ErrRedaction = errors.New("event redaction failed: TRL-SECRET-0004")
+var ErrRedaction = &diag.Error{Finding: diag.MustNew("TRL-SECRET-0004")}
 
 // Sink consumes serialized, sequenced, redacted events.
 type Sink interface {
@@ -30,6 +30,7 @@ type queueItem struct {
 
 // Bus fans events out at one serialization boundary.
 type Bus struct {
+	clock    clock.Clock
 	runID    string
 	redactor *redact.Redactor
 	sinks    []Sink
@@ -48,6 +49,14 @@ type Bus struct {
 
 // NewBus starts a bus. Buffer must be positive.
 func NewBus(runID string, redactor *redact.Redactor, buffer int, sinks ...Sink) (*Bus, error) {
+	return NewBusWithClock(runID, redactor, buffer, clock.Real{}, sinks...)
+}
+
+// NewBusWithClock starts a bus using the invocation clock.
+func NewBusWithClock(runID string, redactor *redact.Redactor, buffer int, c clock.Clock, sinks ...Sink) (*Bus, error) {
+	if c == nil {
+		c = clock.Real{}
+	}
 	if runID == "" {
 		return nil, fmt.Errorf("run ID is required")
 	}
@@ -58,7 +67,7 @@ func NewBus(runID string, redactor *redact.Redactor, buffer int, sinks ...Sink) 
 		redactor = redact.New()
 	}
 	b := &Bus{
-		runID: runID, redactor: redactor, sinks: append([]Sink(nil), sinks...),
+		clock: c, runID: runID, redactor: redactor, sinks: append([]Sink(nil), sinks...),
 		queue: make(chan queueItem, buffer), pending: make(map[string]queueItem), done: make(chan struct{}),
 	}
 	go b.run()
@@ -80,7 +89,7 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 	event.Sequence = 0
 	event.RunID = b.runID
 	if event.Time.IsZero() {
-		event.Time = time.Now().UTC()
+		event.Time = b.clock.Now().UTC()
 	} else {
 		event.Time = event.Time.UTC()
 	}
