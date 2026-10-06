@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HarnageaGabriel/trasloco/schemas/config/v1.schema.json",
+  "title": "trasloco configuration (version 1)",
+  "description": "Configuration file for trasloco. Secrets are never literal values: only references to environment variables (*Env) or files (*File) are accepted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": { "const": 1, "description": "Configuration schema version." },
+    "source": { "$ref": "#/$defs/endpoint" },
+    "target": { "$ref": "#/$defs/target" },
+    "conversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["strict", "best-effort"] },
+        "onUnsupported": { "enum": ["fail", "skip", "stub"] }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actionPinning": { "enum": ["sha", "tag", "none"] },
+        "allowedActionOwners": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "maxPermissions": {
+          "type": "object",
+          "additionalProperties": { "enum": ["none", "read", "write"] }
+        },
+        "delivery": { "enum": ["atomic-commit", "branch-pr"] }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/secretSource" }
+        }
+      }
+    },
+    "repoContent": { "enum": ["none", "native-mirror", "ado-import", "gei"] },
+    "topology": { "enum": ["github-hosted", "azure-repos"] },
+    "identities": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the identity mapping file."
+    },
+    "credentials": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/credential" }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": { "type": "string", "minLength": 1 },
+        "encryptCache": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "envName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Name of an environment variable."
+    },
+    "platform": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform"],
+      "properties": {
+        "platform": { "$ref": "#/$defs/platform" },
+        "url": { "type": "string", "minLength": 1 },
+        "select": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "auth": { "$ref": "#/$defs/auth" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform"],
+      "properties": {
+        "platform": { "$ref": "#/$defs/platform" },
+        "url": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "auth": { "$ref": "#/$defs/auth" },
+        "repoMap": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "enum": ["token", "github-app", "client-credentials", "oidc"] },
+        "tokenEnv": { "$ref": "#/$defs/envName" },
+        "tokenFile": { "type": "string", "minLength": 1 },
+        "appId": { "type": "string", "minLength": 1 },
+        "installationId": { "type": "string", "minLength": 1 },
+        "privateKeyEnv": { "$ref": "#/$defs/envName" },
+        "privateKeyFile": { "type": "string", "minLength": 1 },
+        "clientId": { "type": "string", "minLength": 1 },
+        "clientSecretEnv": { "$ref": "#/$defs/envName" },
+        "clientSecretFile": { "type": "string", "minLength": 1 },
+        "tenantId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "secretSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["env", "file"] },
+        "prefix": { "type": "string" },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "auth"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "auth": { "$ref": "#/$defs/auth" }
+      }
+    }
+  }
+}

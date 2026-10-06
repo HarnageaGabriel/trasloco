@@ -1,0 +1,30 @@
+name: Catalog mapping request
+description: Request a publicly documented task or action mapping
+title: "catalog: "
+labels: [catalog]
+body:
+  - type: input
+    id: source
+    attributes:
+      label: Source construct
+      placeholder: Platform and task/action identifier
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Desired target construct
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Public documentation URL
+      description: Required clean-room provenance for the future `source:` field.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal public example
+      description: Do not include private or customer-owned material.

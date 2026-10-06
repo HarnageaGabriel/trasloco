@@ -1,0 +1,30 @@
+# Text version.
+trasloco version
+stdout '^trasloco dev \(commit unknown, built unknown\)$'
+! stderr .
+
+# JSON version.
+trasloco --output json version
+stdout '"version": "dev"'
+stdout '"commit": "unknown"'
+! stderr .
+
+# Unknown flags are usage errors.
+! trasloco --unknown
+stderr '^trasloco: unknown flag: --unknown$'
+
+# Registered command reports its implementation status.
+! trasloco init
+stderr '^trasloco: trasloco init: not implemented yet \(trasloco is pre-alpha\)$'
+
+# Invalid configuration includes the field path.
+! trasloco --config invalid.yaml audit
+stderr 'source.auth.token'
+
+-- invalid.yaml --
+version: 1
+source:
+  platform: github
+  auth:
+    method: token
+    token: forbidden

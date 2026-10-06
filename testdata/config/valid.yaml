@@ -1,0 +1,40 @@
+version: 1
+source:
+  platform: azure-devops
+  url: https://dev.azure.com/example
+  select: [from-file]
+  auth:
+    method: token
+    tokenEnv: AZURE_DEVOPS_TOKEN
+target:
+  platform: github
+  url: https://github.com
+  owner: example
+  auth:
+    method: token
+    tokenFile: /run/secrets/github-token
+  repoMap:
+    old-repo: new-repo
+conversion:
+  mode: best-effort
+  onUnsupported: stub
+policy:
+  actionPinning: sha
+  allowedActionOwners: [actions]
+  maxPermissions:
+    contents: read
+  delivery: branch-pr
+secrets:
+  from:
+    - kind: env
+      prefix: TRASLOCO_SECRET_
+repoContent: native-mirror
+topology: github-hosted
+identities: identities.yaml
+credentials:
+  - name: fallback
+    auth:
+      method: oidc
+output:
+  dir: file-output
+  encryptCache: true
