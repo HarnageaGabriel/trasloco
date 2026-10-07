@@ -292,7 +292,7 @@ func (e *evaluator) counter(call *Call, args []Value) (Value, error) {
 		if e.ctx.Err() != nil {
 			return nil, e.ctx.Err()
 		}
-		return nil, fmt.Errorf("counter: %w", err)
+		return nil, e.failure(call, "counter: "+err.Error())
 	}
 	return integer(value), nil
 }
@@ -317,7 +317,10 @@ func (e *evaluator) status(call *Call, name string, args []Value) (Value, error)
 	}
 	value, err := e.options.Status.Status(e.ctx, name, names)
 	if err != nil {
-		return nil, err
+		if e.ctx.Err() != nil {
+			return nil, e.ctx.Err()
+		}
+		return nil, e.failure(call, expressionErrorMessage(err))
 	}
 	return Bool(value), nil
 }

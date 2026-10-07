@@ -416,9 +416,12 @@ func exprSources(mapper *yamlx.ScalarMapper, node expr.Expr, base int, fallback 
 func (p *parser) exprError(n *yamlx.Node, mapper *yamlx.ScalarMapper, err error, base int) {
 	offset := 0
 	message := err.Error()
-	var syntax *expr.SyntaxError
-	if errors.As(err, &syntax) {
-		offset, message = syntax.Offset, syntax.Msg
+	var expressionErr *diag.Error
+	if errors.As(err, &expressionErr) {
+		message = expressionErr.Finding.Message
+		if expressionErr.Finding.Source != nil {
+			offset = expressionErr.Finding.Source.Offset
+		}
 	}
 	where := n.Position()
 	if mapper != nil {

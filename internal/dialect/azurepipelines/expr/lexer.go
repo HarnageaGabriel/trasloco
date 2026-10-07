@@ -44,16 +44,6 @@ type Token struct {
 	Span Span
 }
 
-// SyntaxError reports a byte offset and stable diagnostic code.
-type SyntaxError struct {
-	Offset int
-	Msg    string
-}
-
-func (e *SyntaxError) Error() string {
-	return fmt.Sprintf("TRL-EXPR-0001 at byte %d: %s", e.Offset, e.Msg)
-}
-
 // Lex tokenizes one unwrapped expression.
 func Lex(input string) ([]Token, error) {
 	if utf16Length(input) > MaxExpressionLength {
@@ -199,5 +189,3 @@ done:
 
 func isIdentStart(r rune) bool    { return r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' }
 func isIdentContinue(r rune) bool { return isIdentStart(r) || r >= '0' && r <= '9' }
-
-func syntaxError(offset int, msg string) error { return &SyntaxError{Offset: offset, Msg: msg} }

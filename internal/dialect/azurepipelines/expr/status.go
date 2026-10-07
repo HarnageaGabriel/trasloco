@@ -2,7 +2,6 @@ package expr
 
 import (
 	"context"
-	"fmt"
 )
 
 // StatusSnapshot evaluates status predicates over the caller's dependency snapshot.
@@ -21,22 +20,22 @@ func (s StatusSnapshot) Status(ctx context.Context, name string, names []string)
 	}
 	if name == "always" {
 		if len(names) > 0 {
-			return false, fmt.Errorf("always takes no job names")
+			return false, expressionError("TRL-EXPR-0001", Span{}, "always takes no job names")
 		}
 		return true, nil
 	}
 	if name == "canceled" {
 		if len(names) > 0 {
-			return false, fmt.Errorf("canceled takes no job names")
+			return false, expressionError("TRL-EXPR-0001", Span{}, "canceled takes no job names")
 		}
 		return s.Canceled, nil
 	}
 	if name != "failed" && name != "succeeded" && name != "succeededorfailed" {
-		return false, fmt.Errorf("unknown status function")
+		return false, expressionError("TRL-EXPR-0001", Span{}, "unknown status function")
 	}
 	if s.Scope == "step" {
 		if len(names) > 0 {
-			return false, fmt.Errorf("job names unavailable in step conditions")
+			return false, expressionError("TRL-EXPR-0001", Span{}, "job names unavailable in step conditions")
 		}
 		return statusMatches(name, s.JobStatus), nil
 	}
@@ -48,7 +47,7 @@ func (s StatusSnapshot) Status(ctx context.Context, name string, names []string)
 		for _, job := range names {
 			v, ok := s.Dependencies.Lookup(job)
 			if !ok {
-				return false, fmt.Errorf("unknown dependency")
+				return false, expressionError("TRL-EXPR-0001", Span{}, "unknown dependency")
 			}
 			jobs = append(jobs, v)
 		}
