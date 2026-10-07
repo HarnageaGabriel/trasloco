@@ -46,6 +46,7 @@ Mandatory for every contributor, human or AI agent. Reviews check them. Decision
 - Pin wrappers around libraries without semver guarantees (actionlint, go-github).
 
 ## AI agent rules
+- Never use `git stash` (the stash is shared by every worktree; a pop can restore another agent's work into yours). Set work aside with a temporary WIP commit instead.
 - Stay inside the task scope; report spec inconsistencies instead of editing specs silently.
 - Mark anything not verified against an official source with `VERIFY:`; each one becomes a tracked issue.
 
