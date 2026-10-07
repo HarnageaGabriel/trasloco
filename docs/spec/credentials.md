@@ -10,7 +10,7 @@ The pool key is `(normalized host, targetScope, actor)`. At most one credential 
 
 `actor` identifies the authenticated human, service principal, GitHub App installation identity, or equivalent provider actor; token text, token hash, and arbitrary configuration labels are invalid actor keys. `targetScope` identifies the rate-limit target, such as an organization, tenant, project collection, or installation. Credential ID MAY serve as `actor` only when configuration guarantees a one-to-one mapping to the provider actor. `ScopeID` MAY serve as `targetScope` only when it denotes that target rather than a token-specific cache partition.
 
-Hosts are lower-cased, trailing dots are removed, and URL/port syntax is normalized before comparison. Actor and target-scope keys are trimmed and otherwise compared exactly. Diagnostics and reports MUST NOT include token material or personal identifiers; the violation diagnostic may include only normalized host and non-secret target-scope key.
+Hosts are lower-cased, trailing dots are removed, and URL/port syntax is normalized before comparison. Actor keys are trimmed and compared case-insensitively, matching platform identity normalization; target-scope keys are trimmed and compared exactly. Configuration MUST provide both `actor` and `targetScope` for every pooled credential. Diagnostics and reports MUST NOT include token material or personal identifiers; the violation diagnostic may include only normalized host and non-secret target-scope key.
 
 ## Test vectors
 
@@ -22,3 +22,4 @@ Hosts are lower-cased, trailing dots are removed, and URL/port syntax is normali
 | CRD-004 | actor A, same host, org X and org Y | accepted as distinct target scopes |
 | CRD-005 | same actor/scope under `https://API.EXAMPLE.COM` and `api.example.com.` | reject second after host normalization; `TRL-AUTH-0006` |
 | CRD-006 | token value used as actor key | invalid configuration; token MUST NOT enter diagnostics |
+| CRD-007 | actors `Octocat` and `octocat`, same host and scope | reject second; `TRL-AUTH-0006` |

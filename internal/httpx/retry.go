@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/HarnageaGabriel/trasloco/internal/clock"
+	"github.com/HarnageaGabriel/trasloco/internal/ratelimit"
 )
 
 type requestFlagKey uint8
@@ -52,26 +53,28 @@ func contentCreationFrom(ctx context.Context) bool {
 
 // RetryOptions bounds retry amplification.
 type RetryOptions struct {
-	Clock        clock.Clock
-	Observer     Observer
-	Policy       RateLimitPolicy
-	MaxAttempts  int
-	MaxTotalWait time.Duration
-	BaseWait     time.Duration
-	BlockedUntil func(*http.Request) time.Time
-	Jitter       func(time.Duration) time.Duration
+	Clock         clock.Clock
+	Observer      Observer
+	Policy        RateLimitPolicy
+	MaxAttempts   int
+	MaxTotalWait  time.Duration
+	MaxServerWait time.Duration
+	BaseWait      time.Duration
+	BlockedUntil  func(*http.Request) time.Time
+	Jitter        func(time.Duration) time.Duration
 }
 
 type retryTransport struct {
-	next         http.RoundTripper
-	clock        clock.Clock
-	observer     Observer
-	policy       RateLimitPolicy
-	maxAttempts  int
-	maxTotalWait time.Duration
-	baseWait     time.Duration
-	blockedUntil func(*http.Request) time.Time
-	jitter       func(time.Duration) time.Duration
+	next          http.RoundTripper
+	clock         clock.Clock
+	observer      Observer
+	policy        RateLimitPolicy
+	maxAttempts   int
+	maxTotalWait  time.Duration
+	maxServerWait time.Duration
+	baseWait      time.Duration
+	blockedUntil  func(*http.Request) time.Time
+	jitter        func(time.Duration) time.Duration
 }
 
 func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTripper {
@@ -90,6 +93,9 @@ func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTrip
 	if opts.MaxTotalWait <= 0 {
 		opts.MaxTotalWait = 3 * time.Minute
 	}
+	if opts.MaxServerWait <= 0 {
+		opts.MaxServerWait = ratelimit.DefaultMaxServerWait
+	}
 	if opts.BaseWait <= 0 {
 		opts.BaseWait = 250 * time.Millisecond
 	}
@@ -99,7 +105,7 @@ func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTrip
 	}
 	return &retryTransport{
 		next: next, clock: opts.Clock, observer: opts.Observer, policy: opts.Policy,
-		maxAttempts: opts.MaxAttempts, maxTotalWait: opts.MaxTotalWait, baseWait: opts.BaseWait,
+		maxAttempts: opts.MaxAttempts, maxTotalWait: opts.MaxTotalWait, maxServerWait: opts.MaxServerWait, baseWait: opts.BaseWait,
 		blockedUntil: opts.BlockedUntil, jitter: opts.Jitter,
 	}
 }
@@ -183,6 +189,7 @@ func (transport *retryTransport) retryWait(response *http.Response, attempt int)
 	}
 	now := transport.clock.Now()
 	budget := transport.policy.Parse(response, now)
+	budget, _ = ratelimit.CapServerWait(budget, now, transport.maxServerWait)
 	wait = max(wait, budget.RetryAfter, budget.Delay)
 	if budget.Remaining == 0 {
 		wait = max(wait, budget.Reset.Sub(now))

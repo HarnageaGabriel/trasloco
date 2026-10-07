@@ -9,13 +9,17 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/HarnageaGabriel/trasloco/internal/clock"
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
 	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
-const maxPendingKeys = 1024
+const (
+	maxPendingKeys     = 1024
+	defaultSinkTimeout = 30 * time.Second
+)
 
 // ErrRedaction returns a fresh finding when an event cannot be proven safe.
 // Use errors.As and Finding.Code to identify it, rather than pointer identity.
@@ -60,6 +64,7 @@ type Options struct {
 	Buffer      int
 	Clock       clock.Clock
 	Diagnostics *diag.Collector
+	SinkTimeout time.Duration
 }
 
 type queueItem struct {
@@ -74,6 +79,7 @@ type Bus struct {
 	runID       string
 	redactor    *redact.Redactor
 	diagnostics *diag.Collector
+	sinkTimeout time.Duration
 	sinks       []Sink
 	queue       chan queueItem
 
@@ -117,9 +123,12 @@ func NewBusWithOptions(options Options, sinks ...Sink) (*Bus, error) {
 	if options.Redactor == nil {
 		options.Redactor = redact.New()
 	}
+	if options.SinkTimeout <= 0 {
+		options.SinkTimeout = defaultSinkTimeout
+	}
 	b := &Bus{
 		clock: options.Clock, runID: options.RunID, redactor: options.Redactor,
-		diagnostics: options.Diagnostics, sinks: append([]Sink(nil), sinks...),
+		diagnostics: options.Diagnostics, sinkTimeout: options.SinkTimeout, sinks: append([]Sink(nil), sinks...),
 		queue: make(chan queueItem, options.Buffer), pending: make(map[string]queueItem), done: make(chan struct{}),
 	}
 	go b.run()
@@ -149,7 +158,7 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 	if err != nil {
 		return err
 	}
-	item := queueItem{ctx: ctx, event: clean}
+	item := queueItem{ctx: context.WithoutCancel(ctx), event: clean}
 	b.enqueueMu.Lock()
 	defer b.enqueueMu.Unlock()
 	if key, ok := coalescingKey(clean); ok {
@@ -267,7 +276,10 @@ func (b *Bus) deliver(ctx context.Context, event Event, sequence uint64, validat
 	var diagnostics []diag.Diagnostic
 	for index := 0; index < len(b.sinks); {
 		sink := b.sinks[index]
-		if err := sink.Handle(ctx, event); err != nil {
+		sinkCtx, cancel := context.WithTimeout(ctx, b.sinkTimeout)
+		err := sink.Handle(sinkCtx, event)
+		cancel()
+		if err != nil {
 			if _, required := sink.(FailClosed); required {
 				b.setError(fmt.Errorf("event sink: %w", err))
 				return sequence

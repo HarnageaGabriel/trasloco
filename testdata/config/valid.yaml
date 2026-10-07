@@ -33,6 +33,8 @@ topology: github-hosted
 identities: identities.yaml
 credentials:
   - name: fallback
+    actor: fallback-bot
+    targetScope: github.com/example
     auth:
       method: oidc
 output:

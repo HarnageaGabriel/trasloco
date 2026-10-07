@@ -299,6 +299,22 @@ type closeErrorSink struct{ error }
 func (closeErrorSink) Handle(context.Context, Event) error { return nil }
 func (s closeErrorSink) Close() error                      { return s.error }
 
+type contextSink struct {
+	started     chan struct{}
+	release     chan struct{}
+	result      chan error
+	hasDeadline chan bool
+}
+
+func (s *contextSink) Handle(ctx context.Context, _ Event) error {
+	close(s.started)
+	_, ok := ctx.Deadline()
+	s.hasDeadline <- ok
+	<-s.release
+	s.result <- ctx.Err()
+	return nil
+}
+
 func (s *recordingSink) Handle(_ context.Context, event Event) error {
 	if s.err != nil {
 		return s.err
@@ -358,6 +374,34 @@ func TestBusFailClosed(t *testing.T) {
 	}
 	if err := bus.Close(t.Context()); err == nil {
 		t.Fatal("second close lost fail-closed error")
+	}
+}
+
+func TestBusDetachesSinkContextAndOwnsDeadline(t *testing.T) {
+	sink := &contextSink{
+		started: make(chan struct{}), release: make(chan struct{}),
+		result: make(chan error, 1), hasDeadline: make(chan bool, 1),
+	}
+	bus, err := NewBusWithOptions(Options{RunID: "run", Buffer: 1, SinkTimeout: time.Minute}, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.WithValue(t.Context(), sinkCtxKey{}, "retained"))
+	start, _ := New(RunStarted, RunStartedPayload{Command: "plan", ToolVersion: "v", ConfigDigest: "d"})
+	if err := bus.Publish(ctx, start); err != nil {
+		t.Fatal(err)
+	}
+	<-sink.started
+	cancel()
+	close(sink.release)
+	if hasDeadline := <-sink.hasDeadline; !hasDeadline {
+		t.Fatal("sink context has no bus-owned deadline")
+	}
+	if err := <-sink.result; err != nil {
+		t.Fatalf("sink context inherited publisher cancellation: %v", err)
+	}
+	if err := bus.Close(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -560,3 +604,5 @@ func BenchmarkSanitizeEventRedaction(b *testing.B) {
 		}
 	}
 }
+
+type sinkCtxKey struct{}

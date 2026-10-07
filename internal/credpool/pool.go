@@ -105,7 +105,7 @@ func (p *Pool) Add(host string, credential Credential) error {
 		if existing.ID == credential.ID {
 			return errors.New("duplicate credential ID for host")
 		}
-		if existing.Actor == credential.Actor && existing.TargetScope == credential.TargetScope {
+		if strings.EqualFold(existing.Actor, credential.Actor) && existing.TargetScope == credential.TargetScope {
 			finding, err := diag.New("TRL-AUTH-0006", diag.WithParams(map[string]any{
 				"host": host, "targetScope": credential.TargetScope,
 			}))

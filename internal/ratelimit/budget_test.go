@@ -145,10 +145,13 @@ func TestPolicyAliasesAndMalformedHeaders(t *testing.T) {
 	for _, tc := range []struct {
 		value string
 		want  time.Duration
-	}{{"", 0}, {"-1", 0}, {"bad", 0}, {now.Add(time.Minute).UTC().Format(http.TimeFormat), time.Minute}, {"1.5", 1500 * time.Millisecond}} {
+	}{{"", 0}, {"-1", 0}, {"NaN", 0}, {"Inf", 0}, {"-Inf", 0}, {"bad", 0}, {now.Add(time.Minute).UTC().Format(http.TimeFormat), time.Minute}, {"1.5", 1500 * time.Millisecond}} {
 		if got := parseRetryAfter(tc.value, now); got != tc.want {
 			t.Fatalf("%s: %v", tc.value, got)
 		}
+	}
+	if got := parseRetryAfter("1e30", now); got != time.Duration(1<<63-1) {
+		t.Fatalf("huge Retry-After = %v", got)
 	}
 	realClock := clock.Real{}
 	if realClock.Now().IsZero() {
