@@ -52,6 +52,7 @@ type Options struct {
 	MaxConcurrency int
 	MaxAttempts    int
 	MaxTotalWait   time.Duration
+	MaxServerWait  time.Duration
 	Jitter         func(time.Duration) time.Duration
 }
 
@@ -82,13 +83,13 @@ func NewTransport(opts Options) http.RoundTripper {
 	if limiter == nil {
 		limiter = NewLimiter(LimiterOptions{
 			Clock: opts.Clock, OnThrottle: opts.Observer.OnThrottle, Policy: opts.Policy,
-			MinConcurrency: opts.MinConcurrency, MaxConcurrency: opts.MaxConcurrency,
+			MinConcurrency: opts.MinConcurrency, MaxConcurrency: opts.MaxConcurrency, MaxServerWait: opts.MaxServerWait,
 		})
 	}
 	var chain http.RoundTripper = &limiterTransport{next: base, limiter: limiter, policy: opts.Policy}
 	chain = newRetryTransport(chain, RetryOptions{
 		Clock: opts.Clock, Observer: opts.Observer, Policy: opts.Policy, Jitter: opts.Jitter,
-		MaxAttempts: opts.MaxAttempts, MaxTotalWait: opts.MaxTotalWait,
+		MaxAttempts: opts.MaxAttempts, MaxTotalWait: opts.MaxTotalWait, MaxServerWait: opts.MaxServerWait,
 		BlockedUntil: func(request *http.Request) time.Time {
 			return limiter.BlockedUntil(limitKey(request.URL.Host, credentialFrom(request.Context()).ID))
 		},

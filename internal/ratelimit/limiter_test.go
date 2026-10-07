@@ -82,3 +82,33 @@ func TestLimiterHeaderPacingUsesInjectedClock(t *testing.T) {
 		t.Fatalf("clock sleeps = %v, want [2s]", got)
 	}
 }
+
+func TestLimiterCapsServerControlledWait(t *testing.T) {
+	clock := newTestClock()
+	var observation ThrottleObservation
+	limiter := NewLimiter(LimiterOptions{
+		Clock: clock, Policy: AzureDevOpsPolicy{}, MaxServerWait: 2 * time.Second,
+		OnThrottle: func(got ThrottleObservation) { observation = got },
+	})
+	key := Key("example.com", "one")
+	limiter.Release(key, &http.Response{StatusCode: 429, Header: http.Header{
+		"Retry-After":       {"1e30"},
+		"X-RateLimit-Delay": {"NaN"},
+	}})
+	if got, want := limiter.BlockedUntil(key), clock.Now().Add(2*time.Second); !got.Equal(want) {
+		t.Fatalf("blocked until = %v, want %v", got, want)
+	}
+	if !observation.WaitCapped || observation.RequestedWait != time.Duration(1<<63-1) || observation.MaxWait != 2*time.Second {
+		t.Fatalf("observation = %+v", observation)
+	}
+}
+
+func TestLimiterDefaultServerWaitCap(t *testing.T) {
+	clock := newTestClock()
+	limiter := NewLimiter(LimiterOptions{Clock: clock, Policy: GenericPolicy{}})
+	key := Key("example.com", "one")
+	limiter.Release(key, &http.Response{StatusCode: 429, Header: http.Header{"Retry-After": {"3600"}}})
+	if got, want := limiter.BlockedUntil(key), clock.Now().Add(DefaultMaxServerWait); !got.Equal(want) {
+		t.Fatalf("blocked until = %v, want %v", got, want)
+	}
+}

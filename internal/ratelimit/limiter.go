@@ -19,6 +19,7 @@ type LimiterOptions struct {
 	Policy         Policy
 	MinConcurrency int
 	MaxConcurrency int
+	MaxServerWait  time.Duration
 	Jitter         func(time.Duration) time.Duration
 }
 
@@ -31,6 +32,7 @@ type Limiter struct {
 	policy     Policy
 	min        int
 	max        int
+	maxWait    time.Duration
 }
 
 type limitState struct {
@@ -62,9 +64,12 @@ func NewLimiter(opts LimiterOptions) *Limiter {
 	if opts.MaxConcurrency < opts.MinConcurrency {
 		opts.MaxConcurrency = max(8, opts.MinConcurrency)
 	}
+	if opts.MaxServerWait <= 0 {
+		opts.MaxServerWait = DefaultMaxServerWait
+	}
 	limiter := &Limiter{
 		states: make(map[string]*limitState), clock: opts.Clock, onThrottle: opts.OnThrottle,
-		policy: opts.Policy, min: opts.MinConcurrency, max: opts.MaxConcurrency,
+		policy: opts.Policy, min: opts.MinConcurrency, max: opts.MaxConcurrency, maxWait: opts.MaxServerWait,
 	}
 	return limiter
 }
@@ -212,6 +217,7 @@ func (l *Limiter) Release(key string, response *http.Response) Budget {
 }
 
 func (l *Limiter) update(key string, budget Budget, response *http.Response, now time.Time, release bool) {
+	budget, requestedWait := CapServerWait(budget, now, l.maxWait)
 	l.mu.Lock()
 	state := l.state(key)
 	if release && state.active > 0 {
@@ -266,6 +272,7 @@ func (l *Limiter) update(key string, budget Budget, response *http.Response, now
 		host, credentialID := splitLimitKey(key)
 		l.onThrottle(ThrottleObservation{
 			Host: host, CredentialID: credentialID, Budget: budget, Concurrency: concurrency,
+			WaitCapped: requestedWait > 0, RequestedWait: requestedWait, MaxWait: l.maxWait,
 		})
 	}
 }
@@ -326,10 +333,13 @@ type pointCharge struct {
 
 // ThrottleObservation describes server pressure without authentication data.
 type ThrottleObservation struct {
-	Host         string
-	CredentialID string
-	Budget       Budget
-	Concurrency  int
+	Host          string
+	CredentialID  string
+	Budget        Budget
+	Concurrency   int
+	WaitCapped    bool
+	RequestedWait time.Duration
+	MaxWait       time.Duration
 }
 
 // BlockedUntil returns the server's earliest permitted next attempt.
