@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HarnageaGabriel/trasloco/internal/diag"
 	"github.com/google/go-cmp/cmp"
 )
 
-type vector struct{ id, phase, input, context, expected, basis, source string }
+type vector struct{ id, phase, input, context, expected, basis, source, code string }
 
 func TestSpecVectors(t *testing.T) {
 	vectors := loadVectors(t)
@@ -73,12 +74,20 @@ func loadVectors(t testing.TB) []vector {
 			continue
 		}
 		cells := tableCells(line)
-		if len(cells) != 9 {
+		if len(cells) != 10 {
 			t.Fatalf("malformed vector: %s", line)
 		}
-		v := vector{cells[1], cells[2], cells[3], cells[4], cells[5], cells[6], cells[7]}
+		v := vector{cells[1], cells[2], cells[3], cells[4], cells[5], cells[6], cells[7], cells[8]}
 		if v.source == "" || v.basis != "docs" && v.basis != "reference-impl" && v.basis != "inferred" {
 			t.Fatalf("unsourced vector %s", v.id)
+		}
+		if strings.HasPrefix(v.expected, "error:") != (v.code != "-") {
+			t.Fatalf("%s: error/code mismatch", v.id)
+		}
+		if v.code != "-" {
+			if _, registered := diag.Lookup(v.code); !registered {
+				t.Fatalf("%s: unregistered code %s", v.id, v.code)
+			}
 		}
 		vectors = append(vectors, v)
 	}
@@ -197,6 +206,22 @@ func runVector(t *testing.T, v vector) {
 		if err == nil {
 			t.Fatalf("wanted %s, got %v", v.expected, got)
 		}
+		var expressionErr *diag.Error
+		if !errors.As(err, &expressionErr) {
+			t.Fatalf("error type = %T, want *diag.Error: %v", err, err)
+		}
+		if expressionErr.Finding.Code != v.code {
+			t.Fatalf("error code = %s, want %s: %v", expressionErr.Finding.Code, v.code, err)
+		}
+		if want, ok := map[string]Span{
+			"EXPRV-430": {Start: 2, End: 2},
+			"EXPRV-444": {Start: 0, End: 24},
+		}[v.id]; ok {
+			got, found := expressionErrorSpan(err)
+			if !found || got != want {
+				t.Fatalf("error span = %v, %v; want %v", got, found, want)
+			}
+		}
 		return
 	}
 	if err != nil {
@@ -252,6 +277,25 @@ func runVector(t *testing.T, v vector) {
 		}
 		if diff := cmp.Diff(gotJSON, runtimeJSON); diff != "" {
 			t.Fatalf("runtime differs: %s", diff)
+		}
+	}
+}
+
+func TestEvaluationMemoryUsesShallowObjectsAndReleasesNestingLevels(t *testing.T) {
+	large := String(strings.Repeat("x", 300000))
+	parameters := &Object{Properties: []Property{{Name: "large", Value: large}}}
+	values := &Object{Properties: []Property{{Name: "parameters", Value: parameters}}}
+
+	for _, input := range []string{
+		"parameters",
+		"and(eq(parameters.large, parameters.large), eq(parameters.large, parameters.large))",
+	} {
+		node, err := Parse(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Eval(context.Background(), node, values, EvalOptions{Phase: PhaseCompile}); err != nil {
+			t.Fatalf("%s: %v", input, err)
 		}
 	}
 }
