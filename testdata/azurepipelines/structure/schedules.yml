@@ -1,0 +1,20 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/schedules-cron
+# expect: none
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily midnight build
+  branches:
+    include:
+    - main
+    - releases/*
+    exclude:
+    - releases/ancient/*
+- cron: '0 12 * * 0'
+  displayName: Weekly Sunday build
+  branches:
+    include:
+    - releases/*
+  always: true
+  batch: true
+steps:
+- script: echo scheduled

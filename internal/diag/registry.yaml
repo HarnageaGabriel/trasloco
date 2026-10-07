@@ -439,6 +439,74 @@
                                  ]
                   },
                   {
+                      "code":  "TRL-PARSE-0011",
+                      "area":  "PARSE",
+                      "title":  "Required key is missing",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Add the required key at the reported position.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "key",
+                                     "context"
+                                 ]
+                  },
+                  {
+                      "code":  "TRL-PARSE-0012",
+                      "area":  "PARSE",
+                      "title":  "Value is not one of the allowed values",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use one of the documented values for this key.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "key",
+                                     "value",
+                                     "allowed"
+                                 ]
+                  },
+                  {
+                      "code":  "TRL-PARSE-0013",
+                      "area":  "PARSE",
+                      "title":  "Insertion directive is out of place",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Place elseif and else directly after an if or elseif directive, and give each directive a body.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "directive"
+                                 ]
+                  },
+                  {
+                      "code":  "TRL-PARSE-0014",
+                      "area":  "PARSE",
+                      "title":  "Mapping selects more than one alternative",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Keep exactly one selecting key, such as one step keyword or one pipeline shape.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "keys"
+                                 ]
+                  },
+                  {
+                      "code":  "TRL-PARSE-0015",
+                      "area":  "PARSE",
+                      "title":  "Task reference is malformed",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Write the task as Name@MajorVersion, Name@Major.Minor.Patch, or GUID@MajorVersion.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "reference"
+                                 ]
+                  },
+                  {
                       "code":  "TRL-EXPR-0001",
                       "area":  "EXPR",
                       "title":  "Expression syntax error",

@@ -1,0 +1,69 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task (and the sibling steps-* pages)
+# expect: none
+trigger:
+  branches:
+    include:
+    - main
+    - releases/*
+    exclude:
+    - releases/old
+  paths:
+    exclude:
+    - README.md
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: self
+  clean: true
+  fetchDepth: 1
+  persistCredentials: true
+- script: echo Hello world!
+  displayName: Say hello
+  workingDirectory: $(Build.SourcesDirectory)
+  failOnStderr: true
+  env:
+    name: Microsoft
+- bash: |
+    which bash
+    echo Hello $name
+  displayName: Multiline Bash script
+  condition: succeededOrFailed()
+- pwsh: Write-Host Hello $($env:name)
+  name: firstStep
+  errorActionPreference: stop
+  ignoreLASTEXITCODE: true
+- powershell: git nosuchcommand
+  continueOnError: true
+  enabled: false
+- task: VSBuild@1
+  displayName: Build
+  timeoutInMinutes: 120
+  retryCountOnTaskFailure: 2
+  target: host
+  inputs:
+    solution: '**\*.sln'
+    platform: $(buildPlatform)
+- task: 5e1e3830-fbfb-11e5-aab1-090c92bc4988@1
+  inputs:
+    versionSpec: '8.x'
+- task: GoTool@0.3.1
+- download: current
+  artifact: WebApp
+  patterns: '**/.js'
+- downloadBuild: Spaceworkz
+  artifact: drop
+  path: $(Pipeline.Workspace)/drop
+- getPackage: contoso
+  path: $(Pipeline.Workspace)/pkg
+- publish: $(Build.SourcesDirectory)/build
+  artifact: WebApp
+- template: steps/build.yml@templates
+  parameters:
+    config: release
+- script: echo in container
+  target:
+    container: node
+    commands: restricted
+    settableVariables:
+    - FOO
+    - BAR

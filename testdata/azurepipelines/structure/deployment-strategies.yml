@@ -1,0 +1,50 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-deployment-strategy
+# expect: none
+jobs:
+- deployment: DeployWeb
+  displayName: deploy Web App
+  pool:
+    vmImage: ubuntu-latest
+  environment: 'smarthotel-dev.bookings'
+  strategy:
+    runOnce:
+      preDeploy:
+        steps:
+        - script: echo initialize
+      deploy:
+        steps:
+        - script: echo my first deployment
+      routeTraffic:
+        steps:
+        - script: echo route
+      postRouteTraffic:
+        pool: server
+        steps:
+        - script: echo monitor
+      on:
+        failure:
+          steps:
+          - script: echo rollback
+        success:
+          steps:
+          - script: echo notify
+- deployment: Rolling
+  environment:
+    name: vmtest
+    resourceName: winVM2
+    resourceType: VirtualMachine
+    tags: web,prod
+  strategy:
+    rolling:
+      maxParallel: 2
+      deploy:
+        steps:
+        - script: echo rolling
+- deployment:
+  environment: smarthotel-dev
+  strategy:
+    canary:
+      increments: [10,20]
+      deploy:
+        steps:
+        - reviewApp: MainNamespace

@@ -1,0 +1,40 @@
+$ @ 3:1
+shape = steps
+schedules @ 4:1
+schedules[0] @ 4:3
+schedules[0].cron = 0 0 * * *
+schedules[0].cron @ 4:9
+schedules[0].displayName = Daily midnight build
+schedules[0].displayName @ 5:16
+schedules[0].branches @ 7:5
+schedules[0].branches.include @ 8:5
+schedules[0].branches.include[0] = main
+schedules[0].branches.include[0] @ 8:7
+schedules[0].branches.include[1] = releases/*
+schedules[0].branches.include[1] @ 9:7
+schedules[0].branches.exclude @ 11:5
+schedules[0].branches.exclude[0] = releases/ancient/*
+schedules[0].branches.exclude[0] @ 11:7
+schedules[1] @ 12:3
+schedules[1].cron = 0 12 * * 0
+schedules[1].cron @ 12:9
+schedules[1].displayName = Weekly Sunday build
+schedules[1].displayName @ 13:16
+schedules[1].branches @ 15:5
+schedules[1].branches.include @ 16:5
+schedules[1].branches.include[0] = releases/*
+schedules[1].branches.include[0] @ 16:7
+schedules[1].batch = true
+schedules[1].batch @ 18:10
+schedules[1].batch.val = true
+schedules[1].batch.known = true
+schedules[1].always = true
+schedules[1].always @ 17:11
+schedules[1].always.val = true
+schedules[1].always.known = true
+steps @ 20:1
+steps[0].type = ScriptStep
+steps[0] @ 20:3
+steps[0].kind = script
+steps[0].script = echo scheduled
+steps[0].script @ 20:11

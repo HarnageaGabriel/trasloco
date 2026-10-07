@@ -182,6 +182,11 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-PARSE-0008 | error | - | E | YAML anchors and aliases are not allowed | Remove the anchor or alias for this YAML dialect. |
 | TRL-PARSE-0009 | error | - | E | YAML merge keys are not allowed | Replace the merge key with explicit mapping entries. |
 | TRL-PARSE-0010 | error | - | E | YAML nesting depth limit exceeded | Reduce nesting or raise the trusted-input depth limit. |
+| TRL-PARSE-0011 | error | - | E | Required key is missing | Add the required key at the reported position. |
+| TRL-PARSE-0012 | error | - | E | Value is not one of the allowed values | Use one of the documented values for this key. |
+| TRL-PARSE-0013 | error | - | E | Insertion directive is out of place | Place elseif and else directly after an if or elseif directive, and give each directive a body. |
+| TRL-PARSE-0014 | error | - | E | Mapping selects more than one alternative | Keep exactly one selecting key, such as one step keyword or one pipeline shape. |
+| TRL-PARSE-0015 | error | - | E | Task reference is malformed | Write the task as Name@MajorVersion, Name@Major.Minor.Patch, or GUID@MajorVersion. |
 
 ### EXPR
 

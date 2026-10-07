@@ -1,0 +1,53 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/parameters-parameter
+# expect: none
+parameters:
+- name: image
+  displayName: Pool Image
+  type: string
+  default: ubuntu-latest
+  values:
+  - windows-latest
+  - ubuntu-latest
+  - macOS-latest
+- name: myNumber
+  type: number
+  default: 2
+  values:
+  - 1
+  - 2
+  - 4
+- name: myBoolean
+  type: boolean
+  default: true
+- name: myObject
+  type: object
+  default:
+    foo: FOO
+    things:
+    - one
+    - two
+    nested:
+      one: apple
+      count: 3
+- name: myStep
+  type: step
+  default:
+    script: echo my step
+- name: mySteplist
+  type: stepList
+  default:
+  - script: echo step one
+  - script: echo step two
+- name: myJobs
+  type: jobList
+  default: []
+- name: legacy
+  default: ''
+trigger: none
+extends:
+  template: start.yml@templates
+  parameters:
+    buildSteps:
+    - bash: echo Test
+      displayName: succeed
+    yesNo: false

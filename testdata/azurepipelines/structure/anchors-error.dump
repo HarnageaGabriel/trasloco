@@ -1,0 +1,16 @@
+$ @ 3:1
+shape = steps
+variables @ 4:3
+variables.form = map
+variables.map @ 4:3
+variables.map.shared = value
+variables.map.shared @ 4:11
+variables.map.shared.key @ 4:3
+steps @ 6:1
+steps[0].type = ScriptStep
+steps[0] @ 6:3
+steps[0].kind = script
+steps[0].script = echo
+steps[0].script @ 6:11
+steps[0].displayName = value
+steps[0].displayName @ 7:16
