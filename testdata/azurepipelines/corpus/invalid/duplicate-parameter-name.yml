@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
 # features: [parameters-string]
-# expect: diagnostics: [duplicate-name]
+# expect: diagnostics: [TRL-VAL-0008]
+# stage: validate
 parameters:
   - name: env
     type: string

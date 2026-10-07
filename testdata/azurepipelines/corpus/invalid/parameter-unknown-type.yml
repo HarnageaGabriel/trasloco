@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
 # features: [parameters-string]
-# expect: diagnostics: [bad-parameter-value]
+# expect: diagnostics: [TRL-PARSE-0012]
+# stage: parse
 parameters:
   - name: flavor
     type: integer

@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/deploy-to-existing-kubernetes-cluster.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Deploy to Azure Kubernetes Service
 # Build and push image to Azure Container Registry; Deploy to Azure Kubernetes Service
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker

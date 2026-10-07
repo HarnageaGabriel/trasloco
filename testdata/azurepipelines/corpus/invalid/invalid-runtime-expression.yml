@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
 # features: [runtime-expression, variables-map]
-# expect: diagnostics: [invalid-expression]
+# expect: diagnostics: [TRL-EXPR-0001]
+# stage: parse
 variables:
   broken: $[ eq(variables['Build.Reason'], 'Manual' ]
 

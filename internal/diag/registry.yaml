@@ -507,6 +507,20 @@
                                  ]
                   },
                   {
+                      "code":  "TRL-PARSE-0016",
+                      "area":  "PARSE",
+                      "title":  "Stage, job, or deployment identifier is malformed",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use letters, digits, and underscores, starting with a letter or underscore.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "params":  [
+                                     "kind",
+                                     "identifier"
+                                 ]
+                  },
+                  {
                       "code":  "TRL-EXPR-0001",
                       "area":  "EXPR",
                       "title":  "Expression syntax error",

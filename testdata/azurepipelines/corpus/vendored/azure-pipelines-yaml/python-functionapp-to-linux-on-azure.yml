@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-functionapp-to-linux-on-azure.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Python Function App to Linux on Azure
 # Build a Python function app and deploy it to Azure as a Linux function app.
 # Add steps that analyze code, save build artifacts, deploy, and more:

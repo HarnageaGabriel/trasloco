@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ant.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Ant
 # Build your Java projects and run tests with Apache Ant.
 # Add steps that save build artifacts and more:

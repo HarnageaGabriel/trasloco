@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-to-aks.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Docker image, Azure Container Registry, and Azure Kubernetes Service
 # Build a Docker image, push it to an Azure Container Registry, and deploy it to Azure Kubernetes Service.
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker

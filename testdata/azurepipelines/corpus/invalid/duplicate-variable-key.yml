@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
 # features: [variables-map, root-steps]
-# expect: diagnostics: [duplicate-key]
+# expect: diagnostics: [TRL-PARSE-0003]
+# stage: parse
 variables:
   buildConfig: Debug
   buildConfig: Release

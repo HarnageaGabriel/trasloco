@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
 # features: [parameters-string, parameters-values]
-# expect: diagnostics: [bad-parameter-value]
+# expect: diagnostics: [TRL-TPL-0005]
+# stage: resolve
 parameters:
   - name: env
     type: string

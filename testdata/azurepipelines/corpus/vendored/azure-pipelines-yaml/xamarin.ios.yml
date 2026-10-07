@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xamarin.ios.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Xamarin.iOS
 # Build a Xamarin.iOS project.
 # Add steps that install certificates, test, sign, and distribute an app, save build artifacts, and more:

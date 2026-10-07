@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
 # features: [template-step, root-steps]
-# expect: diagnostics: [missing-template]
+# expect: diagnostics: [TRL-TPL-0001]
+# stage: resolve
 pool:
   vmImage: ubuntu-latest
 

@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-webpack.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Node.js with webpack
 # Build a Node.js project using the webpack CLI.
 # Add steps that analyze code, save build artifacts, deploy, and more:

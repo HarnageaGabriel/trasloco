@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
 # features: [root-jobs]
-# expect: diagnostics: [dependency-cycle]
+# expect: diagnostics: [TRL-VAL-0009]
+# stage: validate
 jobs:
   - job: A
     dependsOn: B

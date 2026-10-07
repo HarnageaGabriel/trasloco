@@ -3,6 +3,7 @@ package printer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -114,7 +115,7 @@ func TestNormalizedOutput(t *testing.T) {
 		{
 			name:  "numeric-looking string",
 			input: "variables:\n  buildNumber: '123'\n",
-			want:  "variables:\n  buildNumber: 123\n",
+			want:  "variables:\n  buildNumber: \"123\"\n",
 		},
 		{
 			name:  "block scalar script",
@@ -161,6 +162,35 @@ func TestNormalizedOutput(t *testing.T) {
 			}
 			if diff := cmp.Diff(test.want, string(got)); diff != "" {
 				t.Errorf("normalized output mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAmbiguousStringsRoundTripAsStrings(t *testing.T) {
+	values := []string{"~", "null", "Null", "NULL", "true", "FALSE", "yes", "No", "ON", "off", "0", "-12", ".5", "1.25", "1e3", "0x10"}
+	for _, value := range values {
+		t.Run(value, func(t *testing.T) {
+			input := "variables:\n  value: '" + value + "'\nsteps:\n- script: '" + value + "'\n"
+			firstDiagnostics := diag.NewCollector()
+			first := parse.Source("input.yml", []byte(input), firstDiagnostics)
+			if hasError(firstDiagnostics) {
+				t.Fatalf("input diagnostics: %v", firstDiagnostics.List())
+			}
+			printed, err := Print(first)
+			if err != nil {
+				t.Fatal(err)
+			}
+			secondDiagnostics := diag.NewCollector()
+			second := parse.Source("printed.yml", printed, secondDiagnostics)
+			if hasError(secondDiagnostics) {
+				t.Fatalf("printed diagnostics: %v", secondDiagnostics.List())
+			}
+			if diff := asttest.Diff(first, second); diff != "" {
+				t.Fatalf("round trip mismatch (-first +second):\n%s\nprinted:\n%s", diff, printed)
+			}
+			if !strings.Contains(string(printed), "'"+value+"'") && !strings.Contains(string(printed), "\""+value+"\"") {
+				t.Fatalf("ambiguous string was not quoted:\n%s", printed)
 			}
 		})
 	}

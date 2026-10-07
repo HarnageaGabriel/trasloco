@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
 # features: [root-jobs]
-# expect: diagnostics: [unknown-key]
+# expect: diagnostics: [TRL-PARSE-0002]
+# stage: parse
 jobs:
   - job: Build
     pool:

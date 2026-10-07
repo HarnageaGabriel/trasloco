@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
 # features: [root-stages]
-# expect: diagnostics: [unknown-dependency]
+# expect: diagnostics: [TRL-VAL-0010]
+# stage: validate
 stages:
   - stage: Deploy
     dependsOn: Build

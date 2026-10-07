@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
 # features: [root-jobs]
-# expect: diagnostics: [duplicate-name]
+# expect: diagnostics: [TRL-VAL-0008]
+# stage: validate
 jobs:
   - job: Build
     pool:

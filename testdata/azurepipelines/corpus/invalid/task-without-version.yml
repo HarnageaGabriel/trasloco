@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task
 # features: [root-steps, task-dotnetcorecli]
-# expect: diagnostics: [bad-task-ref]
+# expect: diagnostics: [TRL-PARSE-0015]
+# stage: parse
 pool:
   vmImage: ubuntu-latest
 

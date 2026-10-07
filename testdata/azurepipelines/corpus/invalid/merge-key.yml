@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
 # features: [root-jobs]
-# expect: diagnostics: [yaml-anchor-forbidden, yaml-merge-key-forbidden]
+# expect: diagnostics: [TRL-PARSE-0008, TRL-PARSE-0009, TRL-PARSE-0008]
+# stage: parse
 jobs:
   - job: Base
     pool: &pool

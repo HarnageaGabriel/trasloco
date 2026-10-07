@@ -93,6 +93,7 @@
 | [TRL-PARSE-0013](TRL-PARSE-0013.md) | error | Insertion directive is out of place | active |
 | [TRL-PARSE-0014](TRL-PARSE-0014.md) | error | Mapping selects more than one alternative | active |
 | [TRL-PARSE-0015](TRL-PARSE-0015.md) | error | Task reference is malformed | active |
+| [TRL-PARSE-0016](TRL-PARSE-0016.md) | error | Stage, job, or deployment identifier is malformed | active |
 | [TRL-PLAN-0001](TRL-PLAN-0001.md) | error | Plan stale: source changed | active |
 | [TRL-PLAN-0002](TRL-PLAN-0002.md) | error | Plan stale: target changed (ETag/branch SHA) | active |
 | [TRL-PLAN-0003](TRL-PLAN-0003.md) | error | Tool or catalog version differs from plan | active |

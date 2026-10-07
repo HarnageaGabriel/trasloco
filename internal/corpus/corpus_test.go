@@ -38,12 +38,22 @@ func TestParseHeader(t *testing.T) {
 			},
 		},
 		{
+			name:    "template placeholder",
+			content: strings.Replace(valid, "# expect: ok", "# expect: template-placeholder", 1),
+			want: Header{
+				Sources:  []string{"https://example.com/spec"},
+				Features: []string{"root-steps", "task-bash"},
+				Expect:   Expect{TemplatePlaceholder: true},
+			},
+		},
+		{
 			name:    "diagnostics",
-			content: "# source: https://example.com/spec\n# features: [invalid-yaml]\n# expect: diagnostics: [wrong-shape, unknown-key]\nfoo: bar\n",
+			content: "# source: https://example.com/spec\n# features: [invalid-yaml]\n# expect: diagnostics: [TRL-PARSE-0006, TRL-PARSE-0002]\n# stage: parse\nfoo: bar\n",
 			want: Header{
 				Sources:  []string{"https://example.com/spec"},
 				Features: []string{"invalid-yaml"},
-				Expect:   Expect{Diagnostics: []string{"wrong-shape", "unknown-key"}},
+				Expect:   Expect{Diagnostics: []string{"TRL-PARSE-0006", "TRL-PARSE-0002"}},
+				Stage:    "parse",
 			},
 		},
 		{name: "BOM", content: "\ufeff" + valid, wantErr: true},
@@ -55,6 +65,7 @@ func TestParseHeader(t *testing.T) {
 		{name: "bad list separator", content: strings.Replace(valid, ", ", ",", 1), wantErr: true},
 		{name: "bad expect", content: strings.Replace(valid, "# expect: ok", "# expect: warning", 1), wantErr: true},
 		{name: "empty diagnostics", content: strings.Replace(valid, "# expect: ok", "# expect: diagnostics: []", 1), wantErr: true},
+		{name: "negative missing stage", content: strings.Replace(valid, "# expect: ok", "# expect: diagnostics: [TRL-PARSE-0006]", 1), wantErr: true},
 	}
 
 	for _, test := range tests {
@@ -160,7 +171,7 @@ func TestCorpusIntegrity(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseHeader() error = %v", err)
 			}
-			want := Header{Sources: entry.Sources, Features: entry.Features, Expect: entry.Expect}
+			want := Header{Sources: entry.Sources, Features: entry.Features, Expect: entry.Expect, Stage: entry.Stage}
 			if diff := cmp.Diff(want, header); diff != "" {
 				t.Errorf("header mismatch (-index +header):\n%s", diff)
 			}
@@ -169,7 +180,7 @@ func TestCorpusIntegrity(t *testing.T) {
 			}
 		})
 
-		if entry.Expect.OK {
+		if entry.Expect.OK || entry.Expect.TemplatePlaceholder {
 			for _, feature := range entry.Features {
 				positiveFeatures[feature]++
 			}
@@ -177,17 +188,17 @@ func TestCorpusIntegrity(t *testing.T) {
 		switch entry.Category {
 		case "invalid":
 			negative++
-			if entry.Expect.OK {
-				t.Errorf("invalid fixture %q expects ok", entry.Path)
+			if entry.Expect.OK || entry.Expect.TemplatePlaceholder || entry.Stage == "" {
+				t.Errorf("invalid fixture %q has invalid expectation/stage", entry.Path)
 			}
 		case "vendored":
 			vendored++
-			if !entry.Expect.OK {
-				t.Errorf("vendored fixture %q expects diagnostics", entry.Path)
+			if !entry.Expect.TemplatePlaceholder {
+				t.Errorf("vendored fixture %q is not marked template-placeholder", entry.Path)
 			}
 		default:
 			positive++
-			if !entry.Expect.OK {
+			if !entry.Expect.OK || entry.Stage != "" {
 				t.Errorf("positive fixture %q expects diagnostics", entry.Path)
 			}
 		}
@@ -216,6 +227,11 @@ func TestCorpusMetadata(t *testing.T) {
 		}
 	}
 	for _, entry := range index.Files {
+		for _, code := range entry.Expect.Diagnostics {
+			if !strings.HasPrefix(code, "TRL-") {
+				t.Errorf("%s: expected diagnostic %q is not a TRL code", entry.Path, code)
+			}
+		}
 		for _, feature := range entry.Features {
 			if !tagPattern.MatchString(feature) {
 				t.Errorf("%s: feature %q is not lowercase kebab-case", entry.Path, feature)

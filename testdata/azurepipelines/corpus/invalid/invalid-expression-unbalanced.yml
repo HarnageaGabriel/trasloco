@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
 # features: [template-expression, root-steps]
-# expect: diagnostics: [invalid-expression]
+# expect: diagnostics: [TRL-EXPR-0001]
+# stage: parse
 pool:
   vmImage: ubuntu-latest
 

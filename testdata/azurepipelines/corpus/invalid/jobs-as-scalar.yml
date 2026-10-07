@@ -1,4 +1,5 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs
 # features: [root-jobs]
-# expect: diagnostics: [wrong-shape]
+# expect: diagnostics: [TRL-PARSE-0006]
+# stage: parse
 jobs: build

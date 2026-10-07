@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script
 # features: [root-steps]
-# expect: diagnostics: [duplicate-key]
+# expect: diagnostics: [TRL-PARSE-0003]
+# stage: parse
 pool:
   vmImage: ubuntu-latest
 

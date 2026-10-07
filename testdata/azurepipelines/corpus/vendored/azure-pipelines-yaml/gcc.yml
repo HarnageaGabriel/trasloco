@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/gcc.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # C/C++ with GCC
 # Build your C/C++ project with GCC using make.
 # Add steps that publish test results, save build artifacts, deploy, and more:

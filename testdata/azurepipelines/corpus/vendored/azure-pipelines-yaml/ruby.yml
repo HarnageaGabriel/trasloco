@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ruby.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Ruby
 # Package your Ruby project.
 # Add steps that install rails, analyze code, save build artifacts, deploy, and more:
