@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
 # features: [root-jobs]
-# expect: diagnostics: [nesting-too-deep]
+# expect: diagnostics: [TRL-PARSE-0006]
+# stage: parse
 - jobs:
   - jobs:
     - jobs:

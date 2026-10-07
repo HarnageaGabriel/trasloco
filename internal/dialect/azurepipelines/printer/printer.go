@@ -11,11 +11,15 @@ package printer
 import (
 	"bytes"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/ast"
 	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 	"go.yaml.in/yaml/v3"
 )
+
+var ambiguousString = regexp.MustCompile(`(?i)^(?:~|null|true|false|yes|no|on|off|[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[-+]?[0-9]+)?|[-+]?0x[0-9a-f]+|[-+]?0o[0-7]+)$`)
 
 // Print renders the pipeline as normalized YAML.
 func Print(p *ast.Pipeline) ([]byte, error) {
@@ -92,8 +96,11 @@ func scalar(s *ast.Scalar) *yaml.Node {
 	switch {
 	case s.Null:
 		node.Tag = "!!null"
-	case s.Value == "":
+	case s.Value == "" || ambiguousString.MatchString(strings.TrimSpace(s.Value)):
+		node.Tag = "!!str"
 		node.Style = yaml.SingleQuotedStyle
+	default:
+		node.Tag = "!!str"
 	}
 	return node
 }
@@ -245,7 +252,7 @@ func fillPipeline(m *mapper, p *ast.Pipeline) {
 	m.put("strategy", strategy(p.Strategy))
 	m.put("continueOnError", boolean(p.ContinueOnError))
 	m.put("container", container(p.Container))
-	m.put("services", stringMap(p.Services))
+	m.put("services", services(p.Services, p.ServiceSpecs))
 	m.put("workspace", workspace(p.Workspace))
 	tail(m, p.Inserts, p.Extra, pipeline)
 }
@@ -288,6 +295,9 @@ func filter(f *ast.Filter) *yaml.Node {
 	if f.Insertion != nil {
 		return directive(f.Insertion)
 	}
+	if f.Keyword != nil {
+		return scalar(f.Keyword)
+	}
 	if f.Bare {
 		return stringList(f.Include)
 	}
@@ -318,6 +328,9 @@ func resources(r *ast.Resources) *yaml.Node {
 	}
 	if r.Insertion != nil {
 		return directive(r.Insertion)
+	}
+	if r.Legacy != nil {
+		return list(r.Legacy, free)
 	}
 	m := newMapping()
 	m.put("builds", list(r.Builds, buildResource))
@@ -686,7 +699,7 @@ func job(j ast.Job) *yaml.Node {
 		m.put("strategy", strategy(j.Strategy))
 		m.put("pool", pool(j.Pool))
 		m.put("container", container(j.Container))
-		m.put("services", stringMap(j.Services))
+		m.put("services", services(j.Services, j.ServiceSpecs))
 		m.put("workspace", workspace(j.Workspace))
 		m.put("uses", uses(j.Uses))
 		m.put("steps", list(j.Steps, step))
@@ -707,7 +720,7 @@ func job(j ast.Job) *yaml.Node {
 		m.put("workspace", workspace(j.Workspace))
 		m.put("uses", uses(j.Uses))
 		m.put("container", container(j.Container))
-		m.put("services", stringMap(j.Services))
+		m.put("services", services(j.Services, j.ServiceSpecs))
 		m.put("templateContext", free(j.TemplateContext))
 		tail(m, j.Inserts, j.Extra, func(b *ast.Deployment) *yaml.Node { return job(b) })
 	case *ast.JobTemplate:
@@ -890,7 +903,11 @@ func step(s ast.Step) *yaml.Node {
 		stepProps(m, &s.StepProps)
 		tail(m, s.Inserts, s.Extra, func(b *ast.GetPackageStep) *yaml.Node { return step(b) })
 	case *ast.PublishStep:
-		m.put("publish", scalar(s.Publish))
+		if s.Upload != nil {
+			m.put("upload", scalar(s.Upload))
+		} else {
+			m.put("publish", scalar(s.Publish))
+		}
 		m.put("artifact", scalar(s.Artifact))
 		stepProps(m, &s.StepProps)
 		tail(m, s.Inserts, s.Extra, func(b *ast.PublishStep) *yaml.Node { return step(b) })
@@ -917,4 +934,11 @@ func scriptStep(m *mapper, s *ast.ScriptStep) {
 		scriptStep(inner, b)
 		return inner.node
 	})
+}
+
+func services(plain *ast.Map[*ast.Scalar], specs *ast.Map[*ast.Any]) *yaml.Node {
+	if specs != nil {
+		return mapOf(specs, free)
+	}
+	return stringMap(plain)
 }

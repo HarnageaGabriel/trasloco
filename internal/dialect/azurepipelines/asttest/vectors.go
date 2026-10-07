@@ -7,15 +7,13 @@ import (
 	"testing"
 )
 
-// Vector is one STRUCT-* row of docs/spec/ado-yaml-structure.md.
+// Vector is one independently authored STRUCTV-* row of the structure spec.
 type Vector struct {
-	ID    string
-	Input string
-	// Expected are dump lines that must appear, in this order, in Dump of the parsed tree.
-	Expected []string
-	// Diagnostics are the exact `CODE@line:col` findings in report order.
-	Diagnostics []string
-	Source      string
+	ID       string
+	Input    string
+	Expected string
+	Basis    string
+	Source   string
 }
 
 // SpecPath returns the path of the structure specification relative to a test
@@ -24,7 +22,7 @@ func SpecPath() string {
 	return filepath.Join("..", "..", "..", "..", "docs", "spec", "ado-yaml-structure.md")
 }
 
-// LoadVectors reads the STRUCT-* table of the specification. It fails the test
+// LoadVectors reads the STRUCTV-* table of the specification. It fails the test
 // when a row is malformed or has no schema source.
 func LoadVectors(t testing.TB) []Vector {
 	t.Helper()
@@ -34,7 +32,7 @@ func LoadVectors(t testing.TB) []Vector {
 	}
 	var vectors []Vector
 	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.HasPrefix(line, "| STRUCT-") {
+		if !strings.HasPrefix(line, "| STRUCTV-") {
 			continue
 		}
 		cells := tableCells(line)
@@ -42,15 +40,14 @@ func LoadVectors(t testing.TB) []Vector {
 			t.Fatalf("malformed vector row (%d cells): %.80s", len(cells), line)
 		}
 		v := Vector{
-			ID:     cells[1],
-			Input:  strings.ReplaceAll(cells[2], "<br>", "\n"),
-			Source: cells[5],
+			ID:       cells[1],
+			Input:    strings.ReplaceAll(cells[2], `\n`, "\n"),
+			Expected: strings.TrimPrefix(cells[3], "VERIFY: "),
+			Basis:    cells[4],
+			Source:   cells[5],
 		}
-		if cells[3] != "-" {
-			v.Expected = strings.Split(cells[3], "<br>")
-		}
-		if cells[4] != "-" {
-			v.Diagnostics = strings.Fields(cells[4])
+		if v.Basis != "docs" && v.Basis != "docs-example" && v.Basis != "inferred" {
+			t.Fatalf("vector %s has invalid basis %q", v.ID, v.Basis)
 		}
 		if !strings.HasPrefix(v.Source, "https://learn.microsoft.com/en-us/azure/devops/pipelines/") {
 			t.Fatalf("vector %s has no schema page source: %q", v.ID, v.Source)

@@ -57,6 +57,7 @@ type Pipeline struct {
 	ContinueOnError *Bool
 	Container       *Container
 	Services        *Map[*Scalar]
+	ServiceSpecs    *Map[*Any]
 	Workspace       *Workspace
 	Tail[Pipeline]
 }
@@ -100,6 +101,7 @@ type Filter struct {
 	Insertable
 	// Bare is true when written as a plain list.
 	Bare    bool
+	Keyword *Scalar
 	Include *List[*Scalar]
 	Exclude *List[*Scalar]
 	Tail[Filter]
@@ -120,6 +122,8 @@ type Schedule struct {
 type Resources struct {
 	Pos
 	Insertable
+	// Legacy is the historical `resources: [ { repo: ... } ]` form.
+	Legacy       *List[*Any]
 	Builds       *List[*BuildResource]
 	Containers   *List[*ContainerResource]
 	Pipelines    *List[*PipelineResource]
@@ -491,6 +495,7 @@ type JobDef struct {
 	Pool                   *Pool
 	Container              *Container
 	Services               *Map[*Scalar]
+	ServiceSpecs           *Map[*Any]
 	Workspace              *Workspace
 	Uses                   *Uses
 	Steps                  *List[Step]
@@ -516,6 +521,7 @@ type Deployment struct {
 	Uses                   *Uses
 	Container              *Container
 	Services               *Map[*Scalar]
+	ServiceSpecs           *Map[*Any]
 	TemplateContext        *Any
 	Tail[Deployment]
 }
@@ -744,10 +750,11 @@ type GetPackageStep struct {
 	Tail[GetPackageStep]
 }
 
-// PublishStep is a `publish` step.
+// PublishStep is a `publish` or legacy `upload` step.
 type PublishStep struct {
 	Pos
 	Publish  *Scalar
+	Upload   *Scalar
 	Artifact *Scalar
 	StepProps
 	Tail[PublishStep]

@@ -18,6 +18,7 @@ var (
 var stepKeywords = []string{
 	"task", "script", "bash", "pwsh", "powershell", "checkout", "download",
 	"downloadBuild", "getPackage", "publish", "template", "reviewApp",
+	"upload",
 }
 
 // step parses one item of a steps list; the selecting keyword decides the kind.
@@ -56,9 +57,9 @@ func (p *parser) step(n *yamlx.Node) (ast.Step, bool) {
 		out := new(ast.GetPackageStep)
 		p.fillGetPackage(out, m)
 		return out, true
-	case "publish":
+	case "publish", "upload":
 		out := new(ast.PublishStep)
-		p.fillPublish(out, m)
+		p.fillPublish(out, m, key)
 		return out, true
 	case "reviewApp":
 		out := new(ast.ReviewAppStep)
@@ -87,16 +88,48 @@ func scriptKind(keyword string) ast.ScriptKind {
 // fillStepProps reads the properties common to every step but template references.
 func (p *parser) fillStepProps(out *ast.StepProps, m *mapping) {
 	out.Name = m.str("name")
+	p.resourceIdentifier(out.Name, "step")
 	out.DisplayName = m.str("displayName")
 	out.Condition = m.expression("condition")
 	out.ContinueOnError = m.boolean("continueOnError")
 	out.Enabled = m.boolean("enabled")
 	out.Env = m.strMap("env")
 	out.TimeoutInMinutes = m.str("timeoutInMinutes")
+	p.integerRange(out.TimeoutInMinutes, "timeoutInMinutes", 0, -1)
 	out.RetryCountOnTaskFailure = m.str("retryCountOnTaskFailure")
+	p.integerRange(out.RetryCountOnTaskFailure, "retryCountOnTaskFailure", 0, 10)
 	if e := m.take("target"); e != nil {
 		out.Target = p.target(e.value, e.name)
 	}
+}
+
+func (p *parser) allowed(value *ast.Scalar, key string, choices ...string) {
+	if value == nil || len(value.Directives) != 0 || strings.Contains(value.Value, "$(") {
+		return
+	}
+	for _, choice := range choices {
+		if strings.EqualFold(strings.TrimSpace(value.Value), choice) {
+			return
+		}
+	}
+	p.add("TRL-PARSE-0012", value.Source, fmt.Sprintf("%s: %q is not an allowed value", key, value.Value),
+		map[string]any{"key": key, "value": value.Value, "allowed": strings.Join(choices, ", ")})
+}
+
+func (p *parser) integerRange(value *ast.Scalar, key string, minimum, maximum int) {
+	if value == nil || len(value.Directives) != 0 || strings.Contains(value.Value, "$(") {
+		return
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(value.Value))
+	if err == nil && n >= minimum && (maximum < 0 || n <= maximum) {
+		return
+	}
+	allowed := fmt.Sprintf("integer >= %d", minimum)
+	if maximum >= 0 {
+		allowed = fmt.Sprintf("integer %d..%d", minimum, maximum)
+	}
+	p.add("TRL-PARSE-0012", value.Source, fmt.Sprintf("%s: %q is not %s", key, value.Value, allowed),
+		map[string]any{"key": key, "value": value.Value, "allowed": allowed})
 }
 
 func (p *parser) fillStepTemplate(out *ast.StepTemplate, m *mapping) {
@@ -109,9 +142,12 @@ func (p *parser) fillScript(out *ast.ScriptStep, m *mapping, kind ast.ScriptKind
 	out.Pos = pos(m.node)
 	out.Kind = kind
 	out.Script = m.str(kind.Keyword())
-	out.ErrorActionPreference = m.str("errorActionPreference")
+	if kind == ast.ScriptPwsh || kind == ast.ScriptPowerShell {
+		out.ErrorActionPreference = m.str("errorActionPreference")
+		p.allowed(out.ErrorActionPreference, "errorActionPreference", "stop", "continue", "silentlyContinue")
+		out.IgnoreLASTEXITCODE = m.str("ignoreLASTEXITCODE")
+	}
 	out.FailOnStderr = m.str("failOnStderr")
-	out.IgnoreLASTEXITCODE = m.str("ignoreLASTEXITCODE")
 	out.WorkingDirectory = m.str("workingDirectory")
 	p.fillStepProps(&out.StepProps, m)
 	out.Inserts, out.Extra = finish(m, func(s *ast.ScriptStep, bm *mapping) { p.fillScript(s, bm, kind) })
@@ -167,6 +203,7 @@ func (p *parser) fillCheckout(out *ast.CheckoutStep, m *mapping) {
 	out.Lfs = m.str("lfs")
 	out.PersistCredentials = m.str("persistCredentials")
 	out.Submodules = m.str("submodules")
+	p.allowed(out.Submodules, "submodules", "true", "false", "recursive")
 	out.Path = m.str("path")
 	out.SparseCheckoutDirectories = m.str("sparseCheckoutDirectories")
 	out.SparseCheckoutPatterns = m.str("sparseCheckoutPatterns")
@@ -202,12 +239,16 @@ func (p *parser) fillGetPackage(out *ast.GetPackageStep, m *mapping) {
 	out.Inserts, out.Extra = finish(m, p.fillGetPackage)
 }
 
-func (p *parser) fillPublish(out *ast.PublishStep, m *mapping) {
+func (p *parser) fillPublish(out *ast.PublishStep, m *mapping, keyword string) {
 	out.Pos = pos(m.node)
-	out.Publish = m.str("publish")
+	if keyword == "upload" {
+		out.Upload = m.str(keyword)
+	} else {
+		out.Publish = m.str(keyword)
+	}
 	out.Artifact = m.str("artifact")
 	p.fillStepProps(&out.StepProps, m)
-	out.Inserts, out.Extra = finish(m, p.fillPublish)
+	out.Inserts, out.Extra = finish(m, func(s *ast.PublishStep, bm *mapping) { p.fillPublish(s, bm, keyword) })
 }
 
 func (p *parser) fillReviewApp(out *ast.ReviewAppStep, m *mapping) {

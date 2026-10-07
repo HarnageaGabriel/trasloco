@@ -640,232 +640,272 @@ files:
   - path: "invalid/alias-reference.yml"
     category: "invalid"
     features: ["root-steps", "variables-map"]
-    expect: {diagnostics: ["yaml-anchor-forbidden", "yaml-alias-forbidden"]}
+    expect: {diagnostics: ["TRL-PARSE-0008", "TRL-PARSE-0008"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/anchor-definition.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["yaml-anchor-forbidden"]}
+    expect: {diagnostics: ["TRL-PARSE-0008"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/dependson-cycle.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["dependency-cycle"]}
+    expect: {diagnostics: ["TRL-VAL-0009"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
   - path: "invalid/dependson-unknown-job.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["unknown-dependency"]}
+    expect: {diagnostics: ["TRL-VAL-0010"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
   - path: "invalid/dependson-unknown-stage.yml"
     category: "invalid"
     features: ["root-stages"]
-    expect: {diagnostics: ["unknown-dependency"]}
+    expect: {diagnostics: ["TRL-VAL-0010"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
   - path: "invalid/duplicate-job-names.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["duplicate-name"]}
+    expect: {diagnostics: ["TRL-VAL-0008"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
   - path: "invalid/duplicate-key-in-step.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["duplicate-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0003"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script"]
   - path: "invalid/duplicate-key-top-level.yml"
     category: "invalid"
     features: ["root-steps", "pool-vmimage"]
-    expect: {diagnostics: ["duplicate-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0003"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/duplicate-parameter-name.yml"
     category: "invalid"
     features: ["parameters-string"]
-    expect: {diagnostics: ["duplicate-name"]}
+    expect: {diagnostics: ["TRL-VAL-0008"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/duplicate-stage-names.yml"
     category: "invalid"
     features: ["root-stages"]
-    expect: {diagnostics: ["duplicate-name"]}
+    expect: {diagnostics: ["TRL-VAL-0008"]}
+    stage: validate
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage"]
   - path: "invalid/duplicate-variable-key.yml"
     category: "invalid"
     features: ["variables-map", "root-steps"]
-    expect: {diagnostics: ["duplicate-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0003"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
   - path: "invalid/invalid-expression-bad-syntax.yml"
     category: "invalid"
     features: ["template-expression", "directive-if", "root-steps"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0001"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/invalid-expression-unbalanced.yml"
     category: "invalid"
     features: ["template-expression", "root-steps"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0001"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/invalid-expression-unknown-function.yml"
     category: "invalid"
     features: ["template-expression", "directive-if", "root-steps"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0005"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/invalid-expression-unterminated-string.yml"
     category: "invalid"
     features: ["template-expression", "directive-if", "root-steps"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0001"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/invalid-expression-wrong-arity.yml"
     category: "invalid"
     features: ["template-expression", "directive-if", "root-steps"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0005"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/invalid-runtime-expression.yml"
     category: "invalid"
     features: ["runtime-expression", "variables-map"]
-    expect: {diagnostics: ["invalid-expression"]}
+    expect: {diagnostics: ["TRL-EXPR-0001"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
   - path: "invalid/job-name-invalid-chars.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["bad-identifier"]}
+    expect: {diagnostics: ["TRL-PARSE-0016"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
   - path: "invalid/jobs-as-scalar.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs"]
   - path: "invalid/merge-key.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["yaml-anchor-forbidden", "yaml-merge-key-forbidden"]}
+    expect: {diagnostics: ["TRL-PARSE-0008", "TRL-PARSE-0009", "TRL-PARSE-0008"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/nesting-too-deep-map.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["nesting-too-deep"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/nesting-too-deep.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["nesting-too-deep"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
   - path: "invalid/parameter-default-not-in-values.yml"
     category: "invalid"
     features: ["parameters-string", "parameters-values"]
-    expect: {diagnostics: ["bad-parameter-value"]}
+    expect: {diagnostics: ["TRL-TPL-0005"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/parameter-missing-name.yml"
     category: "invalid"
     features: ["parameters-string"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0011"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/parameter-type-mismatch-boolean.yml"
     category: "invalid"
     features: ["parameters-boolean"]
-    expect: {diagnostics: ["parameter-type-mismatch"]}
+    expect: {diagnostics: ["TRL-TPL-0005"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/parameter-type-mismatch-number.yml"
     category: "invalid"
     features: ["parameters-number"]
-    expect: {diagnostics: ["parameter-type-mismatch"]}
+    expect: {diagnostics: ["TRL-TPL-0005"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/parameter-unknown-type.yml"
     category: "invalid"
     features: ["parameters-string"]
-    expect: {diagnostics: ["bad-parameter-value"]}
+    expect: {diagnostics: ["TRL-PARSE-0012"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
   - path: "invalid/pool-as-list.yml"
     category: "invalid"
     features: ["root-steps", "pool-vmimage"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pool"]
   - path: "invalid/stages-as-map.yml"
     category: "invalid"
     features: ["root-stages"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages"]
   - path: "invalid/step-with-two-kinds.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0014", "TRL-PARSE-0002"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps"]
   - path: "invalid/steps-as-scalar.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0006"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps"]
   - path: "invalid/task-empty-name-version.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["bad-task-ref"]}
+    expect: {diagnostics: ["TRL-PARSE-0015"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
   - path: "invalid/task-malformed-version.yml"
     category: "invalid"
     features: ["root-steps", "task-dotnetcorecli"]
-    expect: {diagnostics: ["bad-task-ref"]}
-    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
-  - path: "invalid/task-minor-version.yml"
-    category: "invalid"
-    features: ["root-steps", "task-npm"]
-    expect: {diagnostics: ["bad-task-ref"]}
+    expect: {diagnostics: ["TRL-PARSE-0015"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
   - path: "invalid/task-step-without-name.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0011"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
   - path: "invalid/task-without-version.yml"
     category: "invalid"
     features: ["root-steps", "task-dotnetcorecli"]
-    expect: {diagnostics: ["bad-task-ref"]}
+    expect: {diagnostics: ["TRL-PARSE-0015"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
   - path: "invalid/template-cycle-a.yml"
     category: "invalid"
     features: ["template-step", "template-nested", "root-steps"]
-    expect: {diagnostics: ["template-cycle"]}
+    expect: {diagnostics: ["TRL-TPL-0002"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/template-cycle-b.yml"
     category: "invalid"
     features: ["template-step", "template-nested", "root-steps"]
-    expect: {diagnostics: ["template-cycle"]}
+    expect: {diagnostics: ["TRL-TPL-0002"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/template-missing-file.yml"
     category: "invalid"
     features: ["template-step", "root-steps"]
-    expect: {diagnostics: ["missing-template"]}
+    expect: {diagnostics: ["TRL-TPL-0001"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/template-missing-stage-file.yml"
     category: "invalid"
     features: ["template-stage", "root-stages"]
-    expect: {diagnostics: ["missing-template"]}
+    expect: {diagnostics: ["TRL-TPL-0001"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/template-path-escapes-repo.yml"
     category: "invalid"
     features: ["template-step", "root-steps"]
-    expect: {diagnostics: ["missing-template"]}
+    expect: {diagnostics: ["TRL-TPL-0001"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/template-self-include.yml"
     category: "invalid"
     features: ["template-step", "root-steps"]
-    expect: {diagnostics: ["template-cycle"]}
+    expect: {diagnostics: ["TRL-TPL-0002"]}
+    stage: resolve
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
   - path: "invalid/trigger-as-number.yml"
     category: "invalid"
     features: ["trigger-branches", "root-steps"]
-    expect: {diagnostics: ["wrong-shape"]}
+    expect: {diagnostics: ["TRL-PARSE-0012"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
   - path: "invalid/unknown-job-key.yml"
     category: "invalid"
     features: ["root-jobs"]
-    expect: {diagnostics: ["unknown-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0002"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
   - path: "invalid/unknown-step-key.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["unknown-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0002", "TRL-PARSE-0002"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script"]
   - path: "invalid/unknown-top-level-key.yml"
     category: "invalid"
     features: ["root-steps"]
-    expect: {diagnostics: ["unknown-key"]}
+    expect: {diagnostics: ["TRL-PARSE-0002"]}
+    stage: parse
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline"]
   - path: "parameters/boolean-conditional-step.yml"
     category: "parameters"
@@ -1267,6 +1307,11 @@ files:
     features: ["trigger-branches", "pool-vmimage", "root-steps", "conditions", "status-functions", "task-copyfiles", "task-publishbuildartifacts"]
     expect: ok
     source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "tasks/task-full-version.yml"
+    category: "tasks"
+    features: ["root-steps", "task-npm"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
   - path: "tasks/terraform-task.yml"
     category: "tasks"
     features: ["trigger-branches", "pool-vmimage", "root-steps", "task-terraformtask", "ecosystem-terraform", "task-terraformtaskv4"]
@@ -1520,220 +1565,220 @@ files:
   - path: "vendored/azure-pipelines-yaml/.net-desktop.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/.net-desktop.yml"]
   - path: "vendored/azure-pipelines-yaml/android.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/android.yml"]
   - path: "vendored/azure-pipelines-yaml/ant.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ant.yml"]
   - path: "vendored/azure-pipelines-yaml/asp.net-core-.net-framework.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core-.net-framework.yml"]
   - path: "vendored/azure-pipelines-yaml/asp.net-core-functionapp-to-windows-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core-functionapp-to-windows-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/asp.net-core.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core.yml"]
   - path: "vendored/azure-pipelines-yaml/asp.net.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net.yml"]
   - path: "vendored/azure-pipelines-yaml/deploy-to-existing-kubernetes-cluster.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/deploy-to-existing-kubernetes-cluster.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-build.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-build.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-container-functionapp.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-functionapp.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-container-to-acr.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-to-acr.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-container-to-aks.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-to-aks.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-container-webapp.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-webapp.yml"]
   - path: "vendored/azure-pipelines-yaml/docker-container.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container.yml"]
   - path: "vendored/azure-pipelines-yaml/empty.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/empty.yml"]
   - path: "vendored/azure-pipelines-yaml/gcc.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/gcc.yml"]
   - path: "vendored/azure-pipelines-yaml/go.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/go.yml"]
   - path: "vendored/azure-pipelines-yaml/gradle.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/gradle.yml"]
   - path: "vendored/azure-pipelines-yaml/html.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/html.yml"]
   - path: "vendored/azure-pipelines-yaml/jekyll-container.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/jekyll-container.yml"]
   - path: "vendored/azure-pipelines-yaml/maven-webapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/maven-webapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/maven.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/maven.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-express-webapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-express-webapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-functionapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-functionapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-react-webapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-react-webapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-angular.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-angular.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-grunt.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-grunt.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-gulp.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-gulp.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-react.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-react.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-vue.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-vue.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js-with-webpack.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-webpack.yml"]
   - path: "vendored/azure-pipelines-yaml/node.js.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js.yml"]
   - path: "vendored/azure-pipelines-yaml/php-webapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/php-webapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/php.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/php.yml"]
   - path: "vendored/azure-pipelines-yaml/powershell-functionapp-to-windows-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/powershell-functionapp-to-windows-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/python-django.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-django.yml"]
   - path: "vendored/azure-pipelines-yaml/python-functionapp-to-linux-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-functionapp-to-linux-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/python-package.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-package.yml"]
   - path: "vendored/azure-pipelines-yaml/python-to-linux-webapp-on-azure.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-to-linux-webapp-on-azure.yml"]
   - path: "vendored/azure-pipelines-yaml/ruby.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ruby.yml"]
   - path: "vendored/azure-pipelines-yaml/universal-windows-platform.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/universal-windows-platform.yml"]
   - path: "vendored/azure-pipelines-yaml/xamarin.android.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xamarin.android.yml"]
   - path: "vendored/azure-pipelines-yaml/xamarin.ios.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xamarin.ios.yml"]
   - path: "vendored/azure-pipelines-yaml/xcode.yml"
     category: "vendored"
     features: ["vendored"]
-    expect: ok
+    expect: template-placeholder
     source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xcode.yml"]

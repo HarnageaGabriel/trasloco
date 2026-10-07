@@ -15,8 +15,9 @@ const indexFile = "index.yaml"
 
 // Expect describes whether a fixture is accepted or which diagnostics it produces.
 type Expect struct {
-	OK          bool
-	Diagnostics []string
+	OK                  bool
+	TemplatePlaceholder bool
+	Diagnostics         []string
 }
 
 // Entry describes one fixture in an Index.
@@ -25,6 +26,7 @@ type Entry struct {
 	Category string   `yaml:"category"`
 	Features []string `yaml:"features"`
 	Expect   Expect   `yaml:"expect"`
+	Stage    string   `yaml:"stage,omitempty"`
 	Sources  []string `yaml:"source"`
 }
 
@@ -39,6 +41,7 @@ type Header struct {
 	Sources  []string
 	Features []string
 	Expect   Expect
+	Stage    string
 }
 
 // Load reads index.yaml from fsys.
@@ -73,7 +76,7 @@ func ParseHeader(content []byte) (Header, error) {
 		return Header{}, errors.New("parse corpus header: CRLF is not allowed")
 	}
 
-	lines := bytes.SplitN(content, []byte("\n"), 4)
+	lines := bytes.SplitN(content, []byte("\n"), 5)
 	if len(lines) < 4 {
 		return Header{}, errors.New("parse corpus header: missing header line or fixture body")
 	}
@@ -92,6 +95,8 @@ func ParseHeader(content []byte) (Header, error) {
 	switch {
 	case expectLine == "# expect: ok":
 		expect.OK = true
+	case expectLine == "# expect: template-placeholder":
+		expect.TemplatePlaceholder = true
 	case strings.HasPrefix(expectLine, "# expect: diagnostics: "):
 		expect.Diagnostics, err = parseInlineList(strings.TrimPrefix(expectLine, "# expect: diagnostics: "))
 		if err != nil {
@@ -100,8 +105,21 @@ func ParseHeader(content []byte) (Header, error) {
 	default:
 		return Header{}, fmt.Errorf("parse corpus header: invalid expect line %q", expectLine)
 	}
+	stage := ""
+	if len(expect.Diagnostics) > 0 {
+		if len(lines) < 5 {
+			return Header{}, errors.New("parse corpus header: negative fixture is missing stage")
+		}
+		stage, err = parseScalarLine(string(lines[3]), "# stage: ")
+		if err != nil {
+			return Header{}, err
+		}
+		if stage != "parse" && stage != "resolve" && stage != "validate" {
+			return Header{}, fmt.Errorf("parse corpus header: invalid stage %q", stage)
+		}
+	}
 
-	return Header{Sources: []string{source}, Features: features, Expect: expect}, nil
+	return Header{Sources: []string{source}, Features: features, Expect: expect, Stage: stage}, nil
 }
 
 func parseScalarLine(line, prefix string) (string, error) {
@@ -141,12 +159,18 @@ func parseInlineList(value string) ([]string, error) {
 
 // UnmarshalYAML decodes the scalar "ok" or a diagnostics mapping.
 func (expect *Expect) UnmarshalYAML(node *yaml.Node) error {
-	if node.Kind == yaml.ScalarNode && node.Value == "ok" {
-		*expect = Expect{OK: true}
-		return nil
+	if node.Kind == yaml.ScalarNode {
+		switch node.Value {
+		case "ok":
+			*expect = Expect{OK: true}
+			return nil
+		case "template-placeholder":
+			*expect = Expect{TemplatePlaceholder: true}
+			return nil
+		}
 	}
 	if node.Kind != yaml.MappingNode || len(node.Content) != 2 || node.Content[0].Value != "diagnostics" {
-		return errors.New("expect must be 'ok' or a diagnostics mapping")
+		return errors.New("expect must be 'ok', 'template-placeholder', or a diagnostics mapping")
 	}
 	var diagnostics []string
 	if err := node.Content[1].Decode(&diagnostics); err != nil {

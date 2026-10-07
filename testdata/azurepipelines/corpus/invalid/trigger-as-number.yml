@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
 # features: [trigger-branches, root-steps]
-# expect: diagnostics: [wrong-shape]
+# expect: diagnostics: [TRL-PARSE-0012]
+# stage: parse
 trigger: 42
 
 pool:

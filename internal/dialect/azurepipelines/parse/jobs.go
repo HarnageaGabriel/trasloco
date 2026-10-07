@@ -2,11 +2,35 @@ package parse
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/ast"
 	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 )
+
+var (
+	pipelineIdentifier        = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	resourceIdentifierPattern = regexp.MustCompile(`^[-_A-Za-z0-9]+$`)
+)
+
+func (p *parser) identifier(value *ast.Scalar, kind string) {
+	if value == nil || value.Null || len(value.Directives) != 0 || pipelineIdentifier.MatchString(value.Value) {
+		return
+	}
+	p.add("TRL-PARSE-0016", value.Source,
+		fmt.Sprintf("%s identifier %q must contain only letters, digits, and underscores and must not start with a digit", kind, value.Value),
+		map[string]any{"kind": kind, "identifier": value.Value})
+}
+
+func (p *parser) resourceIdentifier(value *ast.Scalar, kind string) {
+	if value == nil || value.Null || len(value.Directives) != 0 || resourceIdentifierPattern.MatchString(value.Value) {
+		return
+	}
+	p.add("TRL-PARSE-0016", value.Source,
+		fmt.Sprintf("%s identifier %q contains unsupported characters", kind, value.Value),
+		map[string]any{"kind": kind, "identifier": value.Value})
+}
 
 // ---------------------------------------------------------------------------
 // Stages.
@@ -40,6 +64,7 @@ func (p *parser) fillStageTemplate(out *ast.StageTemplate, m *mapping) {
 func (p *parser) fillStage(out *ast.StageDef, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Stage = m.str("stage")
+	p.identifier(out.Stage, "stage")
 	out.Group = m.str("group")
 	out.DisplayName = m.str("displayName")
 	if e := m.take("pool"); e != nil {
@@ -100,6 +125,7 @@ func (p *parser) fillJobTemplate(out *ast.JobTemplate, m *mapping) {
 func (p *parser) fillJob(out *ast.JobDef, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Job = m.str("job")
+	p.identifier(out.Job, "job")
 	out.DisplayName = m.str("displayName")
 	if e := m.take("dependsOn"); e != nil {
 		out.DependsOn = p.dependsOn(e.value, e.name)
@@ -120,7 +146,9 @@ func (p *parser) fillJob(out *ast.JobDef, m *mapping) {
 	if e := m.take("container"); e != nil {
 		out.Container = p.container(e.value, e.name)
 	}
-	out.Services = m.strMap("services")
+	if e := m.take("services"); e != nil {
+		out.Services, out.ServiceSpecs = p.services(e.value, e.name)
+	}
 	if e := m.take("workspace"); e != nil {
 		out.Workspace = buildOrInsert[ast.Workspace](p, e.value, e.name, p.fillWorkspace)
 	}
@@ -137,6 +165,11 @@ func (p *parser) fillJob(out *ast.JobDef, m *mapping) {
 func (p *parser) fillDeployment(out *ast.Deployment, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Deployment = m.str("deployment")
+	p.identifier(out.Deployment, "deployment")
+	if out.Deployment != nil && out.Deployment.Value == "deploy" {
+		p.add("TRL-PARSE-0016", out.Deployment.Source, "deployment identifier deploy is reserved",
+			map[string]any{"kind": "deployment", "identifier": out.Deployment.Value})
+	}
 	out.DisplayName = m.str("displayName")
 	if e := m.take("dependsOn"); e != nil {
 		out.DependsOn = p.dependsOn(e.value, e.name)
@@ -166,9 +199,27 @@ func (p *parser) fillDeployment(out *ast.Deployment, m *mapping) {
 	if e := m.take("container"); e != nil {
 		out.Container = p.container(e.value, e.name)
 	}
-	out.Services = m.strMap("services")
+	if e := m.take("services"); e != nil {
+		out.Services, out.ServiceSpecs = p.services(e.value, e.name)
+	}
 	out.TemplateContext = m.free("templateContext")
 	out.Inserts, out.Extra = finish(m, p.fillDeployment)
+}
+
+func (p *parser) services(n *yamlx.Node, ctx string) (*ast.Map[*ast.Scalar], *ast.Map[*ast.Any]) {
+	if n != nil && n.Kind() == yamlx.MappingKind {
+		pairs, problems := n.Map()
+		if len(problems) == 0 {
+			allScalar := true
+			for _, pair := range pairs {
+				allScalar = allScalar && pair.Value != nil && pair.Value.Kind() == yamlx.ScalarKind
+			}
+			if allScalar {
+				return p.stringMap(n, ctx), nil
+			}
+		}
+	}
+	return nil, p.anyMap(n, ctx)
 }
 
 func (p *parser) environment(n *yamlx.Node, ctx string) *ast.Environment {
@@ -208,9 +259,24 @@ func (p *parser) fillStrategy(out *ast.Strategy, m *mapping) {
 			leg := p.stringMap(v, key)
 			return leg, leg != nil
 		})
+		if out.Matrix != nil {
+			for _, entry := range out.Matrix.Entries {
+				if entry.Key != nil {
+					p.identifier(entry.Key, "matrix leg")
+				}
+			}
+		}
 	}
 	out.MaxParallel = m.str("maxParallel")
 	out.Parallel = m.str("parallel")
+	if out.Matrix != nil && out.Parallel != nil {
+		p.add("TRL-PARSE-0014", out.Parallel.Source, "strategy: parallel and matrix are mutually exclusive",
+			map[string]any{"keys": "parallel, matrix"})
+	}
+	if out.MaxParallel != nil && out.Matrix == nil {
+		p.add("TRL-PARSE-0014", out.MaxParallel.Source, "strategy: maxParallel requires matrix",
+			map[string]any{"keys": "maxParallel without matrix"})
+	}
 	out.Inserts, out.Extra = finish(m, p.fillStrategy)
 }
 
@@ -349,7 +415,7 @@ func (p *parser) container(n *yamlx.Node, ctx string) *ast.Container {
 		out.Alias = s
 		return out
 	}
-	return build(p, n, ctx, p.fillContainer)
+	return build(p, n, ctx, p.fillContainer, "image")
 }
 
 func (p *parser) fillContainer(out *ast.Container, m *mapping) {

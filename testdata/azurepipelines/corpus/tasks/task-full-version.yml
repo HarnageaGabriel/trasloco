@@ -1,6 +1,6 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task
 # features: [root-steps, task-npm]
-# expect: diagnostics: [bad-task-ref]
+# expect: ok
 pool:
   vmImage: ubuntu-latest
 

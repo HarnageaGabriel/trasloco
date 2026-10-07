@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage
 # features: [root-stages]
-# expect: diagnostics: [duplicate-name]
+# expect: diagnostics: [TRL-VAL-0008]
+# stage: validate
 stages:
   - stage: Build
     jobs:

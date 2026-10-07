@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
 # features: [parameters-string]
-# expect: diagnostics: [wrong-shape]
+# expect: diagnostics: [TRL-PARSE-0011]
+# stage: parse
 parameters:
   - type: string
     default: orphan

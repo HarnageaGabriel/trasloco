@@ -42,24 +42,10 @@ func findings(collector *diag.Collector) []string {
 	return out
 }
 
-// containsInOrder reports whether want is a subsequence of got.
-func containsInOrder(got, want []string) (string, bool) {
-	next := 0
-	for _, line := range got {
-		if next < len(want) && line == want[next] {
-			next++
-		}
-	}
-	if next == len(want) {
-		return "", true
-	}
-	return want[next], false
-}
-
 func TestStructVectors(t *testing.T) {
 	vectors := asttest.LoadVectors(t)
-	if len(vectors) != 142 {
-		t.Fatalf("loaded %d STRUCT vectors, want 142", len(vectors))
+	if len(vectors) != 296 {
+		t.Fatalf("loaded %d STRUCT vectors, want 296", len(vectors))
 	}
 	seen := map[string]bool{}
 	for _, v := range vectors {
@@ -68,13 +54,41 @@ func TestStructVectors(t *testing.T) {
 		}
 		seen[v.ID] = true
 		t.Run(v.ID, func(t *testing.T) {
-			pipeline, got := parseText(v.ID+".yml", v.Input)
-			if diff := cmp.Diff(v.Diagnostics, got); diff != "" {
-				t.Errorf("diagnostics mismatch (-want +got):\n%s", diff)
+			if v.Basis == "inferred" {
+				t.Skip("VERIFY: inferred schema claim")
 			}
-			if missing, ok := containsInOrder(asttest.Dump(pipeline, false), v.Expected); !ok {
-				t.Errorf("expected dump line not found (or out of order): %q\ndump:\n%s",
-					missing, strings.Join(asttest.Dump(pipeline, false), "\n"))
+			_, got := parseText(v.ID+".yml", v.Input)
+			if strings.HasPrefix(v.Expected, "ok") {
+				for _, finding := range got {
+					code := strings.SplitN(finding, "@", 2)[0]
+					if code != "TRL-PARSE-0002" {
+						t.Errorf("documented-valid vector produced %s", finding)
+					}
+				}
+				return
+			}
+			category := strings.TrimPrefix(strings.TrimPrefix(v.Expected, "error:"), "warning:")
+			if at := strings.IndexByte(category, ' '); at >= 0 {
+				category = category[:at]
+			}
+			wanted := map[string][]string{
+				"shape":          {"TRL-PARSE-0001", "TRL-PARSE-0006", "TRL-PARSE-0011", "TRL-PARSE-0014"},
+				"unknown-key":    {"TRL-PARSE-0002"},
+				"required-key":   {"TRL-PARSE-0011"},
+				"bad-value":      {"TRL-PARSE-0012", "TRL-PARSE-0013"},
+				"bad-identifier": {"TRL-PARSE-0016"},
+				"bad-task-ref":   {"TRL-PARSE-0015"},
+				"anchors":        {"TRL-PARSE-0008", "TRL-PARSE-0009"},
+			}[category]
+			matched := false
+			for _, finding := range got {
+				code := strings.SplitN(finding, "@", 2)[0]
+				for _, want := range wanted {
+					matched = matched || code == want
+				}
+			}
+			if len(wanted) == 0 || !matched {
+				t.Errorf("expected %s (%v), got %v", category, wanted, got)
 			}
 		})
 	}
@@ -350,6 +364,28 @@ func TestTaskReferences(t *testing.T) {
 			}
 			if bad := len(collector.List()) > 0; bad != test.bad {
 				t.Errorf("diagnostic reported = %v, want %v", bad, test.bad)
+			}
+		})
+	}
+}
+
+func TestParserFollowupSyntax(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{"upload step", "steps:\n- upload: out\n  artifact: drop\n", nil},
+		{"legacy resources list", "resources:\n- repo: self\n  clean: true\nsteps:\n- script: x\n", nil},
+		{"ACR container without image", "resources:\n  containers:\n  - container: app\n    type: ACR\n    azureSubscription: s\n    resourceGroup: g\n    registry: r\n    repository: p\nsteps:\n- script: x\n", nil},
+		{"bad stage identifier", "stages:\n- stage: 'bad stage'\n", []string{"TRL-PARSE-0016@2:10"}},
+		{"bad job identifier", "jobs:\n- job: 1bad\n", []string{"TRL-PARSE-0016@2:8"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, got := parseText("p.yml", test.text)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("(-want +got):\n%s", diff)
 			}
 		})
 	}

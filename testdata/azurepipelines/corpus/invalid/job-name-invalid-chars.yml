@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
 # features: [root-jobs]
-# expect: diagnostics: [bad-identifier]
+# expect: diagnostics: [TRL-PARSE-0016]
+# stage: parse
 jobs:
   - job: build-and test
     pool:

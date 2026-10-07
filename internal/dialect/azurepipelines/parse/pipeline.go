@@ -30,7 +30,7 @@ type insertionTarget[T any] interface {
 }
 
 // buildOrInsert parses a mapping node, or a node that is one whole `${{ }}` value.
-func buildOrInsert[T any, PT insertionTarget[T]](p *parser, n *yamlx.Node, ctx string, fill func(*T, *mapping)) *T {
+func buildOrInsert[T any, PT insertionTarget[T]](p *parser, n *yamlx.Node, ctx string, fill func(*T, *mapping), required ...string) *T {
 	if n != nil && n.Kind() == yamlx.ScalarKind {
 		s := p.scalar(n, ctx)
 		if s == nil {
@@ -51,7 +51,7 @@ func buildOrInsert[T any, PT insertionTarget[T]](p *parser, n *yamlx.Node, ctx s
 		PT(out).SetInsertion(d)
 		return out
 	}
-	return build(p, n, ctx, fill)
+	return build(p, n, ctx, fill, required...)
 }
 
 func (p *parser) pipeline(n *yamlx.Node) *ast.Pipeline {
@@ -112,7 +112,15 @@ func (p *parser) fillPipeline(out *ast.Pipeline, m *mapping) {
 	}
 	out.LockBehavior = m.enum("lockBehavior", lockBehaviors...)
 	if e := m.take("resources"); e != nil {
-		out.Resources = buildOrInsert[ast.Resources](p, e.value, e.name, p.fillResources)
+		if e.value != nil && e.value.Kind() == yamlx.SequenceKind {
+			out.Resources = &ast.Resources{Pos: pos(e.value)}
+			out.Resources.Legacy = parseList(p, e.value, e.name, func(n *yamlx.Node) (*ast.Any, bool) {
+				value := p.free(n)
+				return value, value != nil
+			})
+		} else {
+			out.Resources = buildOrInsert[ast.Resources](p, e.value, e.name, p.fillResources)
+		}
 	}
 	if e := m.take("parameters"); e != nil {
 		out.Parameters = p.parameters(e.value, e.name)
@@ -124,7 +132,7 @@ func (p *parser) fillPipeline(out *ast.Pipeline, m *mapping) {
 		out.Pool = p.pool(e.value, e.name)
 	}
 	if e := m.take("extends"); e != nil {
-		out.Extends = buildOrInsert[ast.Extends](p, e.value, e.name, p.fillExtends)
+		out.Extends = buildOrInsert[ast.Extends](p, e.value, e.name, p.fillExtends, "template")
 	}
 	if e := m.take("stages"); e != nil {
 		out.Stages = parseList(p, e.value, e.name, p.stage)
@@ -142,7 +150,9 @@ func (p *parser) fillPipeline(out *ast.Pipeline, m *mapping) {
 	if e := m.take("container"); e != nil {
 		out.Container = p.container(e.value, e.name)
 	}
-	out.Services = m.strMap("services")
+	if e := m.take("services"); e != nil {
+		out.Services, out.ServiceSpecs = p.services(e.value, e.name)
+	}
 	if e := m.take("workspace"); e != nil {
 		out.Workspace = buildOrInsert[ast.Workspace](p, e.value, e.name, p.fillWorkspace)
 	}
@@ -255,7 +265,7 @@ func (p *parser) fillResources(out *ast.Resources, m *mapping) {
 		out.Builds = parseList(p, e.value, e.name, item(p, "build", p.fillBuild, "build", "type", "connection", "source"))
 	}
 	if e := m.take("containers"); e != nil {
-		out.Containers = parseList(p, e.value, e.name, item(p, "container", p.fillContainerResource, "container", "image"))
+		out.Containers = parseList(p, e.value, e.name, p.containerResource)
 	}
 	if e := m.take("pipelines"); e != nil {
 		out.Pipelines = parseList(p, e.value, e.name, item(p, "pipeline", p.fillPipelineResource, "pipeline"))
@@ -270,6 +280,28 @@ func (p *parser) fillResources(out *ast.Resources, m *mapping) {
 		out.Packages = parseList(p, e.value, e.name, item(p, "package", p.fillPackage, "package", "type", "connection", "name"))
 	}
 	out.Inserts, out.Extra = finish(m, p.fillResources)
+}
+
+func (p *parser) containerResource(n *yamlx.Node) (*ast.ContainerResource, bool) {
+	m := p.open(n, "container")
+	if m == nil {
+		return nil, false
+	}
+	defer m.close()
+	m.requireKey("container")
+	typeName := ""
+	for _, e := range m.entries {
+		if e.dir == 0 && strings.EqualFold(e.name, "type") && e.value != nil {
+			typeName, _ = e.value.Scalar()
+			break
+		}
+	}
+	if !strings.EqualFold(strings.TrimSpace(typeName), "ACR") {
+		m.requireKey("image")
+	}
+	out := new(ast.ContainerResource)
+	p.fillContainerResource(out, m)
+	return out, true
 }
 
 func (p *parser) resourceTrigger(n *yamlx.Node, ctx string) *ast.ResourceTrigger {
@@ -310,17 +342,28 @@ func (p *parser) fillResourceTrigger(out *ast.ResourceTrigger, m *mapping) {
 	}
 	out.Stages = m.strList("stages")
 	if e := m.take("tags"); e != nil {
-		out.Tags = p.filter(e.value, e.name)
+		out.Tags = p.resourceTags(e.value, e.name)
 	}
 	out.Inserts, out.Extra = finish(m, p.fillResourceTrigger)
+}
+
+func (p *parser) resourceTags(n *yamlx.Node, ctx string) *ast.Filter {
+	if n != nil && n.Kind() == yamlx.ScalarKind {
+		s := p.scalar(n, ctx)
+		if s != nil && (strings.EqualFold(s.Value, "none") || strings.EqualFold(s.Value, "true")) {
+			return &ast.Filter{Pos: pos(n), Keyword: s}
+		}
+	}
+	return p.filter(n, ctx)
 }
 
 func (p *parser) fillRepository(out *ast.RepositoryResource, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Repository = m.str("repository")
+	p.resourceIdentifier(out.Repository, "repository")
 	out.Endpoint = m.str("endpoint")
 	if e := m.take("trigger"); e != nil {
-		out.Trigger = p.trigger(e.value, e.name, false)
+		out.Trigger = p.repositoryTrigger(e.value, e.name)
 	}
 	out.Name = m.str("name")
 	out.Ref = m.str("ref")
@@ -328,9 +371,31 @@ func (p *parser) fillRepository(out *ast.RepositoryResource, m *mapping) {
 	out.Inserts, out.Extra = finish(m, p.fillRepository)
 }
 
+func (p *parser) repositoryTrigger(n *yamlx.Node, ctx string) *ast.Trigger {
+	if n == nil || n.Kind() != yamlx.MappingKind {
+		return p.trigger(n, ctx, false)
+	}
+	return build(p, n, ctx, func(out *ast.Trigger, m *mapping) {
+		out.Pos, out.Form = pos(m.node), ast.TriggerFull
+		if e := m.take("branches"); e != nil {
+			out.Branches = p.filter(e.value, e.name)
+		}
+		if e := m.take("paths"); e != nil {
+			out.Paths = p.filter(e.value, e.name)
+		}
+		if e := m.take("tags"); e != nil {
+			out.Tags = p.filter(e.value, e.name)
+		}
+		out.Inserts, out.Extra = finish(m, func(t *ast.Trigger, bm *mapping) {
+			t.Pos, t.Form = pos(bm.node), ast.TriggerFull
+		})
+	})
+}
+
 func (p *parser) fillPipelineResource(out *ast.PipelineResource, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Pipeline = m.str("pipeline")
+	p.resourceIdentifier(out.Pipeline, "pipeline")
 	out.Project = m.str("project")
 	out.Source = m.str("source")
 	out.Version = m.str("version")
@@ -345,6 +410,7 @@ func (p *parser) fillPipelineResource(out *ast.PipelineResource, m *mapping) {
 func (p *parser) fillContainerResource(out *ast.ContainerResource, m *mapping) {
 	out.Pos = pos(m.node)
 	out.Container = m.str("container")
+	p.resourceIdentifier(out.Container, "container")
 	p.fillContainerSpec(&out.ContainerSpec, m)
 	out.Type = m.str("type")
 	if e := m.take("trigger"); e != nil {
@@ -414,7 +480,7 @@ func (p *parser) fillWebhook(out *ast.WebhookResource, m *mapping) {
 	out.Connection = m.str("connection")
 	out.Type = m.str("type")
 	if e := m.take("filters"); e != nil {
-		out.Filters = parseList(p, e.value, e.name, item(p, "filter", p.fillWebhookFilter))
+		out.Filters = parseList(p, e.value, e.name, item(p, "filter", p.fillWebhookFilter, "path", "value"))
 	}
 	out.Inserts, out.Extra = finish(m, p.fillWebhook)
 }

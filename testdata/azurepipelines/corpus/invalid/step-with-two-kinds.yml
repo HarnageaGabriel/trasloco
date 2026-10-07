@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps
 # features: [root-steps]
-# expect: diagnostics: [wrong-shape]
+# expect: diagnostics: [TRL-PARSE-0014, TRL-PARSE-0002]
+# stage: parse
 pool:
   vmImage: ubuntu-latest
 

@@ -65,7 +65,7 @@ func TestLoadVectors(t *testing.T) {
 		t.Fatal("no vectors")
 	}
 	first := vectors[0]
-	if first.ID != "STRUCT-001" || !strings.Contains(first.Input, "\n") || len(first.Expected) == 0 || first.Source == "" {
+	if first.ID != "STRUCTV-001" || !strings.Contains(first.Input, "\n") || len(first.Expected) == 0 || first.Source == "" {
 		t.Errorf("first vector = %+v", first)
 	}
 	if got := tableCells("| a | `b\\|c` | d |"); len(got) != 5 || got[2] != "b|c" {

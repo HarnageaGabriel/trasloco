@@ -1,6 +1,6 @@
 # source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/maven-webapp-to-linux-on-azure.yml
 # features: [vendored]
-# expect: ok
+# expect: template-placeholder
 # Maven package Java project Web App to Linux on Azure
 # Build your Java project and deploy it to Azure as a Linux web app
 # Add steps that analyze code, save build artifacts, deploy, and more:

@@ -1,6 +1,7 @@
 # source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
 # features: [parameters-number]
-# expect: diagnostics: [parameter-type-mismatch]
+# expect: diagnostics: [TRL-TPL-0005]
+# stage: resolve
 parameters:
   - name: retries
     type: number
