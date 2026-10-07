@@ -254,7 +254,8 @@ func TestSanitizeEvent(t *testing.T) {
 	}
 	for _, raw := range []json.RawMessage{nil, json.RawMessage(`[]`), json.RawMessage(`{"x":`)} {
 		event.Payload = raw
-		if _, err := sanitizeEvent(event, r); !errors.Is(err, ErrRedaction) {
+		var finding *diag.Error
+		if _, err := sanitizeEvent(event, r); !errors.As(err, &finding) || finding.Finding.Code != "TRL-SECRET-0004" {
 			t.Fatalf("payload %q error = %v", raw, err)
 		}
 	}
