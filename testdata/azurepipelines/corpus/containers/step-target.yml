@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script
+# features: [containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: tools
+      image: ubuntu:22.04
+pool:
+  vmImage: ubuntu-latest
+container: tools
+steps:
+  - script: echo on the host
+    target: host
+  - script: echo in the container
+    target: tools
+  - bash: echo restricted commands
+    target:
+      container: host
+      commands: restricted

@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, root-steps]
+# expect: diagnostics: [duplicate-key]
+variables:
+  buildConfig: Debug
+  buildConfig: Release
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo $(buildConfig)

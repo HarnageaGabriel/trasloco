@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline
+# features: [resources-pipelines, trigger-tags]
+# expect: ok
+resources:
+  pipelines:
+  - pipeline: build
+    source: App-CI
+    trigger:
+      enabled: true
+      stages:
+      - Build
+      - Test
+      tags:
+      - ready-for-cd
+      branches:
+        include:
+        - main
+trigger: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo triggered by $(resources.pipeline.build.runName)

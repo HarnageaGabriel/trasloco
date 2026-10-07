@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [caching, ecosystem-python, task-cache]
+# expect: ok
+trigger: [main]
+variables:
+  PIP_CACHE_DIR: $(Pipeline.Workspace)/.pip
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'python | "$(Agent.OS)" | requirements.txt'
+      restoreKeys: |
+        python | "$(Agent.OS)"
+      path: $(PIP_CACHE_DIR)
+  - script: pip install -r requirements.txt

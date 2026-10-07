@@ -1,0 +1,6 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, template-cross-repo]
+# expect: ok
+steps:
+  - script: echo running static analysis
+    displayName: SAST scan

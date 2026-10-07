@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string]
+# expect: diagnostics: [bad-parameter-value]
+parameters:
+  - name: flavor
+    type: integer
+    default: 1
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.flavor }}

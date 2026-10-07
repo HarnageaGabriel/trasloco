@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [directive-if, parameters-boolean, parameters-string, template-expression, root-steps]
+# expect: ok
+parameters:
+  - name: publish
+    type: boolean
+    default: true
+  - name: channel
+    type: string
+    default: stable
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ if and(eq(parameters.publish, true), ne(parameters.channel, 'none')) }}:
+      - script: echo publish to ${{ parameters.channel }}
+  - ${{ if or(eq(parameters.channel, 'beta'), eq(parameters.channel, 'alpha')) }}:
+      - script: echo prerelease channel
+  - ${{ if not(parameters.publish) }}:
+      - script: echo skipping publish

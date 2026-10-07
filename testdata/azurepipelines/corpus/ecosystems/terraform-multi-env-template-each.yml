@@ -1,0 +1,69 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [root-stages, trigger-none, pool-vmimage, ecosystem-terraform, parameters-object, directive-each, template-expression, environment, deployment-runonce, task-terraformtaskv4, conditions, variables-map, directive-else]
+# expect: ok
+trigger: none
+
+parameters:
+  - name: environments
+    type: object
+    default:
+      - name: dev
+        subscription: contoso-dev-arm
+        stateKey: dev.tfstate
+        autoApprove: true
+      - name: staging
+        subscription: contoso-stg-arm
+        stateKey: staging.tfstate
+        autoApprove: true
+      - name: prod
+        subscription: contoso-prod-arm
+        stateKey: prod.tfstate
+        autoApprove: false
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  tfDir: infra
+
+stages:
+  - ${{ each env in parameters.environments }}:
+      - stage: deploy_${{ env.name }}
+        displayName: Deploy ${{ env.name }}
+        jobs:
+          - deployment: apply_${{ env.name }}
+            environment: tf-${{ env.name }}
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - task: TerraformTaskV4@4
+                      displayName: Init ${{ env.name }}
+                      inputs:
+                        provider: azurerm
+                        command: init
+                        workingDirectory: $(tfDir)
+                        backendServiceArm: ${{ env.subscription }}
+                        backendAzureRmResourceGroupName: tfstate-rg
+                        backendAzureRmStorageAccountName: contosotfstate
+                        backendAzureRmContainerName: tfstate
+                        backendAzureRmKey: ${{ env.stateKey }}
+                    - ${{ if eq(env.autoApprove, true) }}:
+                        - task: TerraformTaskV4@4
+                          displayName: Apply (auto)
+                          inputs:
+                            provider: azurerm
+                            command: apply
+                            workingDirectory: $(tfDir)
+                            environmentServiceNameAzureRM: ${{ env.subscription }}
+                            commandOptions: -auto-approve -var env=${{ env.name }}
+                    - ${{ else }}:
+                        - task: TerraformTaskV4@4
+                          displayName: Plan only (needs manual apply)
+                          inputs:
+                            provider: azurerm
+                            command: plan
+                            workingDirectory: $(tfDir)
+                            environmentServiceNameAzureRM: ${{ env.subscription }}
+                            commandOptions: -var env=${{ env.name }}

@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [strategy-matrix, pool-vmimage]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: build
+    pool:
+      vmImage: $(imageName)
+    strategy:
+      matrix:
+        linux:
+          imageName: ubuntu-latest
+          nodeVersion: 18.x
+        windows:
+          imageName: windows-latest
+          nodeVersion: 20.x
+    steps:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: $(nodeVersion)

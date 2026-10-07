@@ -1,0 +1,25 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository
+# features: [resources-repositories, trigger-branches, trigger-paths]
+# expect: ok
+resources:
+  repositories:
+  - repository: app
+    type: git
+    name: Contoso/app
+    trigger:
+      branches:
+        include:
+        - main
+        - release/*
+      paths:
+        include:
+        - src/*
+      tags:
+        include:
+        - v*
+trigger: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: app
+- script: echo triggered by app repo

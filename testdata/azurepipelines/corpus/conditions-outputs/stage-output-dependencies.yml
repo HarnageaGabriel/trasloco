@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [stage-dependencies-outputs, output-variables, logging-commands, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: A
+    jobs:
+      - job: A1
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - bash: echo "##vso[task.setvariable variable=skipsubsequent;isOutput=true]false"
+            name: printvar
+  - stage: B
+    dependsOn: A
+    condition: and(succeeded(), ne(dependencies.A.outputs['A1.printvar.skipsubsequent'], 'true'))
+    jobs:
+      - job: B1
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo hello from B

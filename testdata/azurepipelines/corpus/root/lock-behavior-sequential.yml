@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+# features: [root-stages, environment]
+# expect: ok
+trigger:
+- main
+lockBehavior: sequential
+pool:
+  vmImage: ubuntu-latest
+stages:
+- stage: Deploy
+  jobs:
+  - deployment: DeployWeb
+    environment: production
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: echo deploying

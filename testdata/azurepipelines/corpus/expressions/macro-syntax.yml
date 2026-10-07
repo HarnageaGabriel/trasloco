@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [macro-syntax, variables-map, root-steps, artifacts-publish, task-publishpipelineartifact]
+# expect: ok
+variables:
+  projectName: contoso
+  outputDir: $(Build.ArtifactStagingDirectory)/$(projectName)
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo "Building $(projectName) into $(outputDir)"
+    displayName: Show $(projectName)
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(outputDir)
+      artifact: $(projectName)-drop

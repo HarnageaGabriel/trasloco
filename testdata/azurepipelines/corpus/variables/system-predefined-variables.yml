@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, macro-syntax]
+# expect: ok
+trigger:
+- main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: |
+    echo "Build.BuildId: $(Build.BuildId)"
+    echo "Build.SourceBranch: $(Build.SourceBranch)"
+    echo "Build.SourceVersion: $(Build.SourceVersion)"
+    echo "Agent.OS: $(Agent.OS)"
+    echo "System.TeamProject: $(System.TeamProject)"
+    echo "Pipeline.Workspace: $(Pipeline.Workspace)"
+  displayName: Dump predefined variables

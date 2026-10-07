@@ -1,0 +1,44 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-runonce, environment, conditions, status-functions, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: dev
+    jobs:
+      - deployment: d
+        environment: dev
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo dev
+  - stage: test
+    dependsOn: dev
+    condition: succeeded('dev')
+    jobs:
+      - deployment: t
+        environment: test
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo test
+  - stage: prod
+    dependsOn:
+      - dev
+      - test
+    condition: and(succeeded('dev'), succeeded('test'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: p
+        environment: prod
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo prod

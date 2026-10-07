@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/manual-validation-v0
+# features: [trigger-none, pool-named, task-manualvalidation, approvals]
+# expect: ok
+trigger: none
+
+jobs:
+  - job: waitForValidation
+    displayName: Wait for external validation
+    pool: server
+    timeoutInMinutes: 4320
+    steps:
+      - task: ManualValidation@0
+        displayName: Wait for approval
+        timeoutInMinutes: 1440
+        inputs:
+          notifyUsers: |
+            ops@contoso.com
+            release-managers@contoso.com
+          instructions: Review the plan and resume to continue.
+          onTimeout: reject

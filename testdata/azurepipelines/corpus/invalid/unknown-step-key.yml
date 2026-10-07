@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script
+# features: [root-steps]
+# expect: diagnostics: [unknown-key]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo hi
+    displayname: lower-case typo
+    retryCount: 2
+    bogusOption: true

@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-job, parameters-string, parameters-object, template-parameters-default, directive-each, root-jobs]
+# expect: ok
+trigger: [main]
+jobs:
+  - template: parts/build-job.yml
+    parameters:
+      name: linux
+      vmImage: ubuntu-latest
+      scripts:
+        - echo one
+        - echo two
+  - template: parts/build-job.yml
+    parameters:
+      name: windows
+      vmImage: windows-latest
+      scripts:
+        - echo win

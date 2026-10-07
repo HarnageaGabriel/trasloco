@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-builds-build
+# features: [resources-builds, resources-packages]
+# expect: ok
+resources:
+  builds:
+  - build: legacy
+    type: Jenkins
+    connection: jenkins-conn
+    source: legacy-job
+    trigger: true
+  packages:
+  - package: npm-lib
+    type: npm
+    connection: github-packages-conn
+    name: '@contoso/ui-lib'
+    version: 1.2.3
+    trigger: true
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo build and package resources declared

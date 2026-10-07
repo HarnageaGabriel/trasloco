@@ -1,0 +1,29 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [dependencies-outputs, output-variables, logging-commands, conditions, status-functions]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: first
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - bash: echo "##vso[task.setvariable variable=ok;isOutput=true]yes"
+        name: step1
+  - job: second
+    dependsOn: first
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      okFlag: $[ dependencies.first.outputs['step1.ok'] ]
+    steps:
+      - bash: echo "##vso[task.setvariable variable=final;isOutput=true]$(okFlag)"
+        name: step2
+  - job: third
+    dependsOn:
+      - first
+      - second
+    condition: and(succeeded(), eq(dependencies.second.outputs['step2.final'], 'yes'))
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo chain complete

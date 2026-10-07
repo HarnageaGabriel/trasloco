@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [trigger-branches, trigger-paths]
+# expect: ok
+trigger:
+  branches:
+    include:
+    - '*'
+    exclude:
+    - users/*
+  paths:
+    include:
+    - services/api/**
+    - shared/lib/*
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo api build

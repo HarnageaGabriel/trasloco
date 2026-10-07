@@ -1,0 +1,38 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals
+# features: [approvals, task-manualvalidation, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: build
+    jobs:
+      - job: b
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo build
+  - stage: approve
+    dependsOn: build
+    jobs:
+      - job: wait
+        pool: server
+        timeoutInMinutes: 1440
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 1440
+            inputs:
+              notifyUsers: |
+                release-managers@contoso.com
+              instructions: Review the build and resume
+              onTimeout: reject
+  - stage: release
+    dependsOn: approve
+    jobs:
+      - deployment: rel
+        environment: production
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo release

@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-list, variables-group, macro-syntax]
+# expect: ok
+trigger:
+- main
+variables:
+- group: shared-settings
+- group: app-secrets
+- name: localVar
+  value: abc
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo $(localVar) $(sharedSetting)

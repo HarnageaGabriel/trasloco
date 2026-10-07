@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-dotnetcorecli]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: DotNetCoreCLI@0
+    displayName: dotnet build (legacy)
+    inputs:
+      command: build
+      projects: '**/*.csproj'

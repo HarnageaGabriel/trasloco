@@ -1,0 +1,4 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs
+# features: [root-jobs]
+# expect: diagnostics: [wrong-shape]
+jobs: build

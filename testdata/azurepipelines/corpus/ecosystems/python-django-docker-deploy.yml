@@ -1,0 +1,79 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/python-webapp, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/containers/acr-template
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-python, ecosystem-docker-k8s, services, variables-map, environment, deployment-runonce, task-docker, task-azurewebappcontainer, task-usepythonversion, macro-syntax, containers]
+# expect: ok
+trigger:
+  - main
+
+variables:
+  imageRepository: contoso/django-app
+  containerRegistry: contosoacr.azurecr.io
+  tag: $(Build.BuildId)
+
+resources:
+  containers:
+    - container: pg
+      image: postgres:16
+      env:
+        POSTGRES_PASSWORD: ci-only-password
+        POSTGRES_DB: app
+      ports:
+        - 5432:5432
+
+stages:
+  - stage: Test
+    jobs:
+      - job: DjangoTests
+        pool:
+          vmImage: ubuntu-latest
+        services:
+          postgres: pg
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - script: |
+              python -m venv .venv
+              . .venv/bin/activate
+              pip install -r requirements.txt
+            displayName: Install dependencies
+          - script: |
+              . .venv/bin/activate
+              python manage.py test
+            displayName: manage.py test
+            env:
+              DATABASE_URL: postgres://postgres:ci-only-password@localhost:5432/app
+
+  - stage: Image
+    dependsOn: Test
+    jobs:
+      - job: Build
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: Docker@2
+            displayName: Build and push
+            inputs:
+              command: buildAndPush
+              containerRegistry: contoso-acr
+              repository: $(imageRepository)
+              Dockerfile: Dockerfile
+              tags: |
+                $(tag)
+                latest
+
+  - stage: Deploy
+    dependsOn: Image
+    jobs:
+      - deployment: WebApp
+        pool:
+          vmImage: ubuntu-latest
+        environment: django-production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebAppContainer@1
+                  inputs:
+                    azureSubscription: contoso-arm
+                    appName: contoso-django
+                    containers: $(containerRegistry)/$(imageRepository):$(tag)

@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# features: [root-steps]
+# expect: diagnostics: [unknown-key]
+pool:
+  vmImage: ubuntu-latest
+
+stepz:
+  - script: echo typo

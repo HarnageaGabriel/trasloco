@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cache-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-cache, caching, conditions, macro-syntax]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Cache@2
+    displayName: Cache npm
+    inputs:
+      key: 'npm | "$(Agent.OS)" | package-lock.json'
+      restoreKeys: |
+        npm | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.npm
+      cacheHitVar: NPM_CACHE_RESTORED
+  - script: npm ci --cache $(Pipeline.Workspace)/.npm
+    displayName: npm ci
+    condition: ne(variables.NPM_CACHE_RESTORED, 'true')

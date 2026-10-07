@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-object, directive-each, template-expression]
+# expect: ok
+trigger: none
+parameters:
+- name: regions
+  type: object
+  default:
+  - westeurope
+  - eastus
+  - japaneast
+pool:
+  vmImage: ubuntu-latest
+steps:
+- ${{ each region in parameters.regions }}:
+  - script: echo Deploying to ${{ region }}
+    displayName: Deploy ${{ region }}

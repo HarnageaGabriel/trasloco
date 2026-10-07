@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task
+# features: [root-steps, task-npm]
+# expect: diagnostics: [bad-task-ref]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Npm@1.2.3
+    inputs:
+      command: install

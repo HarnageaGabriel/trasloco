@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, root-steps]
+# expect: diagnostics: [template-cycle]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo again
+  - template: template-self-include.yml

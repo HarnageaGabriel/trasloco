@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [root-jobs]
+# expect: diagnostics: [unknown-dependency]
+jobs:
+  - job: Test
+    dependsOn:
+      - Build
+      - Lint
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo test

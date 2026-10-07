@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout
+# features: [checkout-multi-repo]
+# expect: ok
+trigger: [main]
+resources:
+  repositories:
+    - repository: shared
+      type: git
+      name: Contoso/shared
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - checkout: self
+    path: s/app
+    clean: true
+  - checkout: shared
+    path: s/shared
+    fetchDepth: 1
+    fetchTags: false

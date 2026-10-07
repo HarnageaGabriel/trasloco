@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-job, root-jobs]
+# expect: ok
+trigger: none
+parameters:
+- name: smokeJob
+  type: job
+  default:
+    job: smoke
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo smoke test
+jobs:
+- job: build
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+  - script: echo build
+- ${{ parameters.smokeJob }}

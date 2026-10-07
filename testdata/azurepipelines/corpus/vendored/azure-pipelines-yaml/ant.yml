@@ -1,0 +1,24 @@
+# source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ant.yml
+# features: [vendored]
+# expect: ok
+# Ant
+# Build your Java projects and run tests with Apache Ant.
+# Add steps that save build artifacts and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- {{ branch }}
+
+pool:
+  {{ pool }}
+
+steps:
+- task: Ant@1
+  inputs:
+    workingDirectory: ''
+    buildFile: 'build.xml'
+    javaHomeOption: 'JDKVersion'
+    jdkVersionOption: '1.8'
+    jdkArchitectureOption: 'x64'
+    publishJUnitResults: true
+    testResultsFiles: '**/TEST-*.xml'

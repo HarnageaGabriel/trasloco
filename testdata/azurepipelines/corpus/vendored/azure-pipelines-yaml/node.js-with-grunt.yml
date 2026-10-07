@@ -1,0 +1,24 @@
+# source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-grunt.yml
+# features: [vendored]
+# expect: ok
+# Node.js with Grunt
+# Build a Node.js project using the Grunt task runner.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- {{ branch }}
+
+pool:
+  {{ pool }}
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '10.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    grunt --gruntfile Gruntfile.js
+  displayName: 'npm install and run grunt'

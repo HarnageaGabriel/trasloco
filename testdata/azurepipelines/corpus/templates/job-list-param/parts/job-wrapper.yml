@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [parameters-joblist, directive-each, directive-insert, pool-vmimage]
+# expect: ok
+parameters:
+  - name: jobs
+    type: jobList
+    default: []
+stages:
+  - stage: ci
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - ${{ each j in parameters.jobs }}:
+          - ${{ j }}

@@ -1,0 +1,64 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/containers/build-image, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-docker-k8s, strategy-matrix, task-docker, variables-map, conditions, macro-syntax, output-variables, logging-commands, runtime-expression, dependencies-outputs]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - services/*
+
+variables:
+  registryConnection: contoso-acr
+  registry: contosoacr.azurecr.io
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Images
+    jobs:
+      - job: Compute
+        steps:
+          - bash: |
+              short=$(echo "$(Build.SourceVersion)" | cut -c1-8)
+              echo "##vso[task.setvariable variable=shortSha;isOutput=true]$short"
+            name: version
+      - job: Build
+        dependsOn: Compute
+        variables:
+          shortSha: $[ dependencies.Compute.outputs['version.shortSha'] ]
+        strategy:
+          matrix:
+            api:
+              service: api
+              context: services/api
+            worker:
+              service: worker
+              context: services/worker
+            gateway:
+              service: gateway
+              context: services/gateway
+        steps:
+          - task: Docker@2
+            displayName: Build $(service)
+            inputs:
+              command: build
+              containerRegistry: $(registryConnection)
+              repository: contoso/$(service)
+              Dockerfile: $(context)/Dockerfile
+              buildContext: $(context)
+              tags: |
+                $(shortSha)
+                $(Build.BuildId)
+          - task: Docker@2
+            displayName: Push $(service)
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+            inputs:
+              command: push
+              containerRegistry: $(registryConnection)
+              repository: contoso/$(service)
+              tags: |
+                $(shortSha)
+                $(Build.BuildId)

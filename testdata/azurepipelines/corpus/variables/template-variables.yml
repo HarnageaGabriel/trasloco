@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-list, variables-template, template-variable]
+# expect: ok
+trigger:
+- main
+variables:
+- template: template-vars-common.yml
+- template: template-vars-env.yml
+  parameters:
+    environment: dev
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo $(commonVar)

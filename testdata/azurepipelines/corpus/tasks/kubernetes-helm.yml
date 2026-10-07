@@ -1,0 +1,44 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-manifest-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/helm-deploy-v0
+# features: [trigger-branches, pool-vmimage, root-steps, task-kubernetesmanifest, task-kubernetes, task-helmdeploy, ecosystem-docker-k8s]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: KubernetesManifest@1
+    displayName: Deploy manifests
+    inputs:
+      action: deploy
+      connectionType: azureResourceManager
+      azureSubscriptionConnection: contoso-arm
+      azureResourceGroup: contoso-rg
+      kubernetesCluster: contoso-aks
+      namespace: web
+      manifests: |
+        k8s/deployment.yml
+        k8s/service.yml
+      containers: contoso.azurecr.io/web:$(Build.BuildId)
+  - task: Kubernetes@1
+    displayName: kubectl get pods
+    inputs:
+      connectionType: Kubernetes Service Connection
+      kubernetesServiceEndpoint: aks-endpoint
+      namespace: web
+      command: get
+      arguments: pods
+  - task: HelmDeploy@0
+    displayName: helm upgrade
+    inputs:
+      connectionType: Kubernetes Service Connection
+      kubernetesServiceConnection: aks-endpoint
+      namespace: web
+      command: upgrade
+      chartType: FilePath
+      chartPath: charts/web
+      releaseName: web
+      overrideValues: image.tag=$(Build.BuildId)

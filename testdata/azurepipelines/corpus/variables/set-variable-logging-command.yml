@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, logging-commands, output-variables, macro-syntax]
+# expect: ok
+trigger: none
+variables:
+  initial: start
+pool:
+  vmImage: ubuntu-latest
+steps:
+- bash: |
+    echo "##vso[task.setvariable variable=computed]hello"
+    echo "##vso[task.setvariable variable=hidden;issecret=true]s3cr3t"
+  displayName: Set variables
+- script: echo $(initial) $(computed)
+  displayName: Read variables

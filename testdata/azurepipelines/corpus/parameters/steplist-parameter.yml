@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-steplist, directive-each]
+# expect: ok
+trigger: none
+parameters:
+- name: extraSteps
+  type: stepList
+  default:
+  - script: echo extra one
+  - script: echo extra two
+    displayName: Second extra step
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo start
+- ${{ each step in parameters.extraSteps }}:
+  - ${{ step }}
+- script: echo end

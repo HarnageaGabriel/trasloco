@@ -1,0 +1,103 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/manual-validation-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-terraform, approvals, environment, deployment-runonce, task-terraformtaskv4, task-manualvalidation, variables-group, variables-map, conditions, artifacts-publish, artifacts-download]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infra/**
+
+variables:
+  - group: terraform-backend
+  - name: tfDir
+    value: infra
+  - name: tfVersion
+    value: 1.9.5
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Plan
+    jobs:
+      - job: TerraformPlan
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: $(tfVersion)
+          - task: TerraformTaskV4@4
+            displayName: Init
+            inputs:
+              provider: azurerm
+              command: init
+              workingDirectory: $(tfDir)
+              backendServiceArm: contoso-arm
+              backendAzureRmResourceGroupName: $(backendResourceGroup)
+              backendAzureRmStorageAccountName: $(backendStorageAccount)
+              backendAzureRmContainerName: tfstate
+              backendAzureRmKey: prod.tfstate
+          - task: TerraformTaskV4@4
+            displayName: Validate
+            inputs:
+              provider: azurerm
+              command: validate
+              workingDirectory: $(tfDir)
+          - task: TerraformTaskV4@4
+            displayName: Plan
+            inputs:
+              provider: azurerm
+              command: plan
+              workingDirectory: $(tfDir)
+              environmentServiceNameAzureRM: contoso-arm
+              commandOptions: -out=$(Build.ArtifactStagingDirectory)/tfplan -input=false
+          - publish: $(Build.ArtifactStagingDirectory)/tfplan
+            artifact: tfplan
+
+  - stage: Approve
+    dependsOn: Plan
+    jobs:
+      - job: WaitForApproval
+        pool: server
+        timeoutInMinutes: 4320
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 1440
+            inputs:
+              notifyUsers: infra-leads@contoso.com
+              instructions: Review the Terraform plan artifact before approving.
+              onTimeout: reject
+
+  - stage: Apply
+    dependsOn: Approve
+    condition: succeeded()
+    jobs:
+      - deployment: TerraformApply
+        environment: infra-production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - download: current
+                  artifact: tfplan
+                - task: TerraformTaskV4@4
+                  displayName: Init
+                  inputs:
+                    provider: azurerm
+                    command: init
+                    workingDirectory: $(tfDir)
+                    backendServiceArm: contoso-arm
+                    backendAzureRmResourceGroupName: $(backendResourceGroup)
+                    backendAzureRmStorageAccountName: $(backendStorageAccount)
+                    backendAzureRmContainerName: tfstate
+                    backendAzureRmKey: prod.tfstate
+                - task: TerraformTaskV4@4
+                  displayName: Apply
+                  inputs:
+                    provider: azurerm
+                    command: apply
+                    workingDirectory: $(tfDir)
+                    environmentServiceNameAzureRM: contoso-arm
+                    commandOptions: $(Pipeline.Workspace)/tfplan/tfplan

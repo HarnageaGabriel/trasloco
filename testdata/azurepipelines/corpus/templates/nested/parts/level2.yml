@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-nested, template-step, parameters-string]
+# expect: ok
+parameters:
+  - name: label
+    type: string
+    default: l2
+steps:
+  - script: echo level2 ${{ parameters.label }}
+  - template: deep/level3.yml
+    parameters:
+      label: ${{ parameters.label }}-l3

@@ -1,0 +1,30 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-runonce, deployment-hooks, environment]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: app
+    environment: production
+    strategy:
+      runOnce:
+        preDeploy:
+          steps:
+            - script: echo pre-deploy
+        deploy:
+          steps:
+            - script: echo deploy
+        routeTraffic:
+          steps:
+            - script: echo route traffic
+        postRouteTraffic:
+          steps:
+            - script: echo post route traffic
+        on:
+          failure:
+            steps:
+              - script: echo rollback
+          success:
+            steps:
+              - script: echo notify success

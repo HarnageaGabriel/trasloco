@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-job, template-cross-repo, parameters-string]
+# expect: ok
+parameters:
+  - name: solution
+    type: string
+    default: '*.sln'
+jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: DotNetCoreCLI@2
+        inputs:
+          command: build
+          projects: ${{ parameters.solution }}

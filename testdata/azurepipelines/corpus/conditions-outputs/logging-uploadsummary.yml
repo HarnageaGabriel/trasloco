@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands
+# features: [logging-commands]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - bash: |
+      echo "# Build report" > $(Agent.TempDirectory)/summary.md
+      echo "all good" >> $(Agent.TempDirectory)/summary.md
+      echo "##vso[task.uploadsummary]$(Agent.TempDirectory)/summary.md"
+    displayName: Upload markdown summary

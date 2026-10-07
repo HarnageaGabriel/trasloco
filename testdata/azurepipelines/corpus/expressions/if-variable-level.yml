@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [directive-if, directive-else, variables-list, template-expression, root-steps]
+# expect: ok
+variables:
+  - name: baseName
+    value: app
+  - ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+      - name: configuration
+        value: Release
+  - ${{ else }}:
+      - name: configuration
+        value: Debug
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo "$(baseName) built as $(configuration)"

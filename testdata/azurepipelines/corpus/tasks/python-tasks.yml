@@ -1,0 +1,32 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-python-version-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/python-script-v0
+# features: [trigger-branches, pool-vmimage, root-steps, task-usepythonversion, task-pythonscript, ecosystem-python]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.12
+    inputs:
+      versionSpec: 3.12
+      addToPath: true
+      architecture: x64
+  - task: PythonScript@0
+    displayName: Run inline script
+    inputs:
+      scriptSource: inline
+      script: |
+        import sys
+        print(sys.version)
+  - task: PythonScript@0
+    displayName: Run script file
+    inputs:
+      scriptSource: filePath
+      scriptPath: tools/check.py
+      arguments: --strict
+      workingDirectory: $(Build.SourcesDirectory)

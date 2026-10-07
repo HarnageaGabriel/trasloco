@@ -1,0 +1,39 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-tool-installer-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-authenticate-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-nugetcommand, task-nugettoolinstaller, task-nugetauthenticate, ecosystem-dotnet]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: NuGetToolInstaller@1
+    displayName: Install NuGet
+    inputs:
+      versionSpec: 6.x
+      checkLatest: true
+  - task: NuGetAuthenticate@1
+    displayName: Authenticate feeds
+  - task: NuGetCommand@2
+    displayName: Restore
+    inputs:
+      command: restore
+      restoreSolution: '**/*.sln'
+      feedsToUse: config
+      nugetConfigPath: nuget.config
+  - task: NuGetCommand@2
+    displayName: Pack
+    inputs:
+      command: pack
+      packagesToPack: '**/*.nuspec'
+      versioningScheme: byBuildNumber
+  - task: NuGetCommand@2
+    displayName: Push
+    inputs:
+      command: push
+      packagesToPush: $(Build.ArtifactStagingDirectory)/**/*.nupkg
+      nuGetFeedType: internal
+      publishVstsFeed: Contoso/internal

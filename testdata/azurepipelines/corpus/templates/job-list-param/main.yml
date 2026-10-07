@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-extends, parameters-joblist]
+# expect: ok
+extends:
+  template: parts/job-wrapper.yml
+  parameters:
+    jobs:
+      - job: lint
+        steps:
+          - script: echo lint
+      - job: test
+        steps:
+          - script: echo test

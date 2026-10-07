@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [runtime-expression, variables-map]
+# expect: diagnostics: [invalid-expression]
+variables:
+  broken: $[ eq(variables['Build.Reason'], 'Manual' ]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo $(broken)

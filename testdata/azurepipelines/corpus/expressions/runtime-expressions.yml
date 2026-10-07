@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [runtime-expression, variables-map, conditions, output-variables, dependencies-outputs, root-jobs]
+# expect: ok
+variables:
+  isMain: $[ eq(variables['Build.SourceBranch'], 'refs/heads/main') ]
+  buildCounter: $[ counter(variables['Build.SourceBranchName'], 100) ]
+
+jobs:
+  - job: A
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo "##vso[task.setvariable variable=ready;isOutput=true]yes"
+        name: setter
+  - job: B
+    dependsOn: A
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      ready: $[ dependencies.A.outputs['setter.ready'] ]
+    condition: eq(dependencies.A.outputs['setter.ready'], 'yes')
+    steps:
+      - script: echo "ready=$(ready) counter=$(buildCounter)"

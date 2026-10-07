@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-number, parameters-values]
+# expect: ok
+trigger: none
+parameters:
+- name: replicas
+  displayName: Replica count
+  type: number
+  default: 3
+  values:
+  - 1
+  - 3
+  - 5
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo Scaling to ${{ parameters.replicas }} replicas

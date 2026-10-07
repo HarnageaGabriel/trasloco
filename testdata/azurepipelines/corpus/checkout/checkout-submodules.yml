@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout
+# features: [checkout-submodules]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - checkout: self
+    submodules: true
+  - script: git submodule status

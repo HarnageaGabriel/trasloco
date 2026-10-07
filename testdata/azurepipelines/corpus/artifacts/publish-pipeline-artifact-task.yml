@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-pipeline-artifact-v1
+# features: [artifacts-publish, task-publishpipelineartifact]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifact: webapp
+      publishLocation: pipeline

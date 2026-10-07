@@ -1,0 +1,37 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-test-results-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-code-coverage-results-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/vstest-v3
+# features: [trigger-branches, pool-vmimage, root-steps, task-publishtestresults, task-publishcodecoverageresults, task-vstest, conditions, status-functions]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: VSTest@3
+    displayName: Run tests
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*Tests.dll
+        !**\obj\**
+      searchFolder: $(System.DefaultWorkingDirectory)
+      codeCoverageEnabled: true
+      platform: Any CPU
+      configuration: Release
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '**/TEST-*.xml'
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+      testRunTitle: Unit tests
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish coverage
+    inputs:
+      summaryFileLocation: $(Agent.TempDirectory)/**/coverage.cobertura.xml
+      failIfCoverageEmpty: true

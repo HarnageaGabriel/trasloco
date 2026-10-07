@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [directive-if, directive-elseif, directive-else, parameters-string, parameters-values, root-steps, template-expression]
+# expect: ok
+parameters:
+  - name: env
+    type: string
+    default: dev
+    values: [dev, test, prod]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ if eq(parameters.env, 'prod') }}:
+      - script: echo "deploying to production"
+        displayName: Prod deploy
+  - ${{ elseif eq(parameters.env, 'test') }}:
+      - script: echo "deploying to test"
+        displayName: Test deploy
+  - ${{ else }}:
+      - script: echo "deploying to dev"
+        displayName: Dev deploy

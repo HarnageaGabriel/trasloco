@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task
+# features: [root-steps]
+# expect: diagnostics: [wrong-shape]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - inputs:
+      command: build
+    displayName: Task without a task key

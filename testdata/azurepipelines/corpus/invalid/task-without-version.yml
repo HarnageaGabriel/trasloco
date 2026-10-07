@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task
+# features: [root-steps, task-dotnetcorecli]
+# expect: diagnostics: [bad-task-ref]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: DotNetCoreCLI
+    inputs:
+      command: build

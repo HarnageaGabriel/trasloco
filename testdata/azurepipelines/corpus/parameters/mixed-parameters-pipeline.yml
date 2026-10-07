@@ -1,0 +1,37 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string, parameters-boolean, parameters-number, parameters-values, directive-if, directive-elseif, directive-else, ecosystem-dotnet]
+# expect: ok
+trigger:
+- main
+parameters:
+- name: configuration
+  displayName: Build configuration
+  type: string
+  default: Release
+  values:
+  - Debug
+  - Release
+- name: publish
+  displayName: Publish artifacts
+  type: boolean
+  default: false
+- name: timeoutMinutes
+  type: number
+  default: 60
+pool:
+  vmImage: ubuntu-latest
+jobs:
+- job: build
+  timeoutInMinutes: ${{ parameters.timeoutMinutes }}
+  steps:
+  - ${{ if eq(parameters.configuration, 'Debug') }}:
+    - script: dotnet build --configuration Debug
+  - ${{ elseif eq(parameters.configuration, 'Release') }}:
+    - script: dotnet build --configuration Release
+  - ${{ else }}:
+    - script: echo unknown configuration
+  - ${{ if parameters.publish }}:
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)
+        artifact: drop

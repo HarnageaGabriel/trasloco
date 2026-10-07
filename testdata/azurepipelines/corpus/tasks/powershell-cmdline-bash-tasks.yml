@@ -1,0 +1,44 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/powershell-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cmd-line-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/bash-v3
+# features: [trigger-branches, pool-vmimage, root-steps, task-powershell, task-cmdline, task-bash]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: PowerShell@2
+    displayName: Inline PowerShell
+    inputs:
+      targetType: inline
+      script: |
+        Write-Host "Agent: $(Agent.Name)"
+        Get-ChildItem -Path $(Build.SourcesDirectory)
+      pwsh: true
+      errorActionPreference: stop
+      failOnStderr: false
+  - task: PowerShell@2
+    displayName: File PowerShell
+    inputs:
+      targetType: filePath
+      filePath: scripts/build.ps1
+      arguments: -Configuration Release -Verbose
+      workingDirectory: $(Build.SourcesDirectory)
+  - task: CmdLine@2
+    displayName: Command line
+    inputs:
+      script: |
+        echo Hello from CmdLine
+        echo $BUILD_BUILDID
+      workingDirectory: $(Build.SourcesDirectory)
+  - task: Bash@3
+    displayName: Bash task
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        echo "Build $BUILD_BUILDID"
+      failOnStderr: false

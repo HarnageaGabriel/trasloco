@@ -1,0 +1,27 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [template-expression, directive-if, parameters-number, conditions, status-functions, root-steps]
+# expect: ok
+parameters:
+  - name: retries
+    type: number
+    default: 3
+  - name: dryRun
+    type: boolean
+    default: false
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ if ge(parameters.retries, 3) }}:
+      - script: echo ge
+  - ${{ if le(parameters.retries, 5) }}:
+      - script: echo le
+  - ${{ if lt(parameters.retries, 10) }}:
+      - script: echo lt
+  - ${{ if xor(parameters.dryRun, true) }}:
+      - script: echo xor
+  - script: echo notpr
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  - script: echo cleanup
+    condition: or(failed(), canceled())

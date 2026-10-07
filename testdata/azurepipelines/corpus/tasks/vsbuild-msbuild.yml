@@ -1,0 +1,29 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/vsbuild-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/msbuild-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-vsbuild, task-msbuild, macro-syntax]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: VSBuild@1
+    displayName: Build solution
+    inputs:
+      solution: '**/*.sln'
+      msbuildArgs: /p:DeployOnBuild=true
+      platform: $(buildPlatform)
+      configuration: $(buildConfiguration)
+      maximumCpuCount: true
+      clean: true
+  - task: MSBuild@1
+    displayName: MSBuild project
+    inputs:
+      solution: src/App/App.csproj
+      msbuildArchitecture: x64
+      platform: x64
+      configuration: Release
+      msbuildArguments: /m /p:Version=1.2.3

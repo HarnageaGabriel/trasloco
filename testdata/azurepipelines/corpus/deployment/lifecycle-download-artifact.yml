@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-runonce, artifacts-download, environment]
+# expect: ok
+trigger: [main]
+resources:
+  pipelines:
+    - pipeline: ci
+      source: web-ci
+      trigger: true
+      project: Contoso
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: release
+    environment: staging
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: ci
+              artifact: drop
+            - script: ls $(Pipeline.Workspace)/ci/drop

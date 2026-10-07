@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions
+# features: [conditions, status-functions]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: echo work
+  - script: echo cleanup always
+    condition: always()
+  - script: echo canceled hook
+    condition: canceled()
+  - script: echo regardless of failure but not cancel
+    condition: succeededOrFailed()

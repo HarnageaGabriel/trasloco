@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/gradle-v3
+# features: [trigger-branches, pool-vmimage, root-steps, task-gradle, ecosystem-java]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Gradle@3
+    displayName: Gradle build
+    inputs:
+      gradleWrapperFile: gradlew
+      tasks: build
+      options: --no-daemon
+      publishJUnitResults: true
+      testResultsFiles: '**/build/test-results/TEST-*.xml'
+      javaHomeOption: JDKVersion
+      jdkVersionOption: '1.17'

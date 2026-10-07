@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands
+# features: [logging-commands]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - bash: |
+      mkdir -p $(Agent.ToolsDirectory)/mytool/bin
+      echo "##vso[task.prependpath]$(Agent.ToolsDirectory)/mytool/bin"
+    displayName: Add tool to PATH
+  - script: echo $PATH

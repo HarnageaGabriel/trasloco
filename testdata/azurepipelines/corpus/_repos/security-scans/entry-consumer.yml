@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-cross-repo, resources-repositories, template-step]
+# expect: ok
+trigger: none
+resources:
+  repositories:
+    - repository: scans
+      type: git
+      name: contoso/security-scans
+      ref: refs/tags/v1
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - template: steps/dependency-scan.yml@scans
+    parameters:
+      failOnHigh: false

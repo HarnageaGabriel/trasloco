@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-maven, ecosystem-java]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Maven@1
+    displayName: Maven (legacy v1)
+    inputs:
+      mavenPOMFile: pom.xml
+      goals: package

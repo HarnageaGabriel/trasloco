@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [trigger-branches, trigger-tags]
+# expect: ok
+trigger:
+  branches:
+    include:
+    - main
+  tags:
+    include:
+    - v*
+    exclude:
+    - v*-beta
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo tagged build

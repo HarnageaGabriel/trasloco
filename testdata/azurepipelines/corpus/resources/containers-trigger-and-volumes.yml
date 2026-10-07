@@ -1,0 +1,25 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-containers-container
+# features: [resources-containers, containers]
+# expect: ok
+resources:
+  containers:
+  - container: app-image
+    type: ACR
+    azureSubscription: azure-service-connection
+    resourceGroup: rg-contoso
+    registry: contosoregistry
+    repository: app
+    trigger:
+      tags:
+        include:
+        - latest
+        - release-*
+    volumes:
+    - /tmp/cache:/cache
+    mapDockerSocket: false
+trigger: none
+pool:
+  vmImage: ubuntu-latest
+container: app-image
+steps:
+- script: echo running inside container

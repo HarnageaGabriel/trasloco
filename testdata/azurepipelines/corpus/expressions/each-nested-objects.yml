@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [directive-each, parameters-object, template-expression, root-jobs, pool-vmimage]
+# expect: ok
+parameters:
+  - name: environments
+    type: object
+    default:
+      dev:
+        - eastus
+        - westus
+      prod:
+        - northeurope
+        - westeurope
+
+jobs:
+  - ${{ each env in parameters.environments }}:
+      - ${{ each region in env.value }}:
+          - job: Deploy_${{ env.key }}_${{ replace(region, '-', '_') }}
+            displayName: Deploy ${{ env.key }} to ${{ region }}
+            pool:
+              vmImage: ubuntu-latest
+            steps:
+              - script: echo deploying ${{ env.key }} in ${{ region }}

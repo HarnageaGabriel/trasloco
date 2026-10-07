@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands
+# features: [logging-commands]
+# expect: ok
+trigger: [main]
+name: $(Date:yyyyMMdd)$(Rev:.r)
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - bash: |
+      echo "##vso[build.updatebuildnumber]1.4.$(Build.BuildId)-preview"
+    displayName: Rename build
+  - bash: echo "##vso[build.addbuildtag]candidate"

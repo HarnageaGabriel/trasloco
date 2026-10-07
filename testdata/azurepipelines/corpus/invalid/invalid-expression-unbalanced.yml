@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [template-expression, root-steps]
+# expect: diagnostics: [invalid-expression]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.name

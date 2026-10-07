@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage
+# features: [root-stages]
+# expect: diagnostics: [duplicate-name]
+stages:
+  - stage: Build
+    jobs:
+      - job: A
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo a
+  - stage: Build
+    jobs:
+      - job: B
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo b

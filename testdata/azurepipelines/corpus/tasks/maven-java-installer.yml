@@ -1,0 +1,29 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/java-tool-installer-v0
+# features: [trigger-branches, pool-vmimage, root-steps, task-maven, task-javatoolinstaller, ecosystem-java]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: JavaToolInstaller@0
+    displayName: Install JDK 17
+    inputs:
+      versionSpec: '17'
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+  - task: Maven@4
+    displayName: Maven verify
+    inputs:
+      mavenPOMFile: pom.xml
+      goals: clean verify
+      options: -B -DskipITs
+      publishJUnitResults: true
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      javaHomeOption: JDKVersion
+      jdkVersionOption: '1.17'
+      mavenVersionOption: Default

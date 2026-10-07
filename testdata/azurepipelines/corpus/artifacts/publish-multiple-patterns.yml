@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2
+# features: [artifacts-publish, task-copyfiles, task-publishpipelineartifact]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: $(Build.SourcesDirectory)
+      contents: |
+        **/bin/Release/**
+        !**/*.pdb
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - publish: $(Build.ArtifactStagingDirectory)
+    artifact: release-$(Build.BuildId)
+    displayName: Publish release bits
+    condition: succeeded()

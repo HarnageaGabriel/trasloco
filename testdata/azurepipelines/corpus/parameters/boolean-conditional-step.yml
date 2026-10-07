@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-boolean, directive-if]
+# expect: ok
+trigger: none
+parameters:
+- name: runTests
+  displayName: Run unit tests
+  type: boolean
+  default: true
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo build
+- ${{ if eq(parameters.runTests, true) }}:
+  - script: echo running tests
+    displayName: Unit tests

@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [trigger-branches, root-steps]
+# expect: diagnostics: [wrong-shape]
+trigger: 42
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo hi

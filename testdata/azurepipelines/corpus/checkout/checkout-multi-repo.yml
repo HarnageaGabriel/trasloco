@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/repos/multi-repo-checkout
+# features: [checkout-multi-repo, resources-repositories]
+# expect: ok
+trigger: [main]
+resources:
+  repositories:
+    - repository: tools
+      type: git
+      name: Contoso/build-tools
+      ref: refs/heads/main
+    - repository: docs
+      type: github
+      endpoint: github-connection
+      name: contoso/docs
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - checkout: self
+  - checkout: tools
+    path: tools-src
+  - checkout: docs
+    fetchDepth: 1
+  - script: ls $(Pipeline.Workspace)

@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [pr-trigger, pr-drafts]
+# expect: ok
+trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+  branches:
+    include:
+    - main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo PR validation for non-draft PRs

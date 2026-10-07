@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages
+# features: [root-stages]
+# expect: diagnostics: [wrong-shape]
+stages:
+  Build:
+    jobs:
+      - job: Compile
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: make

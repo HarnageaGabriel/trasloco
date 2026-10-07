@@ -1,0 +1,7 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps
+# features: [root-steps]
+# expect: diagnostics: [wrong-shape]
+pool:
+  vmImage: ubuntu-latest
+
+steps: echo hello
