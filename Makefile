@@ -29,3 +29,22 @@ tidy:
 
 fmt:
 	gofmt -w $$(find cmd internal schemas -type f -name '*.go')
+
+.PHONY: fuzz bench docs docs-check cover-floors
+
+FUZZTIME ?= 60s
+
+fuzz:
+	sh scripts/fuzz.sh $(FUZZTIME)
+
+bench:
+	go test -run '^$$' -bench . -benchmem -count=6 ./... | tee bench.txt
+
+docs:
+	go run ./tools/docsgen -out docs/diagnostics
+
+docs-check:
+	go run ./tools/docsgen -out docs/diagnostics -check
+
+cover-floors:
+	sh scripts/cover-floors.sh
