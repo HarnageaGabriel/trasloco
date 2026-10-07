@@ -46,6 +46,19 @@ func TestRejectsDuplicateActorHostScope(t *testing.T) {
 	}
 }
 
+func TestRejectsDuplicateActorIgnoringCase(t *testing.T) {
+	_, err := New(map[string][]Credential{
+		"api.github.com": {
+			{ID: "a", Actor: "Octocat", TargetScope: "org:acme", Source: StaticToken("one")},
+			{ID: "b", Actor: "octocat", TargetScope: "org:acme", Source: StaticToken("two")},
+		},
+	})
+	var registration *RegistrationError
+	if !errors.As(err, &registration) || registration.Finding.Code != "TRL-AUTH-0006" {
+		t.Fatalf("New() error = %v, want TRL-AUTH-0006", err)
+	}
+}
+
 func TestAcquireCancellation(t *testing.T) {
 	pool, _ := New(map[string][]Credential{"example.com": {{ID: "a", Actor: "actor", TargetScope: "org", Source: StaticToken("x")}}})
 	ctx, cancel := context.WithCancel(context.Background())

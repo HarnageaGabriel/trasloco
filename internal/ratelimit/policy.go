@@ -1,11 +1,15 @@
 package ratelimit
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// DefaultMaxServerWait bounds any delay controlled by response headers.
+const DefaultMaxServerWait = 15 * time.Minute
 
 // Budget is the normalized rate-limit state observed for one credential.
 // A negative Remaining value means the server did not report a limit.
@@ -161,7 +165,7 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		return 0
 	}
 	if seconds, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
-		return max(0, time.Duration(seconds*float64(time.Second)))
+		return durationSeconds(seconds)
 	}
 	if parsed, err := http.ParseTime(value); err == nil {
 		return max(0, parsed.Sub(now))
@@ -174,7 +178,42 @@ func parseDurationSeconds(value string) time.Duration {
 	if err != nil {
 		return 0
 	}
-	return max(0, time.Duration(seconds*float64(time.Second)))
+	return durationSeconds(seconds)
+}
+
+func durationSeconds(seconds float64) time.Duration {
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds < 0 {
+		return 0
+	}
+	if seconds >= float64(math.MaxInt64)/float64(time.Second) {
+		return time.Duration(math.MaxInt64)
+	}
+	return time.Duration(seconds * float64(time.Second))
+}
+
+// CapServerWait normalizes and caps every server-controlled wait in budget.
+// requested is non-zero only when a value was capped.
+func CapServerWait(budget Budget, now time.Time, maximum time.Duration) (capped Budget, requested time.Duration) {
+	if maximum <= 0 {
+		maximum = DefaultMaxServerWait
+	}
+	budget.RetryAfter = max(0, budget.RetryAfter)
+	budget.Delay = max(0, budget.Delay)
+	resetWait := max(time.Duration(0), budget.Reset.Sub(now))
+	requested = max(budget.RetryAfter, budget.Delay, resetWait)
+	if budget.RetryAfter > maximum {
+		budget.RetryAfter = maximum
+	}
+	if budget.Delay > maximum {
+		budget.Delay = maximum
+	}
+	if resetWait > maximum {
+		budget.Reset = now.Add(maximum)
+	}
+	if requested <= maximum {
+		requested = 0
+	}
+	return budget, requested
 }
 
 func parseInt(value string, fallback int64) int64 {

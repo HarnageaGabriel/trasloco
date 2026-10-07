@@ -40,3 +40,16 @@ func TestValidateSemantic(t *testing.T) {
 		})
 	}
 }
+
+func TestPooledCredentialRequiresIdentityFields(t *testing.T) {
+	doc := map[string]any{
+		"version": 1,
+		"credentials": []any{map[string]any{
+			"name": "pool", "auth": map[string]any{"method": "oidc"},
+		}},
+	}
+	err := ValidateDocument(doc)
+	if err == nil || !strings.Contains(err.Error(), "actor") || !strings.Contains(err.Error(), "targetScope") {
+		t.Fatalf("ValidateDocument() error = %v", err)
+	}
+}

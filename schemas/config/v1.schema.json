@@ -135,7 +135,7 @@
     "credential": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "auth"],
+      "required": ["name", "actor", "targetScope", "auth"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "actor": { "type": "string", "pattern": "\\S" },

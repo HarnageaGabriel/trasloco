@@ -54,6 +54,31 @@ func TestGETRetries(t *testing.T) {
 	_ = response.Body.Close()
 }
 
+func TestRetryCapsServerControlledWait(t *testing.T) {
+	var calls atomic.Int32
+	clock := newTestClock()
+	base := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		response := testResponse(request, http.StatusOK)
+		if calls.Add(1) == 1 {
+			response.StatusCode = http.StatusTooManyRequests
+			response.Header.Set("Retry-After", "3600")
+		}
+		return response, nil
+	})
+	retry := newRetryTransport(base, RetryOptions{
+		Clock: clock, MaxAttempts: 2, MaxTotalWait: time.Hour, MaxServerWait: 2 * time.Second,
+	})
+	request, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.com/items", nil)
+	response, err := retry.RoundTrip(request)
+	if err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("RoundTrip() status=%v err=%v", statusCode(response), err)
+	}
+	_ = response.Body.Close()
+	if len(clock.sleeps) != 1 || clock.sleeps[0] != 2*time.Second {
+		t.Fatalf("sleeps = %v", clock.sleeps)
+	}
+}
+
 type cancelClock struct{ clock.Real }
 
 func (cancelClock) Now() time.Time { return time.Unix(0, 0) }
