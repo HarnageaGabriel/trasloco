@@ -69,7 +69,7 @@ func (p *parser) shape(m *mapping) ast.Shape {
 	shape := ast.ShapeNone
 	first := ""
 	for _, e := range m.entries {
-		if e.dir != 0 {
+		if e.dir != 0 || e.used {
 			continue
 		}
 		var s ast.Shape

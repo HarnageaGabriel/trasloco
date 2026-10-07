@@ -404,6 +404,7 @@ func TestSourceReportsYAMLProblems(t *testing.T) {
 	}{
 		{"syntax error", "steps: [\n", []string{"TRL-PARSE-0001@1:1"}},
 		{"duplicate key", "name: a\nname: b\n", []string{"TRL-PARSE-0003@2:1"}},
+		{"case-insensitive duplicate shape", "steps: []\nSteps: []\n", []string{"TRL-PARSE-0003@2:1"}},
 		{"invalid utf8", "name: \xff\n", []string{"TRL-PARSE-0004@1:7"}},
 		{"empty", "", nil},
 		{"only comment", "# nothing\n", nil},
