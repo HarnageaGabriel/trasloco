@@ -1,0 +1,12 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# expect: TRL-PARSE-0002@5:1 TRL-PARSE-0002@8:3 TRL-PARSE-0002@12:5
+name: demo
+trigger: none
+unknownTopLevel: 1
+jobs:
+- job: a
+  frobnicate:
+    nested: [1, 2]
+  steps:
+  - script: echo
+    shell: zsh

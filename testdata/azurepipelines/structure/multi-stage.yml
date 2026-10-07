@@ -1,0 +1,66 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage
+# expect: none
+name: $(Date:yyyyMMdd)$(Rev:.r)
+appendCommitMessageToRunName: false
+lockBehavior: sequential
+trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+  branches:
+    include:
+    - main
+variables:
+- name: buildConfiguration
+  value: Release
+  readonly: true
+- group: my-variable-group
+- template: variables/build.yml
+  parameters:
+    arch: x64
+pool:
+  name: Default
+  demands:
+  - myCustomCapability
+  - Agent.Version -equals 2.144.0
+stages:
+- stage: Build
+  displayName: Build for Windows
+  variables:
+    STAGE_VAR: 'that happened'
+  jobs:
+  - job: BuildJob
+    timeoutInMinutes: 30
+    cancelTimeoutInMinutes: 5
+    continueOnError: false
+    pool: MyPool
+    workspace:
+      clean: outputs
+    steps:
+    - script: echo Building!
+- stage: Test
+  dependsOn:
+  - Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  trigger: manual
+  isSkippable: false
+  jobs:
+  - job: TestOnWindows
+    steps:
+    - script: echo Testing on Windows!
+  - job: TestOnLinux
+    dependsOn: TestOnWindows
+    steps:
+    - script: echo Testing on Linux!
+- stage: Deploy
+  dependsOn: []
+  lockBehavior: runLatest
+  templateContext:
+    owner: team-a
+    tags:
+    - one
+    - two
+  jobs:
+  - template: jobs/deploy.yml
+    parameters:
+      environment: prod

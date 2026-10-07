@@ -1,0 +1,12 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# VERIFY: case-insensitive keys; see docs/spec/ado-yaml-structure.md
+# expect: none
+Trigger: None
+Pool:
+  VMImage: ubuntu-latest
+Steps:
+- Script: echo hi
+  DisplayName: Hi
+- Task: CmdLine@2
+  Inputs:
+    script: echo

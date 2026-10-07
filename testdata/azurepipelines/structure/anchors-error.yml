@@ -1,0 +1,7 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# expect: TRL-PARSE-0008@4:11 TRL-PARSE-0008@7:16
+variables:
+  shared: &anchor value
+steps:
+- script: echo
+  displayName: *anchor

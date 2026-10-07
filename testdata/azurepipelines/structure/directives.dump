@@ -1,0 +1,174 @@
+$ @ 3:1
+shape = steps
+parameters @ 4:1
+parameters.form = list
+parameters.list @ 4:1
+parameters.list[0] @ 4:3
+parameters.list[0].name = listOfFruits
+parameters.list[0].name @ 4:9
+parameters.list[0].type = object
+parameters.list[0].type @ 5:9
+parameters.list[0].type.canon = object
+parameters.list[0].default @ 7:3
+parameters.list[0].default[0] @ 7:5
+parameters.list[0].default[0].fruitName @ 7:16
+parameters.list[0].default[0].fruitName = apple
+parameters.list[0].default[0].fruitName @ 7:16
+parameters.list[0].default[0].colors @ 8:13
+parameters.list[0].default[0].colors[0] @ 8:14
+parameters.list[0].default[0].colors[0] = red
+parameters.list[0].default[0].colors[0] @ 8:14
+parameters.list[0].default[0].colors[1] @ 8:20
+parameters.list[0].default[0].colors[1] = green
+parameters.list[0].default[0].colors[1] @ 8:20
+variables @ 10:3
+variables.form = map
+variables.map @ 10:3
+variables.map.cond[0] = if: ${{ if eq(variables['Build.SourceBranchName'], 'main') }}
+variables.map.cond[0] @ 10:3
+variables.map.cond[0].expr = eq(variables['Build.SourceBranchName'], 'main')
+variables.map.cond[0].body @ 11:5
+variables.map.cond[0].body.stageName = prod
+variables.map.cond[0].body.stageName @ 11:16
+variables.map.cond[0].body.stageName.key @ 11:5
+variables.map.cond[1] = else: ${{ else }}
+variables.map.cond[1] @ 12:3
+variables.map.cond[1].body @ 13:5
+variables.map.cond[1].body.stageName = dev
+variables.map.cond[1].body.stageName @ 13:16
+variables.map.cond[1].body.stageName.key @ 13:5
+variables.map.compileVar = ${{ variables.staticVar }}
+variables.map.compileVar @ 14:15
+variables.map.compileVar.directives[0] = insert: ${{ variables.staticVar }}
+variables.map.compileVar.directives[0] @ 14:15
+variables.map.compileVar.directives[0].expr = variables.staticVar
+variables.map.compileVar.key @ 14:3
+variables.map.isMain = $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+variables.map.isMain @ 15:11
+variables.map.isMain.directives[0] = runtime: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+variables.map.isMain.directives[0] @ 15:11
+variables.map.isMain.directives[0].expr = eq(variables['Build.SourceBranch'], 'refs/heads/main')
+variables.map.isMain.key @ 15:3
+pool @ 17:3
+pool.vmImage = ${{ parameters.image }}
+pool.vmImage @ 17:12
+pool.vmImage.directives[0] = insert: ${{ parameters.image }}
+pool.vmImage.directives[0] @ 17:12
+pool.vmImage.directives[0].expr = parameters.image
+steps @ 19:1
+steps[0].type = ScriptStep
+steps[0] @ 19:3
+steps[0].kind = script
+steps[0].script = echo "start"
+steps[0].script @ 19:11
+steps[1] = if: ${{ if eq(variables.foo, 'adaptum') }}
+steps[1] @ 20:3
+steps[1].expr = eq(variables.foo, 'adaptum')
+steps[1].body @ 21:3
+steps[1].body[0].type = ScriptStep
+steps[1].body[0] @ 21:5
+steps[1].body[0].kind = script
+steps[1].body[0].script = echo "this is adaptum"
+steps[1].body[0].script @ 21:13
+steps[2] = elseif: ${{ elseif eq(variables.foo, 'contoso') }}
+steps[2] @ 22:3
+steps[2].expr = eq(variables.foo, 'contoso')
+steps[2].body @ 23:3
+steps[2].body[0].type = ScriptStep
+steps[2].body[0] @ 23:5
+steps[2].body[0].kind = script
+steps[2].body[0].script = echo "this is contoso"
+steps[2].body[0].script @ 23:13
+steps[3] = else: ${{ else }}
+steps[3] @ 24:3
+steps[3].body @ 25:3
+steps[3].body[0].type = ScriptStep
+steps[3].body[0] @ 25:5
+steps[3].body[0].kind = script
+steps[3].body[0].script = echo "the value is not adaptum or contoso"
+steps[3].body[0].script @ 25:13
+steps[4] = each: ${{ each fruit in parameters.listOfFruits }}
+steps[4] @ 26:3
+steps[4].variable = fruit
+steps[4].expr = parameters.listOfFruits
+steps[4].body @ 27:3
+steps[4].body[0] = each: ${{ each fruitColor in fruit.colors}}
+steps[4].body[0] @ 27:5
+steps[4].body[0].variable = fruitColor
+steps[4].body[0].expr = fruit.colors
+steps[4].body[0].body @ 28:5
+steps[4].body[0].body[0].type = ScriptStep
+steps[4].body[0].body[0] @ 28:7
+steps[4].body[0].body[0].kind = script
+steps[4].body[0].body[0].script = echo ${{ fruit.fruitName}} ${{ fruitColor }}
+steps[4].body[0].body[0].script @ 28:15
+steps[4].body[0].body[0].script.directives[0] = insert: ${{ fruit.fruitName}}
+steps[4].body[0].body[0].script.directives[0] @ 28:20
+steps[4].body[0].body[0].script.directives[0].expr = fruit.fruitName
+steps[4].body[0].body[0].script.directives[1] = insert: ${{ fruitColor }}
+steps[4].body[0].body[0].script.directives[1] @ 28:42
+steps[4].body[0].body[0].script.directives[1].expr = fruitColor
+steps[5] = each: ${{ each step in parameters.buildSteps }}
+steps[5] @ 29:3
+steps[5].variable = step
+steps[5].expr = parameters.buildSteps
+steps[5].body @ 30:3
+steps[5].body[0] = each: ${{ each pair in step }}
+steps[5].body[0] @ 30:5
+steps[5].body[0].variable = pair
+steps[5].body[0].expr = step
+steps[5].body[0].body @ 31:7
+steps[5].body[0].body.cond[0] = if: ${{ if ne(pair.value, 'CmdLine@2') }}
+steps[5].body[0].body.cond[0] @ 31:7
+steps[5].body[0].body.cond[0].expr = ne(pair.value, 'CmdLine@2')
+steps[5].body[0].body.cond[0].body @ 32:9
+steps[5].body[0].body.cond[0].body.${{ pair.key }} @ 32:26
+steps[5].body[0].body.cond[0].body.${{ pair.key }} = ${{ pair.value }}
+steps[5].body[0].body.cond[0].body.${{ pair.key }} @ 32:26
+steps[5].body[0].body.cond[0].body.${{ pair.key }}.directives[0] = insert: ${{ pair.value }}
+steps[5].body[0].body.cond[0].body.${{ pair.key }}.directives[0] @ 32:26
+steps[5].body[0].body.cond[0].body.${{ pair.key }}.directives[0].expr = pair.value
+steps[6].type = TaskStep
+steps[6] @ 33:3
+steps[6].task = PublishPipelineArtifact@1
+steps[6].task @ 33:9
+steps[6].ref.name = PublishPipelineArtifact
+steps[6].ref.version = 1
+steps[6].ref.major = 1
+steps[6].ref.valid = true
+steps[6].inputs @ 35:5
+steps[6].inputs.targetPath = $(Pipeline.Workspace)
+steps[6].inputs.targetPath @ 35:17
+steps[6].inputs.targetPath.key @ 35:5
+steps[6].inputs.cond[1] = if: ${{ if eq(variables['Build.SourceBranchName'], 'main') }}
+steps[6].inputs.cond[1] @ 36:5
+steps[6].inputs.cond[1].expr = eq(variables['Build.SourceBranchName'], 'main')
+steps[6].inputs.cond[1].body @ 37:7
+steps[6].inputs.cond[1].body.artifact = prod
+steps[6].inputs.cond[1].body.artifact @ 37:17
+steps[6].inputs.cond[1].body.artifact.key @ 37:7
+steps[6].inputs.cond[2] = else: ${{ else }}
+steps[6].inputs.cond[2] @ 38:5
+steps[6].inputs.cond[2].body @ 39:7
+steps[6].inputs.cond[2].body.artifact = dev
+steps[6].inputs.cond[2].body.artifact @ 39:17
+steps[6].inputs.cond[2].body.artifact.key @ 39:7
+steps[6].inputs.publishLocation = pipeline
+steps[6].inputs.publishLocation @ 40:22
+steps[6].inputs.publishLocation.key @ 40:5
+steps[7].type = ScriptStep
+steps[7] @ 41:3
+steps[7].kind = script
+steps[7].script = echo ${{ parameters.name }}-suffix
+steps[7].script @ 41:11
+steps[7].script.directives[0] = insert: ${{ parameters.name }}
+steps[7].script.directives[0] @ 41:16
+steps[7].script.directives[0].expr = parameters.name
+steps[7].displayName = Deploy to ${{ parameters.environment }}
+steps[7].displayName @ 42:16
+steps[7].displayName.directives[0] = insert: ${{ parameters.environment }}
+steps[7].displayName.directives[0] @ 42:26
+steps[7].displayName.directives[0].expr = parameters.environment
+steps[8] = insert: ${{ parameters.extraSteps }}
+steps[8] @ 43:3
+steps[8].expr = parameters.extraSteps

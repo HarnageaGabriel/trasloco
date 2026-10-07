@@ -1,0 +1,98 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources
+# expect: none
+resources:
+  repositories:
+  - repository: common
+    type: github
+    name: Contoso/CommonTools
+    endpoint: MyContosoServiceConnection
+    ref: refs/tags/v1.0
+  - repository: tools
+    type: git
+    name: ToolsProject/tools
+    trigger:
+      branches:
+        include:
+        - main
+  pipelines:
+  - pipeline: MyAppA
+    source: MyCIPipelineA
+  - pipeline: MyAppB
+    source: MyCIPipelineB
+    trigger: true
+  - pipeline: MyAppC
+    project: DevOpsProject
+    source: MyCIPipelineC
+    branch: releases/M159
+    version: 20190718.2
+    tags:
+    - release25
+    trigger:
+      enabled: true
+      branches:
+        include:
+        - main
+        - releases/*
+        exclude:
+        - users/*
+      stages:
+      - build
+  containers:
+  - container: linux
+    image: ubuntu:16.04
+  - container: my_service
+    image: my_service:tag
+    ports:
+    - 8080:80
+    - 6379
+    volumes:
+    - /src/dir:/dst/dir
+    env:
+      SERVICE_MODE: test
+    mapDockerSocket: false
+    options: --cpus 2
+    mountReadOnly:
+      work: true
+      tools: true
+  - container: petStore
+    type: ACR
+    azureSubscription: ContosoARMConnection
+    resourceGroup: ContosoGroup
+    registry: petStoreRegistry
+    repository: myPets
+    image: petstore
+    trigger:
+      tags:
+        include:
+        - production*
+  builds:
+  - build: Spaceworkz
+    type: Jenkins
+    connection: MyJenkinsServer
+    source: SpaceworkzProj
+    trigger: true
+  packages:
+  - package: contoso
+    type: npm
+    connection: pat-contoso
+    name: yourname/contoso
+    version: 7.130.88
+    trigger: none
+  webhooks:
+  - webhook: WebHook
+    connection: IncomingWH
+    filters:
+    - path: repositoryName
+      value: maven-releases
+jobs:
+- job: build
+  container: linux
+  services:
+    db: my_service
+  uses:
+    repositories:
+    - common
+    pools:
+    - Default
+  steps:
+  - script: echo ok

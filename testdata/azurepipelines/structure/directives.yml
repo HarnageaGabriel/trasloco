@@ -1,0 +1,43 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions (conditional insertion, each)
+# expect: none
+parameters:
+- name: listOfFruits
+  type: object
+  default:
+  - fruitName: 'apple'
+    colors: ['red','green']
+variables:
+  ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+    stageName: prod
+  ${{ else }}:
+    stageName: dev
+  compileVar: ${{ variables.staticVar }}
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+pool:
+  vmImage: ${{ parameters.image }}
+steps:
+- script: echo "start"
+- ${{ if eq(variables.foo, 'adaptum') }}:
+  - script: echo "this is adaptum"
+- ${{ elseif eq(variables.foo, 'contoso') }}:
+  - script: echo "this is contoso"
+- ${{ else }}:
+  - script: echo "the value is not adaptum or contoso"
+- ${{ each fruit in parameters.listOfFruits }} :
+  - ${{ each fruitColor in fruit.colors}} :
+    - script: echo ${{ fruit.fruitName}} ${{ fruitColor }}
+- ${{ each step in parameters.buildSteps }}:
+  - ${{ each pair in step }}:
+      ${{ if ne(pair.value, 'CmdLine@2') }}:
+        ${{ pair.key }}: ${{ pair.value }}
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Pipeline.Workspace)'
+    ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+      artifact: 'prod'
+    ${{ else }}:
+      artifact: 'dev'
+    publishLocation: 'pipeline'
+- script: echo ${{ parameters.name }}-suffix
+  displayName: Deploy to ${{ parameters.environment }}
+- ${{ parameters.extraSteps }}

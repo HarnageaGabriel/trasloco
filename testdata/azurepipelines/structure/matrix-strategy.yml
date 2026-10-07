@@ -1,0 +1,22 @@
+# Source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job-strategy
+# expect: none
+jobs:
+- job: Build
+  strategy:
+    matrix:
+      Python35:
+        PYTHON_VERSION: '3.5'
+      Python36:
+        PYTHON_VERSION: '3.6'
+    maxParallel: 2
+  container:
+    image: ubuntu:18.04
+    options: --hostname container-test
+  steps:
+  - script: echo $(PYTHON_VERSION)
+- job: SliceItFourWays
+  strategy:
+    parallel: 4
+- job: Dynamic
+  strategy:
+    matrix: ${{ parameters.matrix }}
