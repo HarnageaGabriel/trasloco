@@ -1,0 +1,6 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [variables-map, variables-template, template-variable]
+# expect: ok
+variables:
+  commonVar: shared-value
+  buildConfiguration: Release

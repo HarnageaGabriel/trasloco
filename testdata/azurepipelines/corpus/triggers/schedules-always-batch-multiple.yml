@@ -1,0 +1,28 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers
+# features: [schedules-cron, schedules-always, trigger-batch, trigger-branches]
+# expect: ok
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+schedules:
+- cron: '0 3 * * Mon-Fri'
+  displayName: Weekday 3am
+  branches:
+    include:
+    - main
+    - release/*
+    exclude:
+    - release/legacy
+  always: true
+- cron: '30 22 * * Sun'
+  displayName: Weekly Sunday deep scan
+  branches:
+    include:
+    - main
+  batch: true
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo scheduled run

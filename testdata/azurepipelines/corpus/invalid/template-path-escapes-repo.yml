@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, root-steps]
+# expect: diagnostics: [missing-template]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - template: ../outside-repo/steps.yml

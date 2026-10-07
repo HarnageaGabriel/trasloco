@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases
+# features: [containers]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    container:
+      image: python:3.12-slim
+      options: --hostname ci
+      env:
+        PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - script: python --version

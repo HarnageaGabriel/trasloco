@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository
+# features: [resources-repositories, trigger-none]
+# expect: ok
+resources:
+  repositories:
+  - repository: ext
+    type: github
+    endpoint: gh-conn
+    name: fabrikam/ext
+    trigger: none
+  - repository: templates
+    type: git
+    name: Platform/pipeline-templates
+    ref: refs/heads/main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: ext
+- script: echo done

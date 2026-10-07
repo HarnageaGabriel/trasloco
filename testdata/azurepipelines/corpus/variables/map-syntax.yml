@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, macro-syntax]
+# expect: ok
+trigger:
+- main
+variables:
+  buildConfiguration: Release
+  dotnetVersion: 8.x
+  solution: '**/*.sln'
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo Building $(solution) as $(buildConfiguration) with $(dotnetVersion)

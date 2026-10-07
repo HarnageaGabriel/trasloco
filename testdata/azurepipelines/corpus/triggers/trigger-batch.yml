@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [trigger-branches, trigger-batch]
+# expect: ok
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo batched build

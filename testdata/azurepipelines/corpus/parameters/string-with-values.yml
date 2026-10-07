@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string, parameters-values, template-expression]
+# expect: ok
+trigger: none
+parameters:
+- name: environment
+  displayName: Target environment
+  type: string
+  default: dev
+  values:
+  - dev
+  - staging
+  - prod
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo Deploying to ${{ parameters.environment }}

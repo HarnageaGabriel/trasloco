@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, template-nested, root-steps]
+# expect: diagnostics: [template-cycle]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - template: template-cycle-b.yml

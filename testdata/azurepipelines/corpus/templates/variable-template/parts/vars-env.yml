@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-variable, parameters-string, directive-if, directive-else]
+# expect: ok
+parameters:
+  - name: envName
+    type: string
+variables:
+  - ${{ if eq(parameters.envName, 'prod') }}:
+      - name: region
+        value: westeurope
+  - ${{ else }}:
+      - name: region
+        value: northeurope

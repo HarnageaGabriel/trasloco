@@ -2,6 +2,7 @@
 package event
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -90,29 +91,29 @@ var knownTypes = map[Type]bool{
 
 // Event is the canonical JSONL envelope.
 type Event struct {
-	Version     int            `json:"version"`
-	Sequence    uint64         `json:"sequence"`
-	Time        time.Time      `json:"-"`
-	RunID       string         `json:"runId"`
-	Type        Type           `json:"type"`
-	Phase       *string        `json:"phase"`
-	UnitKey     *string        `json:"unitKey"`
-	OperationID *string        `json:"operationId"`
-	Attempt     uint32         `json:"attempt"`
-	Payload     map[string]any `json:"payload"`
+	Version     int             `json:"version"`
+	Sequence    uint64          `json:"sequence"`
+	Time        time.Time       `json:"-"`
+	RunID       string          `json:"runId"`
+	Type        Type            `json:"type"`
+	Phase       *string         `json:"phase"`
+	UnitKey     *string         `json:"unitKey"`
+	OperationID *string         `json:"operationId"`
+	Attempt     uint32          `json:"attempt"`
+	Payload     json.RawMessage `json:"payload"`
 }
 
 type wireEvent struct {
-	Version     int            `json:"version"`
-	Sequence    uint64         `json:"sequence"`
-	Time        string         `json:"time"`
-	RunID       string         `json:"runId"`
-	Type        Type           `json:"type"`
-	Phase       *string        `json:"phase"`
-	UnitKey     *string        `json:"unitKey"`
-	OperationID *string        `json:"operationId"`
-	Attempt     uint32         `json:"attempt"`
-	Payload     map[string]any `json:"payload"`
+	Version     int             `json:"version"`
+	Sequence    uint64          `json:"sequence"`
+	Time        string          `json:"time"`
+	RunID       string          `json:"runId"`
+	Type        Type            `json:"type"`
+	Phase       *string         `json:"phase"`
+	UnitKey     *string         `json:"unitKey"`
+	OperationID *string         `json:"operationId"`
+	Attempt     uint32          `json:"attempt"`
+	Payload     json.RawMessage `json:"payload"`
 }
 
 // MarshalJSON emits UTC RFC 3339 with at least millisecond precision.
@@ -150,14 +151,23 @@ func New(eventType Type, payload any) (Event, error) {
 	if err != nil {
 		return Event{}, fmt.Errorf("marshal %s payload: %w", eventType, err)
 	}
-	var object map[string]any
-	if err := json.Unmarshal(encoded, &object); err != nil {
-		return Event{}, fmt.Errorf("%s payload must be an object: %w", eventType, err)
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return Event{}, fmt.Errorf("%s payload must be a JSON object", eventType)
 	}
-	if object == nil {
-		object = make(map[string]any)
+	return Event{Version: Version, Type: eventType, Attempt: 1, Payload: encoded}, nil
+}
+
+// DecodePayload decodes the payload into v.
+func (e Event) DecodePayload(v any) error {
+	if len(e.Payload) == 0 {
+		return fmt.Errorf("decode %s payload: payload is empty", e.Type)
 	}
-	return Event{Version: Version, Type: eventType, Attempt: 1, Payload: object}, nil
+	if err := json.Unmarshal(e.Payload, v); err != nil {
+		return fmt.Errorf("decode %s payload: %w", e.Type, err)
+	}
+	return nil
 }
 
 // RunStartedPayload is the RunStarted payload contract.

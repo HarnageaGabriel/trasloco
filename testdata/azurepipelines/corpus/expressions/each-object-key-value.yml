@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [directive-each, parameters-object, template-expression, variables-map]
+# expect: ok
+parameters:
+  - name: settings
+    type: object
+    default:
+      region: westeurope
+      tier: standard
+
+variables:
+  ${{ each pair in parameters.settings }}:
+    ${{ pair.key }}: ${{ pair.value }}
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ each pair in parameters.settings }}:
+      - script: echo "${{ pair.key }} = ${{ pair.value }}"

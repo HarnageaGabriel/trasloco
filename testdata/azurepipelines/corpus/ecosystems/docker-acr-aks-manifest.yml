@@ -1,0 +1,62 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/kubernetes/aks-template, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-manifest-v1
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-docker-k8s, task-docker, task-kubernetesmanifest, environment, deployment-runonce, variables-map, resources-repositories, macro-syntax, artifacts-publish]
+# expect: ok
+trigger:
+  - main
+
+resources:
+  - repo: self
+
+variables:
+  dockerRegistryServiceConnection: contoso-acr
+  imageRepository: contoso/storefront
+  containerRegistry: contosoacr.azurecr.io
+  tag: $(Build.BuildId)
+  imagePullSecret: contosoacr-secret
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    displayName: Build and push
+    jobs:
+      - job: Build
+        steps:
+          - task: Docker@2
+            displayName: Build and push image
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)
+              dockerfile: $(Build.SourcesDirectory)/Dockerfile
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                $(tag)
+          - upload: manifests
+            artifact: manifests
+
+  - stage: Deploy
+    displayName: Deploy to AKS
+    dependsOn: Build
+    jobs:
+      - deployment: Deploy
+        environment: contoso-aks.storefront
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@1
+                  displayName: Create image pull secret
+                  inputs:
+                    action: createSecret
+                    secretName: $(imagePullSecret)
+                    dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
+                - task: KubernetesManifest@1
+                  displayName: Deploy
+                  inputs:
+                    action: deploy
+                    manifests: |
+                      $(Pipeline.Workspace)/manifests/deployment.yml
+                      $(Pipeline.Workspace)/manifests/service.yml
+                    imagePullSecrets: $(imagePullSecret)
+                    containers: $(containerRegistry)/$(imageRepository):$(tag)

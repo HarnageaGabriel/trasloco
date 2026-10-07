@@ -1,0 +1,25 @@
+# source: https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-webpack.yml
+# features: [vendored]
+# expect: ok
+# Node.js with webpack
+# Build a Node.js project using the webpack CLI.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- {{ branch }}
+
+pool:
+  {{ pool }}
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '10.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install -g webpack webpack-cli --save-dev
+    npm install
+    npx webpack --config webpack.config.js
+  displayName: 'npm install, run webpack'

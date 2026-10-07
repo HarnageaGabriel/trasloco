@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository
+# features: [resources-repositories, checkout-multi-repo]
+# expect: ok
+resources:
+  repositories:
+  - repository: shared
+    type: git
+    name: Platform/shared-lib
+    ref: refs/heads/main
+trigger:
+- main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: self
+- checkout: shared
+- script: ls $(Build.SourcesDirectory)

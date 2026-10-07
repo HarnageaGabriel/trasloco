@@ -1,0 +1,68 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript, https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-node, variables-map, caching, task-cache, task-nodetool, task-publishtestresults, task-publishcodecoverageresults, conditions, artifacts-publish, pr-trigger, macro-syntax]
+# expect: ok
+trigger:
+  - main
+
+pr:
+  - main
+
+variables:
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+  NODE_VERSION: 20.x
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: CI
+    jobs:
+      - job: Lint
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - task: Cache@2
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(npm_config_cache)
+          - script: npm ci
+            displayName: Install
+          - script: npm run lint
+            displayName: ESLint
+      - job: Test
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: npm ci
+            displayName: Install
+          - script: npm test -- --ci --reporters=default --reporters=jest-junit --coverage
+            displayName: Jest
+            env:
+              JEST_JUNIT_OUTPUT_DIR: $(System.DefaultWorkingDirectory)/reports
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: reports/junit.xml
+          - task: PublishCodeCoverageResults@2
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: coverage/cobertura-coverage.xml
+      - job: Build
+        dependsOn:
+          - Lint
+          - Test
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: |
+              npm ci
+              npm run build
+            displayName: Build
+          - publish: dist
+            artifact: dist

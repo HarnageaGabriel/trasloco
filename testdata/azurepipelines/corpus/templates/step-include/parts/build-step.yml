@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, parameters-string, template-parameters-default]
+# expect: ok
+parameters:
+  - name: project
+    type: string
+    default: '**/*.csproj'
+  - name: configuration
+    type: string
+    default: Release
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: Build ${{ parameters.project }}
+    inputs:
+      command: build
+      projects: ${{ parameters.project }}
+      arguments: --configuration ${{ parameters.configuration }}

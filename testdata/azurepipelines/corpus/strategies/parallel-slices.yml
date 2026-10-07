@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [strategy-parallel]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - job: slice
+    strategy:
+      parallel: 4
+    steps:
+      - script: echo slice $(System.JobPositionInPhase) of $(System.TotalJobsInPhase)

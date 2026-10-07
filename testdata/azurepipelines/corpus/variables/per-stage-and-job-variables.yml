@@ -1,0 +1,29 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, variables-list, root-stages, macro-syntax]
+# expect: ok
+variables:
+  globalVar: global
+stages:
+- stage: Build
+  variables:
+    stageVar: build-stage
+  jobs:
+  - job: compile
+    variables:
+    - name: jobVar
+      value: compile-job
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo $(globalVar) $(stageVar) $(jobVar)
+- stage: Deploy
+  variables:
+  - group: deploy-settings
+  jobs:
+  - job: release
+    variables:
+      jobVar: release-job
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo $(stageVar) $(jobVar)

@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
+# features: [root-steps, variables-map]
+# expect: diagnostics: [yaml-anchor-forbidden, yaml-alias-forbidden]
+variables: &vars
+  region: westeurope
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo $(region)
+    env: *vars

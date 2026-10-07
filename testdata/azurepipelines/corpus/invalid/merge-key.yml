@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
+# features: [root-jobs]
+# expect: diagnostics: [yaml-anchor-forbidden, yaml-merge-key-forbidden]
+jobs:
+  - job: Base
+    pool: &pool
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo base
+  - job: Derived
+    pool:
+      <<: *pool
+    steps:
+      - script: echo derived

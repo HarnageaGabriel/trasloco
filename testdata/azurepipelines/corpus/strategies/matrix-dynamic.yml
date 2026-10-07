@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [strategy-matrix-dynamic, dependencies-outputs, output-variables, logging-commands, runtime-expression]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: generate
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - bash: |
+          echo '##vso[task.setVariable variable=legs;isOutput=true]{"a":{"n":"1"},"b":{"n":"2"}}'
+        name: mtrx
+  - job: runner
+    dependsOn: generate
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      matrix: $[ dependencies.generate.outputs['mtrx.legs'] ]
+    steps:
+      - script: echo $(n)

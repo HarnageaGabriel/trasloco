@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-variable, variables-template, variables-list, macro-syntax]
+# expect: ok
+variables:
+  - template: parts/vars-common.yml
+  - template: parts/vars-env.yml
+    parameters:
+      envName: staging
+  - name: local
+    value: custom
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: echo $(buildConfiguration) $(region) $(local)

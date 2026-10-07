@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-stage, template-cross-repo, parameters-string]
+# expect: ok
+parameters:
+  - name: artifactName
+    type: string
+    default: drop
+stages:
+  - stage: publish
+    jobs:
+      - job: publish
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - download: current
+            artifact: ${{ parameters.artifactName }}
+          - script: echo publishing ${{ parameters.artifactName }}

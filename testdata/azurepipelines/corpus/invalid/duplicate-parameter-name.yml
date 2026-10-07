@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string]
+# expect: diagnostics: [duplicate-name]
+parameters:
+  - name: env
+    type: string
+    default: dev
+  - name: env
+    type: string
+    default: prod
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.env }}

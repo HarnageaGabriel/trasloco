@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [root-jobs]
+# expect: diagnostics: [dependency-cycle]
+jobs:
+  - job: A
+    dependsOn: B
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo a
+  - job: B
+    dependsOn: A
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo b

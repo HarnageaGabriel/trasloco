@@ -4,9 +4,12 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 )
 
 type testClock struct {
+	clock.Real
 	mu     sync.Mutex
 	now    time.Time
 	sleeps []time.Duration

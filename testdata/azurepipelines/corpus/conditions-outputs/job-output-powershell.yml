@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [output-variables, logging-commands, dependencies-outputs]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: producer
+    pool:
+      vmImage: windows-latest
+    steps:
+      - powershell: |
+          Write-Host "##vso[task.setvariable variable=version;isOutput=true]1.2.$(Build.BuildId)"
+        name: ver
+  - job: consumer
+    dependsOn: producer
+    pool:
+      vmImage: windows-latest
+    variables:
+      appVersion: $[ dependencies.producer.outputs['ver.version'] ]
+    steps:
+      - pwsh: Write-Host "Version is $(appVersion)"

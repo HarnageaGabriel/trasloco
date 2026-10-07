@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, template-cross-repo, parameters-boolean]
+# expect: ok
+parameters:
+  - name: failOnHigh
+    type: boolean
+    default: true
+steps:
+  - script: echo dependency scan failOnHigh=${{ parameters.failOnHigh }}
+    displayName: Dependency scan

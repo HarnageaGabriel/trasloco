@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [caching, ecosystem-java, task-cache]
+# expect: ok
+trigger: [main]
+variables:
+  GRADLE_USER_HOME: $(Pipeline.Workspace)/.gradle
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'gradle | "$(Agent.OS)" | **/build.gradle*,**/gradle-wrapper.properties'
+      restoreKeys: |
+        gradle | "$(Agent.OS)"
+        gradle
+      path: $(GRADLE_USER_HOME)
+  - script: ./gradlew build --build-cache

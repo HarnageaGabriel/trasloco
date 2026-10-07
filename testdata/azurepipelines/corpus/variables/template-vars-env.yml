@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [variables-list, variables-template, template-variable, template-parameters-default, directive-if, directive-else]
+# expect: ok
+parameters:
+- name: environment
+  type: string
+  default: dev
+
+variables:
+- name: envName
+  value: ${{ parameters.environment }}
+- ${{ if eq(parameters.environment, 'prod') }}:
+  - name: logLevel
+    value: warning
+- ${{ else }}:
+  - name: logLevel
+    value: debug

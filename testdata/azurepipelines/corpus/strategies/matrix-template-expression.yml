@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [strategy-matrix, template-expression, directive-each, parameters-object]
+# expect: ok
+parameters:
+  - name: configs
+    type: object
+    default:
+      - debug
+      - release
+trigger: [main]
+jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      matrix:
+        ${{ each c in parameters.configs }}:
+          ${{ c }}:
+            buildConfig: ${{ c }}
+    steps:
+      - script: echo $(buildConfig)

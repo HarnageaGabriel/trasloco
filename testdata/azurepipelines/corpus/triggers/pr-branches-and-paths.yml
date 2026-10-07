@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [pr-trigger, trigger-branches, trigger-paths]
+# expect: ok
+trigger: none
+pr:
+  branches:
+    include:
+    - main
+    - release/*
+    exclude:
+    - release/old/*
+  paths:
+    include:
+    - src/*
+    exclude:
+    - docs/*
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo PR validation

@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
+# features: [root-jobs]
+# expect: diagnostics: [duplicate-name]
+jobs:
+  - job: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo one
+  - job: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo two

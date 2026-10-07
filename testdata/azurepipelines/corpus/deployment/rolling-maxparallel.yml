@@ -1,0 +1,30 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-rolling, environment, deployment-hooks]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: vmdeploy
+    environment:
+      name: web-farm
+      resourceType: VirtualMachine
+    strategy:
+      rolling:
+        maxParallel: 25%
+        preDeploy:
+          steps:
+            - script: echo drain
+        deploy:
+          steps:
+            - script: echo update
+        routeTraffic:
+          steps:
+            - script: echo enable in lb
+        postRouteTraffic:
+          steps:
+            - script: echo verify
+        on:
+          failure:
+            steps:
+              - script: echo revert

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 )
 
 type requestFlagKey uint8
@@ -50,7 +52,7 @@ func contentCreationFrom(ctx context.Context) bool {
 
 // RetryOptions bounds retry amplification.
 type RetryOptions struct {
-	Clock        Clock
+	Clock        clock.Clock
 	Observer     Observer
 	Policy       RateLimitPolicy
 	MaxAttempts  int
@@ -62,7 +64,7 @@ type RetryOptions struct {
 
 type retryTransport struct {
 	next         http.RoundTripper
-	clock        Clock
+	clock        clock.Clock
 	observer     Observer
 	policy       RateLimitPolicy
 	maxAttempts  int
@@ -74,7 +76,7 @@ type retryTransport struct {
 
 func newRetryTransport(next http.RoundTripper, opts RetryOptions) http.RoundTripper {
 	if opts.Clock == nil {
-		opts.Clock = RealClock{}
+		opts.Clock = clock.Real{}
 	}
 	if opts.Observer == nil {
 		opts.Observer = nopObserver{}

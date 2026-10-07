@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [caching, ecosystem-docker-k8s, task-cache, conditions]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'docker | "$(Agent.OS)" | cache'
+      path: $(Pipeline.Workspace)/docker
+      cacheHitVar: DOCKER_CACHE_HIT
+    displayName: Restore docker layers
+  - script: docker load -i $(Pipeline.Workspace)/docker/cache.tar
+    condition: and(succeeded(), eq(variables.DOCKER_CACHE_HIT, 'true'))
+  - script: |
+      docker build -t app:ci .
+      mkdir -p $(Pipeline.Workspace)/docker
+      docker save -o $(Pipeline.Workspace)/docker/cache.tar app:ci
+    condition: and(succeeded(), ne(variables.DOCKER_CACHE_HIT, 'true'))

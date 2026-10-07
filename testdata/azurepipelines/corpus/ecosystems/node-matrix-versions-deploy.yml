@@ -1,0 +1,70 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-node, strategy-matrix, environment, deployment-runonce, conditions, task-nodetool, task-azurewebapp, variables-map, artifacts-download]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+stages:
+  - stage: Test
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - job: Matrix
+        strategy:
+          matrix:
+            node18:
+              nodeVersion: 18.x
+            node20:
+              nodeVersion: 20.x
+            node22:
+              nodeVersion: 22.x
+        steps:
+          - task: NodeTool@0
+            displayName: Node $(nodeVersion)
+            inputs:
+              versionSpec: $(nodeVersion)
+          - script: npm ci && npm test
+            displayName: Install and test
+      - job: Package
+        dependsOn: Matrix
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 20.x
+          - script: |
+              npm ci --omit=dev
+              npm run build
+            displayName: Build
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: $(System.DefaultWorkingDirectory)
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/app.zip
+          - publish: $(Build.ArtifactStagingDirectory)/app.zip
+            artifact: app
+
+  - stage: Deploy
+    dependsOn: Test
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - deployment: Web
+        environment: node-production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: app
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: contoso-arm
+                    appType: webAppLinux
+                    appName: contoso-node-app
+                    package: $(Pipeline.Workspace)/app/app.zip
+                    runtimeStack: NODE|20-lts
+                    startUpCommand: npm run start

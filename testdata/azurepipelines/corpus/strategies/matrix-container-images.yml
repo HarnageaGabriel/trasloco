@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases
+# features: [strategy-matrix, containers]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+resources:
+  containers:
+    - container: u20
+      image: ubuntu:20.04
+    - container: u22
+      image: ubuntu:22.04
+strategy:
+  matrix:
+    focal:
+      containerResource: u20
+    jammy:
+      containerResource: u22
+container: $[ variables['containerResource'] ]
+steps:
+  - script: printenv

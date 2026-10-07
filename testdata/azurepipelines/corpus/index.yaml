@@ -1,0 +1,1739 @@
+checklist:
+  - "approvals"
+  - "artifacts-download"
+  - "artifacts-publish"
+  - "caching"
+  - "checkout-fetchdepth"
+  - "checkout-lfs"
+  - "checkout-multi-repo"
+  - "checkout-none"
+  - "checkout-submodules"
+  - "conditions"
+  - "containers"
+  - "dependencies-outputs"
+  - "deployment-canary"
+  - "deployment-hooks"
+  - "deployment-rolling"
+  - "deployment-runonce"
+  - "directive-each"
+  - "directive-else"
+  - "directive-elseif"
+  - "directive-if"
+  - "directive-insert"
+  - "ecosystem-docker-k8s"
+  - "ecosystem-dotnet"
+  - "ecosystem-java"
+  - "ecosystem-node"
+  - "ecosystem-python"
+  - "ecosystem-terraform"
+  - "environment"
+  - "image-retired"
+  - "logging-commands"
+  - "macro-syntax"
+  - "output-variables"
+  - "parameters-boolean"
+  - "parameters-deployment"
+  - "parameters-deploymentlist"
+  - "parameters-job"
+  - "parameters-joblist"
+  - "parameters-number"
+  - "parameters-object"
+  - "parameters-stage"
+  - "parameters-stagelist"
+  - "parameters-step"
+  - "parameters-steplist"
+  - "parameters-string"
+  - "parameters-values"
+  - "pool-demands"
+  - "pool-named"
+  - "pool-vmimage"
+  - "pr-drafts"
+  - "pr-none"
+  - "pr-trigger"
+  - "resources-builds"
+  - "resources-containers"
+  - "resources-packages"
+  - "resources-pipelines"
+  - "resources-repositories"
+  - "resources-webhooks"
+  - "root-jobs"
+  - "root-stages"
+  - "root-steps"
+  - "runtime-expression"
+  - "schedules-always"
+  - "schedules-cron"
+  - "services"
+  - "stage-dependencies-outputs"
+  - "status-functions"
+  - "strategy-matrix"
+  - "strategy-matrix-dynamic"
+  - "strategy-parallel"
+  - "task-archivefiles"
+  - "task-azurecli"
+  - "task-azurekeyvault"
+  - "task-azurepowershell"
+  - "task-azureresourcemanagertemplatedeployment"
+  - "task-azurermwebappdeployment"
+  - "task-azurewebapp"
+  - "task-azurewebappcontainer"
+  - "task-bash"
+  - "task-cache"
+  - "task-cmdline"
+  - "task-copyfiles"
+  - "task-deletefiles"
+  - "task-docker"
+  - "task-dotnetcorecli"
+  - "task-dotnetcoreinstaller"
+  - "task-downloadbuildartifacts"
+  - "task-downloadpipelineartifact"
+  - "task-downloadsecurefile"
+  - "task-extractfiles"
+  - "task-githubrelease"
+  - "task-gradle"
+  - "task-helmdeploy"
+  - "task-javatoolinstaller"
+  - "task-kubernetes"
+  - "task-kubernetesmanifest"
+  - "task-manualvalidation"
+  - "task-maven"
+  - "task-msbuild"
+  - "task-nodetool"
+  - "task-npm"
+  - "task-nuget"
+  - "task-nugetauthenticate"
+  - "task-nugetcommand"
+  - "task-nugettoolinstaller"
+  - "task-powershell"
+  - "task-publishbuildartifacts"
+  - "task-publishcodecoverageresults"
+  - "task-publishpipelineartifact"
+  - "task-publishtestresults"
+  - "task-pythonscript"
+  - "task-retired-version"
+  - "task-sonarqubeanalyze"
+  - "task-sonarqubeprepare"
+  - "task-sonarqubepublish"
+  - "task-terraformtask"
+  - "task-terraformtaskv4"
+  - "task-twineauthenticate"
+  - "task-usedotnet"
+  - "task-usenode"
+  - "task-usepythonversion"
+  - "task-vsbuild"
+  - "task-vstest"
+  - "template-cross-repo"
+  - "template-expression"
+  - "template-extends"
+  - "template-job"
+  - "template-nested"
+  - "template-parameters-default"
+  - "template-stage"
+  - "template-step"
+  - "template-variable"
+  - "trigger-batch"
+  - "trigger-branches"
+  - "trigger-none"
+  - "trigger-paths"
+  - "trigger-tags"
+  - "variables-group"
+  - "variables-list"
+  - "variables-map"
+  - "variables-readonly"
+  - "variables-template"
+  - "vendored"
+files:
+  - path: "_repos/build-tools/steps/node-build-v2.yml"
+    category: "_repos"
+    features: ["template-step", "template-cross-repo", "ecosystem-node", "task-nodetool"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/build-tools/steps/node-build.yml"
+    category: "_repos"
+    features: ["template-step", "template-cross-repo", "ecosystem-node", "task-nodetool"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/security-scans/entry-consumer.yml"
+    category: "_repos"
+    features: ["template-cross-repo", "resources-repositories", "template-step"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/security-scans/steps/dependency-scan.yml"
+    category: "_repos"
+    features: ["template-step", "template-cross-repo", "parameters-boolean"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/security-scans/steps/sast.yml"
+    category: "_repos"
+    features: ["template-step", "template-cross-repo"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/templates-common/jobs/build-dotnet.yml"
+    category: "_repos"
+    features: ["template-job", "template-cross-repo", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/templates-common/stages/publish-stage.yml"
+    category: "_repos"
+    features: ["template-stage", "template-cross-repo", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/templates-common/steps/restore.yml"
+    category: "_repos"
+    features: ["template-step", "template-cross-repo", "parameters-string", "task-nugetauthenticate"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "_repos/templates-common/vars/common.yml"
+    category: "_repos"
+    features: ["template-variable", "template-cross-repo"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "artifacts/download-none-then-selective.yml"
+    category: "artifacts"
+    features: ["artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-download"]
+  - path: "artifacts/download-pipeline-artifact-current.yml"
+    category: "artifacts"
+    features: ["artifacts-download", "task-downloadpipelineartifact"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-pipeline-artifact-v2"]
+  - path: "artifacts/download-pipeline-artifact-specific.yml"
+    category: "artifacts"
+    features: ["artifacts-download", "task-downloadpipelineartifact"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-pipeline-artifact-v2"]
+  - path: "artifacts/download-pipeline-resource.yml"
+    category: "artifacts"
+    features: ["artifacts-download", "resources-pipelines"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline"]
+  - path: "artifacts/download-shorthand.yml"
+    category: "artifacts"
+    features: ["artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-download"]
+  - path: "artifacts/publish-multiple-patterns.yml"
+    category: "artifacts"
+    features: ["artifacts-publish", "task-copyfiles", "task-publishpipelineartifact"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2"]
+  - path: "artifacts/publish-pipeline-artifact-task.yml"
+    category: "artifacts"
+    features: ["artifacts-publish", "task-publishpipelineartifact"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-pipeline-artifact-v1"]
+  - path: "artifacts/publish-shorthand.yml"
+    category: "artifacts"
+    features: ["artifacts-publish"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-publish"]
+  - path: "caching/cache-docker-layers.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-docker-k8s", "task-cache", "conditions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "caching/cache-gradle.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-java", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "caching/cache-maven.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-java", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "caching/cache-npm.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-node", "task-cache", "conditions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "caching/cache-nuget.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-dotnet", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "caching/cache-pip.yml"
+    category: "caching"
+    features: ["caching", "ecosystem-python", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "checkout/checkout-lfs.yml"
+    category: "checkout"
+    features: ["checkout-lfs", "checkout-fetchdepth"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-multi-repo.yml"
+    category: "checkout"
+    features: ["checkout-multi-repo", "resources-repositories"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/repos/multi-repo-checkout"]
+  - path: "checkout/checkout-none.yml"
+    category: "checkout"
+    features: ["checkout-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-path-clean.yml"
+    category: "checkout"
+    features: ["checkout-multi-repo"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-persist-credentials.yml"
+    category: "checkout"
+    features: ["checkout-fetchdepth"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-self.yml"
+    category: "checkout"
+    features: ["checkout-fetchdepth"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-submodules-recursive.yml"
+    category: "checkout"
+    features: ["checkout-submodules"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "checkout/checkout-submodules.yml"
+    category: "checkout"
+    features: ["checkout-submodules"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout"]
+  - path: "conditions-outputs/condition-custom-and-or.yml"
+    category: "conditions-outputs"
+    features: ["conditions", "status-functions", "runtime-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions"]
+  - path: "conditions-outputs/job-output-powershell.yml"
+    category: "conditions-outputs"
+    features: ["output-variables", "logging-commands", "dependencies-outputs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "conditions-outputs/job-output-same-stage.yml"
+    category: "conditions-outputs"
+    features: ["dependencies-outputs", "output-variables", "logging-commands", "runtime-expression", "conditions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "conditions-outputs/logging-logissue.yml"
+    category: "conditions-outputs"
+    features: ["logging-commands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands"]
+  - path: "conditions-outputs/logging-prependpath.yml"
+    category: "conditions-outputs"
+    features: ["logging-commands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands"]
+  - path: "conditions-outputs/logging-setvariable-secret-readonly.yml"
+    category: "conditions-outputs"
+    features: ["logging-commands", "output-variables", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands"]
+  - path: "conditions-outputs/logging-updatebuildnumber.yml"
+    category: "conditions-outputs"
+    features: ["logging-commands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands"]
+  - path: "conditions-outputs/logging-uploadsummary.yml"
+    category: "conditions-outputs"
+    features: ["logging-commands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands"]
+  - path: "conditions-outputs/output-multi-job-chain.yml"
+    category: "conditions-outputs"
+    features: ["dependencies-outputs", "output-variables", "logging-commands", "conditions", "status-functions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "conditions-outputs/stage-always-cleanup.yml"
+    category: "conditions-outputs"
+    features: ["conditions", "status-functions", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
+  - path: "conditions-outputs/stage-condition-result.yml"
+    category: "conditions-outputs"
+    features: ["conditions", "status-functions", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
+  - path: "conditions-outputs/stage-dependencies-variable.yml"
+    category: "conditions-outputs"
+    features: ["stage-dependencies-outputs", "output-variables", "runtime-expression", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "conditions-outputs/stage-output-dependencies.yml"
+    category: "conditions-outputs"
+    features: ["stage-dependencies-outputs", "output-variables", "logging-commands", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "conditions-outputs/status-always-canceled.yml"
+    category: "conditions-outputs"
+    features: ["conditions", "status-functions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions"]
+  - path: "conditions-outputs/status-succeeded-failed.yml"
+    category: "conditions-outputs"
+    features: ["conditions", "status-functions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions"]
+  - path: "containers/container-job.yml"
+    category: "containers"
+    features: ["containers", "resources-containers", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases"]
+  - path: "containers/container-options-env.yml"
+    category: "containers"
+    features: ["containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources"]
+  - path: "containers/container-startup-options.yml"
+    category: "containers"
+    features: ["containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources"]
+  - path: "containers/job-container-spec.yml"
+    category: "containers"
+    features: ["containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases"]
+  - path: "containers/registry-endpoint.yml"
+    category: "containers"
+    features: ["containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources"]
+  - path: "containers/services-job-level.yml"
+    category: "containers"
+    features: ["services", "containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/service-containers"]
+  - path: "containers/services-postgres-redis.yml"
+    category: "containers"
+    features: ["services", "containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/service-containers"]
+  - path: "containers/step-target.yml"
+    category: "containers"
+    features: ["containers", "resources-containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script"]
+  - path: "deployment/canary-increments.yml"
+    category: "deployment"
+    features: ["deployment-canary", "deployment-hooks", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/deployment-job-options.yml"
+    category: "deployment"
+    features: ["deployment-runonce", "environment", "variables-map"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/environment-resource.yml"
+    category: "deployment"
+    features: ["environment", "deployment-runonce"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments"]
+  - path: "deployment/lifecycle-download-artifact.yml"
+    category: "deployment"
+    features: ["deployment-runonce", "artifacts-download", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/manual-validation.yml"
+    category: "deployment"
+    features: ["approvals", "task-manualvalidation", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals"]
+  - path: "deployment/rolling-maxparallel-count.yml"
+    category: "deployment"
+    features: ["deployment-rolling", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/rolling-maxparallel.yml"
+    category: "deployment"
+    features: ["deployment-rolling", "environment", "deployment-hooks"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/runonce-all-hooks.yml"
+    category: "deployment"
+    features: ["deployment-runonce", "deployment-hooks", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/runonce-basic.yml"
+    category: "deployment"
+    features: ["deployment-runonce", "environment", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "deployment/stage-depends-condition.yml"
+    category: "deployment"
+    features: ["deployment-runonce", "environment", "conditions", "status-functions", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs"]
+  - path: "ecosystems/docker-acr-aks-manifest.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-docker-k8s", "task-docker", "task-kubernetesmanifest", "environment", "deployment-runonce", "variables-map", "resources-repositories", "macro-syntax", "artifacts-publish"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/kubernetes/aks-template, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-manifest-v1"]
+  - path: "ecosystems/docker-helm-canary-aks.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-docker-k8s", "deployment-canary", "deployment-hooks", "environment", "task-helmdeploy", "task-docker", "variables-map", "variables-group"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/kubernetes/deploy"]
+  - path: "ecosystems/docker-multi-image-build-matrix.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-docker-k8s", "strategy-matrix", "task-docker", "variables-map", "conditions", "macro-syntax", "output-variables", "logging-commands", "runtime-expression", "dependencies-outputs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/containers/build-image, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "ecosystems/dotnet-appservice-multistage.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-dotnet", "variables-map", "variables-group", "environment", "deployment-runonce", "conditions", "task-dotnetcorecli", "task-azurewebapp", "task-publishpipelineartifact", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/dotnet-core, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments"]
+  - path: "ecosystems/dotnet-matrix-multiplatform.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-dotnet", "strategy-matrix", "variables-map", "pr-trigger", "macro-syntax", "task-dotnetcorecli", "task-publishtestresults", "task-publishcodecoverageresults", "caching", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/dotnet-core, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases#multi-job-configuration"]
+  - path: "ecosystems/dotnet-nuget-pack-push.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-dotnet", "variables-map", "conditions", "parameters-string", "parameters-boolean", "task-nugetauthenticate", "task-dotnetcorecli", "task-nugetcommand", "macro-syntax", "template-expression", "directive-if", "artifacts-publish", "artifacts-download", "trigger-tags"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/artifacts/nuget, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/dotnet-core"]
+  - path: "ecosystems/java-gradle-multi-module.yml"
+    category: "ecosystems"
+    features: ["root-jobs", "trigger-branches", "pool-vmimage", "ecosystem-java", "task-gradle", "task-publishtestresults", "task-javatoolinstaller", "caching", "task-cache", "variables-map", "strategy-matrix", "conditions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/gradle-v3"]
+  - path: "ecosystems/java-maven-parameterized-template.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-java", "parameters-string", "parameters-boolean", "parameters-values", "directive-if", "directive-else", "template-expression", "task-maven", "environment", "deployment-rolling"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java"]
+  - path: "ecosystems/java-maven-sonar-deploy.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-java", "variables-group", "variables-map", "task-maven", "task-sonarqubeprepare", "task-sonarqubeanalyze", "task-sonarqubepublish", "task-javatoolinstaller", "environment", "deployment-runonce", "conditions", "caching", "task-cache"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4"]
+  - path: "ecosystems/node-ci-lint-test-build.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-node", "variables-map", "caching", "task-cache", "task-nodetool", "task-publishtestresults", "task-publishcodecoverageresults", "conditions", "artifacts-publish", "pr-trigger", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript, https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching"]
+  - path: "ecosystems/node-matrix-versions-deploy.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-node", "strategy-matrix", "environment", "deployment-runonce", "conditions", "task-nodetool", "task-azurewebapp", "variables-map", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "ecosystems/node-monorepo-template-params.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-node", "parameters-object", "parameters-string", "directive-each", "directive-if", "template-expression", "variables-map", "trigger-paths", "task-nodetool"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript"]
+  - path: "ecosystems/python-django-docker-deploy.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-python", "ecosystem-docker-k8s", "services", "variables-map", "environment", "deployment-runonce", "task-docker", "task-azurewebappcontainer", "task-usepythonversion", "macro-syntax", "containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/python-webapp, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/containers/acr-template"]
+  - path: "ecosystems/python-venv-pytest-matrix.yml"
+    category: "ecosystems"
+    features: ["root-jobs", "trigger-branches", "pool-vmimage", "ecosystem-python", "strategy-matrix", "task-usepythonversion", "task-publishtestresults", "task-publishcodecoverageresults", "caching", "task-cache", "variables-map", "pr-trigger"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/python, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "ecosystems/python-wheel-twine-release.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-python", "variables-group", "variables-map", "conditions", "trigger-tags", "environment", "deployment-runonce", "task-usepythonversion", "task-twineauthenticate", "artifacts-publish", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/python, https://learn.microsoft.com/en-us/azure/devops/pipelines/library/variable-groups"]
+  - path: "ecosystems/terraform-destroy-scheduled-ephemeral.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-none", "pool-vmimage", "ecosystem-terraform", "schedules-cron", "trigger-none", "task-azurecli", "conditions", "parameters-boolean", "template-expression", "directive-if", "environment", "deployment-runonce", "logging-commands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2"]
+  - path: "ecosystems/terraform-multi-env-template-each.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-none", "pool-vmimage", "ecosystem-terraform", "parameters-object", "directive-each", "template-expression", "environment", "deployment-runonce", "task-terraformtaskv4", "conditions", "variables-map", "directive-else"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "ecosystems/terraform-plan-approve-apply.yml"
+    category: "ecosystems"
+    features: ["root-stages", "trigger-branches", "pool-vmimage", "ecosystem-terraform", "approvals", "environment", "deployment-runonce", "task-terraformtaskv4", "task-manualvalidation", "variables-group", "variables-map", "conditions", "artifacts-publish", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/manual-validation-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals"]
+  - path: "expressions/collection-functions.yml"
+    category: "expressions"
+    features: ["template-expression", "directive-if", "parameters-object", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/comparison-functions.yml"
+    category: "expressions"
+    features: ["template-expression", "directive-if", "parameters-number", "conditions", "status-functions", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/counter-and-format-vars.yml"
+    category: "expressions"
+    features: ["runtime-expression", "template-expression", "variables-map", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/each-list-parameter.yml"
+    category: "expressions"
+    features: ["directive-each", "parameters-object", "template-expression", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "expressions/each-nested-objects.yml"
+    category: "expressions"
+    features: ["directive-each", "parameters-object", "template-expression", "root-jobs", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "expressions/each-object-key-value.yml"
+    category: "expressions"
+    features: ["directive-each", "parameters-object", "template-expression", "variables-map"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/each-with-nested-if.yml"
+    category: "expressions"
+    features: ["directive-each", "directive-if", "directive-else", "parameters-object", "template-expression", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/if-elseif-else-steps.yml"
+    category: "expressions"
+    features: ["directive-if", "directive-elseif", "directive-else", "parameters-string", "parameters-values", "root-steps", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "expressions/if-job-level.yml"
+    category: "expressions"
+    features: ["directive-if", "directive-else", "parameters-string", "root-jobs", "template-expression", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/if-logical-operators.yml"
+    category: "expressions"
+    features: ["directive-if", "parameters-boolean", "parameters-string", "template-expression", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "expressions/if-stage-level.yml"
+    category: "expressions"
+    features: ["directive-if", "parameters-boolean", "root-stages", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage"]
+  - path: "expressions/if-variable-level.yml"
+    category: "expressions"
+    features: ["directive-if", "directive-else", "variables-list", "template-expression", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "expressions/index-syntax.yml"
+    category: "expressions"
+    features: ["template-expression", "parameters-object", "parameters-string", "variables-map", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/insert-variables-and-steps.yml"
+    category: "expressions"
+    features: ["directive-insert", "parameters-object", "parameters-steplist", "variables-map", "template-expression", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "expressions/macro-syntax.yml"
+    category: "expressions"
+    features: ["macro-syntax", "variables-map", "root-steps", "artifacts-publish", "task-publishpipelineartifact"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "expressions/runtime-expressions.yml"
+    category: "expressions"
+    features: ["runtime-expression", "variables-map", "conditions", "output-variables", "dependencies-outputs", "root-jobs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "expressions/string-functions.yml"
+    category: "expressions"
+    features: ["template-expression", "variables-map", "root-steps", "directive-if"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/alias-reference.yml"
+    category: "invalid"
+    features: ["root-steps", "variables-map"]
+    expect: {diagnostics: ["yaml-anchor-forbidden", "yaml-alias-forbidden"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/anchor-definition.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["yaml-anchor-forbidden"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/dependson-cycle.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["dependency-cycle"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "invalid/dependson-unknown-job.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["unknown-dependency"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "invalid/dependson-unknown-stage.yml"
+    category: "invalid"
+    features: ["root-stages"]
+    expect: {diagnostics: ["unknown-dependency"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
+  - path: "invalid/duplicate-job-names.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["duplicate-name"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
+  - path: "invalid/duplicate-key-in-step.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["duplicate-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script"]
+  - path: "invalid/duplicate-key-top-level.yml"
+    category: "invalid"
+    features: ["root-steps", "pool-vmimage"]
+    expect: {diagnostics: ["duplicate-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/duplicate-parameter-name.yml"
+    category: "invalid"
+    features: ["parameters-string"]
+    expect: {diagnostics: ["duplicate-name"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/duplicate-stage-names.yml"
+    category: "invalid"
+    features: ["root-stages"]
+    expect: {diagnostics: ["duplicate-name"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage"]
+  - path: "invalid/duplicate-variable-key.yml"
+    category: "invalid"
+    features: ["variables-map", "root-steps"]
+    expect: {diagnostics: ["duplicate-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "invalid/invalid-expression-bad-syntax.yml"
+    category: "invalid"
+    features: ["template-expression", "directive-if", "root-steps"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/invalid-expression-unbalanced.yml"
+    category: "invalid"
+    features: ["template-expression", "root-steps"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/invalid-expression-unknown-function.yml"
+    category: "invalid"
+    features: ["template-expression", "directive-if", "root-steps"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/invalid-expression-unterminated-string.yml"
+    category: "invalid"
+    features: ["template-expression", "directive-if", "root-steps"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/invalid-expression-wrong-arity.yml"
+    category: "invalid"
+    features: ["template-expression", "directive-if", "root-steps"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/invalid-runtime-expression.yml"
+    category: "invalid"
+    features: ["runtime-expression", "variables-map"]
+    expect: {diagnostics: ["invalid-expression"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions"]
+  - path: "invalid/job-name-invalid-chars.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["bad-identifier"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
+  - path: "invalid/jobs-as-scalar.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs"]
+  - path: "invalid/merge-key.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["yaml-anchor-forbidden", "yaml-merge-key-forbidden"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/nesting-too-deep-map.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["nesting-too-deep"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/nesting-too-deep.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["nesting-too-deep"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/"]
+  - path: "invalid/parameter-default-not-in-values.yml"
+    category: "invalid"
+    features: ["parameters-string", "parameters-values"]
+    expect: {diagnostics: ["bad-parameter-value"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/parameter-missing-name.yml"
+    category: "invalid"
+    features: ["parameters-string"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/parameter-type-mismatch-boolean.yml"
+    category: "invalid"
+    features: ["parameters-boolean"]
+    expect: {diagnostics: ["parameter-type-mismatch"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/parameter-type-mismatch-number.yml"
+    category: "invalid"
+    features: ["parameters-number"]
+    expect: {diagnostics: ["parameter-type-mismatch"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/parameter-unknown-type.yml"
+    category: "invalid"
+    features: ["parameters-string"]
+    expect: {diagnostics: ["bad-parameter-value"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "invalid/pool-as-list.yml"
+    category: "invalid"
+    features: ["root-steps", "pool-vmimage"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pool"]
+  - path: "invalid/stages-as-map.yml"
+    category: "invalid"
+    features: ["root-stages"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages"]
+  - path: "invalid/step-with-two-kinds.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps"]
+  - path: "invalid/steps-as-scalar.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps"]
+  - path: "invalid/task-empty-name-version.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["bad-task-ref"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "invalid/task-malformed-version.yml"
+    category: "invalid"
+    features: ["root-steps", "task-dotnetcorecli"]
+    expect: {diagnostics: ["bad-task-ref"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "invalid/task-minor-version.yml"
+    category: "invalid"
+    features: ["root-steps", "task-npm"]
+    expect: {diagnostics: ["bad-task-ref"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "invalid/task-step-without-name.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "invalid/task-without-version.yml"
+    category: "invalid"
+    features: ["root-steps", "task-dotnetcorecli"]
+    expect: {diagnostics: ["bad-task-ref"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "invalid/template-cycle-a.yml"
+    category: "invalid"
+    features: ["template-step", "template-nested", "root-steps"]
+    expect: {diagnostics: ["template-cycle"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/template-cycle-b.yml"
+    category: "invalid"
+    features: ["template-step", "template-nested", "root-steps"]
+    expect: {diagnostics: ["template-cycle"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/template-missing-file.yml"
+    category: "invalid"
+    features: ["template-step", "root-steps"]
+    expect: {diagnostics: ["missing-template"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/template-missing-stage-file.yml"
+    category: "invalid"
+    features: ["template-stage", "root-stages"]
+    expect: {diagnostics: ["missing-template"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/template-path-escapes-repo.yml"
+    category: "invalid"
+    features: ["template-step", "root-steps"]
+    expect: {diagnostics: ["missing-template"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/template-self-include.yml"
+    category: "invalid"
+    features: ["template-step", "root-steps"]
+    expect: {diagnostics: ["template-cycle"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "invalid/trigger-as-number.yml"
+    category: "invalid"
+    features: ["trigger-branches", "root-steps"]
+    expect: {diagnostics: ["wrong-shape"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "invalid/unknown-job-key.yml"
+    category: "invalid"
+    features: ["root-jobs"]
+    expect: {diagnostics: ["unknown-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job"]
+  - path: "invalid/unknown-step-key.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["unknown-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script"]
+  - path: "invalid/unknown-top-level-key.yml"
+    category: "invalid"
+    features: ["root-steps"]
+    expect: {diagnostics: ["unknown-key"]}
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline"]
+  - path: "parameters/boolean-conditional-step.yml"
+    category: "parameters"
+    features: ["parameters-boolean", "directive-if"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/deployment-and-deploymentlist-parameters.yml"
+    category: "parameters"
+    features: ["parameters-deployment", "parameters-deploymentlist", "deployment-runonce", "root-jobs", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/job-parameter.yml"
+    category: "parameters"
+    features: ["parameters-job", "root-jobs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/joblist-parameter.yml"
+    category: "parameters"
+    features: ["parameters-joblist", "root-jobs", "directive-each"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/mixed-parameters-pipeline.yml"
+    category: "parameters"
+    features: ["parameters-string", "parameters-boolean", "parameters-number", "parameters-values", "directive-if", "directive-elseif", "directive-else", "ecosystem-dotnet"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/number-with-values.yml"
+    category: "parameters"
+    features: ["parameters-number", "parameters-values"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/object-list-of-maps-jobs.yml"
+    category: "parameters"
+    features: ["parameters-object", "directive-each", "root-jobs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/object-nested-each-key-value.yml"
+    category: "parameters"
+    features: ["parameters-object", "directive-each"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/object-simple-and-each.yml"
+    category: "parameters"
+    features: ["parameters-object", "directive-each", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/stage-parameter.yml"
+    category: "parameters"
+    features: ["parameters-stage", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/stagelist-parameter.yml"
+    category: "parameters"
+    features: ["parameters-stagelist", "root-stages", "directive-each"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/step-parameter.yml"
+    category: "parameters"
+    features: ["parameters-step", "directive-insert"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/steplist-parameter.yml"
+    category: "parameters"
+    features: ["parameters-steplist", "directive-each"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "parameters/string-with-values.yml"
+    category: "parameters"
+    features: ["parameters-string", "parameters-values", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters"]
+  - path: "resources/builds-and-packages.yml"
+    category: "resources"
+    features: ["resources-builds", "resources-packages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-builds-build"]
+  - path: "resources/containers-acr-and-dockerhub.yml"
+    category: "resources"
+    features: ["resources-containers", "containers", "services"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-containers-container"]
+  - path: "resources/containers-trigger-and-volumes.yml"
+    category: "resources"
+    features: ["resources-containers", "containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-containers-container"]
+  - path: "resources/pipelines-basic-source-trigger.yml"
+    category: "resources"
+    features: ["resources-pipelines", "trigger-branches", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline"]
+  - path: "resources/pipelines-trigger-stages-tags.yml"
+    category: "resources"
+    features: ["resources-pipelines", "trigger-tags"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline"]
+  - path: "resources/pipelines-version-and-branch.yml"
+    category: "resources"
+    features: ["resources-pipelines", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline"]
+  - path: "resources/repositories-bitbucket.yml"
+    category: "resources"
+    features: ["resources-repositories"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository"]
+  - path: "resources/repositories-git-azure-repos.yml"
+    category: "resources"
+    features: ["resources-repositories", "checkout-multi-repo"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository"]
+  - path: "resources/repositories-github-endpoint.yml"
+    category: "resources"
+    features: ["resources-repositories", "checkout-multi-repo"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository"]
+  - path: "resources/repositories-github-trigger-none-and-name.yml"
+    category: "resources"
+    features: ["resources-repositories", "trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository"]
+  - path: "resources/repositories-trigger.yml"
+    category: "resources"
+    features: ["resources-repositories", "trigger-branches", "trigger-paths"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository"]
+  - path: "resources/webhooks.yml"
+    category: "resources"
+    features: ["resources-webhooks", "trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-webhooks-webhook"]
+  - path: "retired/azurecli-v0-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-azurecli"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2"]
+  - path: "retired/copyfiles-v1-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-copyfiles"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2"]
+  - path: "retired/dotnetcorecli-v0-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-dotnetcorecli"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2"]
+  - path: "retired/dotnetcorecli-v1-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-dotnetcorecli"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2"]
+  - path: "retired/dotnetcoreinstaller-v0-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-dotnetcoreinstaller", "ecosystem-dotnet"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2"]
+  - path: "retired/dotnetcoreinstaller-v1-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-dotnetcoreinstaller", "ecosystem-dotnet"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2"]
+  - path: "retired/image-macos-11-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-macos-12-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-macos-13-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-ubuntu-1804-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-ubuntu-2004-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-vs2017-win2016-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-windows-2016-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/image-windows-2019-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "image-retired", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted"]
+  - path: "retired/maven-v1-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-maven", "ecosystem-java"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4"]
+  - path: "retired/maven-v2-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-maven", "ecosystem-java"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4"]
+  - path: "retired/nuget-v0-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-nuget"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2"]
+  - path: "retired/powershell-v1-retired.yml"
+    category: "retired"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-retired-version", "task-powershell"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/powershell-v2"]
+  - path: "root/jobs-only-shorthand.yml"
+    category: "root"
+    features: ["root-jobs", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs"]
+  - path: "root/lock-behavior-sequential.yml"
+    category: "root"
+    features: ["root-stages", "environment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
+  - path: "root/name-and-append-commit-message.yml"
+    category: "root"
+    features: ["root-steps", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline"]
+  - path: "root/pipeline-with-resources-and-variables.yml"
+    category: "root"
+    features: ["root-jobs", "variables-map", "resources-repositories", "trigger-branches"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline"]
+  - path: "root/pool-named-and-demands.yml"
+    category: "root"
+    features: ["root-steps", "pool-named", "pool-demands"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pool, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/demands"]
+  - path: "root/single-job-with-pool-and-steps.yml"
+    category: "root"
+    features: ["root-steps", "pool-vmimage", "trigger-none", "pr-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline"]
+  - path: "root/stages-only-shorthand.yml"
+    category: "root"
+    features: ["root-stages", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages"]
+  - path: "root/steps-only-shorthand.yml"
+    category: "root"
+    features: ["root-steps", "task-powershell"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps"]
+  - path: "strategies/matrix-container-images.yml"
+    category: "strategies"
+    features: ["strategy-matrix", "containers"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases"]
+  - path: "strategies/matrix-dotnet-multiplatform.yml"
+    category: "strategies"
+    features: ["strategy-matrix", "ecosystem-dotnet", "task-dotnetcorecli"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2"]
+  - path: "strategies/matrix-dynamic.yml"
+    category: "strategies"
+    features: ["strategy-matrix-dynamic", "dependencies-outputs", "output-variables", "logging-commands", "runtime-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "strategies/matrix-inline.yml"
+    category: "strategies"
+    features: ["strategy-matrix", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "strategies/matrix-maxparallel.yml"
+    category: "strategies"
+    features: ["strategy-matrix"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "strategies/matrix-template-expression.yml"
+    category: "strategies"
+    features: ["strategy-matrix", "template-expression", "directive-each", "parameters-object"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "strategies/parallel-and-matrix.yml"
+    category: "strategies"
+    features: ["strategy-matrix", "strategy-parallel", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "strategies/parallel-slices.yml"
+    category: "strategies"
+    features: ["strategy-parallel"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases"]
+  - path: "tasks/archive-extract-delete.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-archivefiles", "task-extractfiles", "task-deletefiles"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/archive-files-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/extract-files-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/delete-files-v1"]
+  - path: "tasks/arm-github-release.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-azureresourcemanagertemplatedeployment", "task-githubrelease"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-resource-manager-template-deployment-v3, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1"]
+  - path: "tasks/azure-cli-powershell.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-azurecli", "task-azurepowershell"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-powershell-v5"]
+  - path: "tasks/azure-web-deploy.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-azurewebapp", "task-azurermwebappdeployment"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-web-app-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-rm-web-app-deployment-v4"]
+  - path: "tasks/cache-task.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-cache", "caching", "conditions", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cache-v2"]
+  - path: "tasks/docker-task.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-docker", "ecosystem-docker-k8s"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/docker-v2"]
+  - path: "tasks/dotnet-cli-usedotnet.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-dotnetcorecli", "task-usedotnet", "ecosystem-dotnet"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2"]
+  - path: "tasks/download-artifacts.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-downloadpipelineartifact", "task-downloadbuildartifacts", "artifacts-download"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-pipeline-artifact-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-build-artifacts-v1"]
+  - path: "tasks/gradle-task.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-gradle", "ecosystem-java"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/gradle-v3"]
+  - path: "tasks/keyvault-secure-file.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-azurekeyvault", "task-downloadsecurefile", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-key-vault-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-secure-file-v1"]
+  - path: "tasks/kubernetes-helm.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-kubernetesmanifest", "task-kubernetes", "task-helmdeploy", "ecosystem-docker-k8s"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-manifest-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/kubernetes-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/helm-deploy-v0"]
+  - path: "tasks/manual-validation.yml"
+    category: "tasks"
+    features: ["trigger-none", "pool-named", "task-manualvalidation", "approvals"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/manual-validation-v0"]
+  - path: "tasks/maven-java-installer.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-maven", "task-javatoolinstaller", "ecosystem-java"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/java-tool-installer-v0"]
+  - path: "tasks/node-npm-usenode.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-nodetool", "task-npm", "task-usenode", "ecosystem-node"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/node-tool-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/npm-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-node-v1"]
+  - path: "tasks/nuget-tasks.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-nugetcommand", "task-nugettoolinstaller", "task-nugetauthenticate", "ecosystem-dotnet"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-tool-installer-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-authenticate-v1"]
+  - path: "tasks/powershell-cmdline-bash-tasks.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-powershell", "task-cmdline", "task-bash"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/powershell-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cmd-line-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/bash-v3"]
+  - path: "tasks/publish-copy-artifacts.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-publishbuildartifacts", "task-copyfiles", "task-publishpipelineartifact", "artifacts-publish"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-build-artifacts-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-pipeline-artifact-v1"]
+  - path: "tasks/python-tasks.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-usepythonversion", "task-pythonscript", "ecosystem-python"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-python-version-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/python-script-v0"]
+  - path: "tasks/shell-shorthands-all-options.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "conditions", "status-functions", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-bash, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-pwsh, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-powershell"]
+  - path: "tasks/task-common-properties.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "conditions", "status-functions", "task-copyfiles", "task-publishbuildartifacts"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-task"]
+  - path: "tasks/terraform-task.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-terraformtask", "ecosystem-terraform", "task-terraformtaskv4"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/developer/terraform/"]
+  - path: "tasks/test-results-coverage-vstest.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-publishtestresults", "task-publishcodecoverageresults", "task-vstest", "conditions", "status-functions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-test-results-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-code-coverage-results-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/vstest-v3"]
+  - path: "tasks/vsbuild-msbuild.yml"
+    category: "tasks"
+    features: ["trigger-branches", "pool-vmimage", "root-steps", "task-vsbuild", "task-msbuild", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/vsbuild-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/msbuild-v1"]
+  - path: "templates/cross-repo/main.yml"
+    category: "templates"
+    features: ["template-cross-repo", "resources-repositories", "template-step"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/cross-repo/parts/local-wrapper.yml"
+    category: "templates"
+    features: ["template-cross-repo", "template-step", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/extends/main.yml"
+    category: "templates"
+    features: ["template-extends", "parameters-steplist", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/extends/parts/secure-base.yml"
+    category: "templates"
+    features: ["template-extends", "parameters-steplist", "directive-each", "directive-insert"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/job-list-param/main.yml"
+    category: "templates"
+    features: ["template-extends", "parameters-joblist"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/job-list-param/parts/job-wrapper.yml"
+    category: "templates"
+    features: ["parameters-joblist", "directive-each", "directive-insert", "pool-vmimage"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/job-template/main.yml"
+    category: "templates"
+    features: ["template-job", "parameters-string", "parameters-object", "template-parameters-default", "directive-each", "root-jobs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/job-template/parts/build-job.yml"
+    category: "templates"
+    features: ["template-job", "parameters-string", "parameters-object", "directive-each", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/nested/main.yml"
+    category: "templates"
+    features: ["template-nested", "template-job", "root-jobs"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/nested/parts/deep/level3.yml"
+    category: "templates"
+    features: ["template-nested", "template-step", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/nested/parts/level1.yml"
+    category: "templates"
+    features: ["template-nested", "template-job", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/nested/parts/level2.yml"
+    category: "templates"
+    features: ["template-nested", "template-step", "parameters-string"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/parameters-typed/main.yml"
+    category: "templates"
+    features: ["parameters-string", "parameters-number", "parameters-boolean", "parameters-object", "parameters-values", "template-parameters-default", "trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/parameters"]
+  - path: "templates/stage-template/main.yml"
+    category: "templates"
+    features: ["template-stage", "parameters-string", "parameters-boolean", "root-stages"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/stage-template/parts/deploy-stage.yml"
+    category: "templates"
+    features: ["template-stage", "parameters-string", "parameters-boolean", "directive-if", "template-parameters-default"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/step-include/main.yml"
+    category: "templates"
+    features: ["template-step", "parameters-string", "template-parameters-default", "pool-vmimage", "root-steps"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/step-include/parts/build-step.yml"
+    category: "templates"
+    features: ["template-step", "parameters-string", "template-parameters-default"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/variable-template/main.yml"
+    category: "templates"
+    features: ["template-variable", "variables-template", "variables-list", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/variable-template/parts/vars-common.yml"
+    category: "templates"
+    features: ["template-variable", "variables-map"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "templates/variable-template/parts/vars-env.yml"
+    category: "templates"
+    features: ["template-variable", "parameters-string", "directive-if", "directive-else"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "triggers/pr-branch-list-shorthand.yml"
+    category: "triggers"
+    features: ["pr-trigger"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/pr-branches-and-paths.yml"
+    category: "triggers"
+    features: ["pr-trigger", "trigger-branches", "trigger-paths"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/pr-drafts-autocancel.yml"
+    category: "triggers"
+    features: ["pr-trigger", "pr-drafts"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/pr-none.yml"
+    category: "triggers"
+    features: ["pr-none", "trigger-branches"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/schedules-always-batch-multiple.yml"
+    category: "triggers"
+    features: ["schedules-cron", "schedules-always", "trigger-batch", "trigger-branches"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers"]
+  - path: "triggers/schedules-cron-basic.yml"
+    category: "triggers"
+    features: ["schedules-cron", "trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers"]
+  - path: "triggers/trigger-batch.yml"
+    category: "triggers"
+    features: ["trigger-branches", "trigger-batch"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-branch-list-shorthand.yml"
+    category: "triggers"
+    features: ["trigger-branches"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/repos/azure-repos-git"]
+  - path: "triggers/trigger-branches-include-exclude.yml"
+    category: "triggers"
+    features: ["trigger-branches"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-empty-list.yml"
+    category: "triggers"
+    features: ["trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-none.yml"
+    category: "triggers"
+    features: ["trigger-none"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-paths-include-exclude.yml"
+    category: "triggers"
+    features: ["trigger-branches", "trigger-paths"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-tags.yml"
+    category: "triggers"
+    features: ["trigger-branches", "trigger-tags"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "triggers/trigger-wildcard-branches-and-paths.yml"
+    category: "triggers"
+    features: ["trigger-branches", "trigger-paths"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger"]
+  - path: "variables/conditional-variable-insertion.yml"
+    category: "variables"
+    features: ["variables-list", "directive-if", "directive-else", "template-expression"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/list-name-value.yml"
+    category: "variables"
+    features: ["variables-list", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/map-syntax.yml"
+    category: "variables"
+    features: ["variables-map", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/per-stage-and-job-variables.yml"
+    category: "variables"
+    features: ["variables-map", "variables-list", "root-stages", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/readonly-variable.yml"
+    category: "variables"
+    features: ["variables-list", "variables-readonly"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/runtime-expression-variables.yml"
+    category: "variables"
+    features: ["variables-map", "runtime-expression", "template-expression", "conditions"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/secret-variables-via-env.yml"
+    category: "variables"
+    features: ["variables-map", "macro-syntax", "task-powershell"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/set-variable-logging-command.yml"
+    category: "variables"
+    features: ["variables-map", "logging-commands", "output-variables", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/system-predefined-variables.yml"
+    category: "variables"
+    features: ["variables-map", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/template-variables.yml"
+    category: "variables"
+    features: ["variables-list", "variables-template", "template-variable"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "variables/template-vars-common.yml"
+    category: "variables"
+    features: ["variables-map", "variables-template", "template-variable"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "variables/template-vars-env.yml"
+    category: "variables"
+    features: ["variables-list", "variables-template", "template-variable", "template-parameters-default", "directive-if", "directive-else"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates"]
+  - path: "variables/variable-groups.yml"
+    category: "variables"
+    features: ["variables-list", "variables-group", "macro-syntax"]
+    expect: ok
+    source: ["https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables"]
+  - path: "vendored/azure-pipelines-yaml/.net-desktop.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/.net-desktop.yml"]
+  - path: "vendored/azure-pipelines-yaml/android.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/android.yml"]
+  - path: "vendored/azure-pipelines-yaml/ant.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ant.yml"]
+  - path: "vendored/azure-pipelines-yaml/asp.net-core-.net-framework.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core-.net-framework.yml"]
+  - path: "vendored/azure-pipelines-yaml/asp.net-core-functionapp-to-windows-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core-functionapp-to-windows-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/asp.net-core.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net-core.yml"]
+  - path: "vendored/azure-pipelines-yaml/asp.net.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/asp.net.yml"]
+  - path: "vendored/azure-pipelines-yaml/deploy-to-existing-kubernetes-cluster.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/deploy-to-existing-kubernetes-cluster.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-build.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-build.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-container-functionapp.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-functionapp.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-container-to-acr.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-to-acr.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-container-to-aks.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-to-aks.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-container-webapp.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container-webapp.yml"]
+  - path: "vendored/azure-pipelines-yaml/docker-container.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/docker-container.yml"]
+  - path: "vendored/azure-pipelines-yaml/empty.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/empty.yml"]
+  - path: "vendored/azure-pipelines-yaml/gcc.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/gcc.yml"]
+  - path: "vendored/azure-pipelines-yaml/go.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/go.yml"]
+  - path: "vendored/azure-pipelines-yaml/gradle.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/gradle.yml"]
+  - path: "vendored/azure-pipelines-yaml/html.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/html.yml"]
+  - path: "vendored/azure-pipelines-yaml/jekyll-container.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/jekyll-container.yml"]
+  - path: "vendored/azure-pipelines-yaml/maven-webapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/maven-webapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/maven.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/maven.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-express-webapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-express-webapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-functionapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-functionapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-react-webapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-react-webapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-angular.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-angular.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-grunt.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-grunt.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-gulp.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-gulp.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-react.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-react.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-vue.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-vue.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js-with-webpack.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js-with-webpack.yml"]
+  - path: "vendored/azure-pipelines-yaml/node.js.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/node.js.yml"]
+  - path: "vendored/azure-pipelines-yaml/php-webapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/php-webapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/php.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/php.yml"]
+  - path: "vendored/azure-pipelines-yaml/powershell-functionapp-to-windows-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/powershell-functionapp-to-windows-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/python-django.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-django.yml"]
+  - path: "vendored/azure-pipelines-yaml/python-functionapp-to-linux-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-functionapp-to-linux-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/python-package.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-package.yml"]
+  - path: "vendored/azure-pipelines-yaml/python-to-linux-webapp-on-azure.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/python-to-linux-webapp-on-azure.yml"]
+  - path: "vendored/azure-pipelines-yaml/ruby.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/ruby.yml"]
+  - path: "vendored/azure-pipelines-yaml/universal-windows-platform.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/universal-windows-platform.yml"]
+  - path: "vendored/azure-pipelines-yaml/xamarin.android.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xamarin.android.yml"]
+  - path: "vendored/azure-pipelines-yaml/xamarin.ios.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xamarin.ios.yml"]
+  - path: "vendored/azure-pipelines-yaml/xcode.yml"
+    category: "vendored"
+    features: ["vendored"]
+    expect: ok
+    source: ["https://raw.githubusercontent.com/microsoft/azure-pipelines-yaml/5d433fcad43a32789a968179469c1e6271cb2fc7/templates/xcode.yml"]

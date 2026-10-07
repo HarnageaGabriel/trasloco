@@ -1,0 +1,25 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/stages-stage
+# features: [directive-if, parameters-boolean, root-stages, template-expression]
+# expect: ok
+parameters:
+  - name: runIntegration
+    type: boolean
+    default: false
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Compile
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: make build
+  - ${{ if eq(parameters.runIntegration, true) }}:
+      - stage: Integration
+        dependsOn: Build
+        jobs:
+          - job: Tests
+            pool:
+              vmImage: ubuntu-latest
+            steps:
+              - script: make integration

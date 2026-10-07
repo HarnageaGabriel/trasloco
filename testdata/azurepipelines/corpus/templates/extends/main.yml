@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-extends, parameters-steplist, pool-vmimage]
+# expect: ok
+trigger: [main]
+extends:
+  template: parts/secure-base.yml
+  parameters:
+    buildSteps:
+      - script: npm ci
+      - script: npm test

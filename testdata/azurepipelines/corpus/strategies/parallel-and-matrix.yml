@@ -1,0 +1,24 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases
+# features: [strategy-matrix, strategy-parallel, pool-vmimage]
+# expect: ok
+trigger: [main]
+jobs:
+  - job: matrixjob
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      matrix:
+        small:
+          size: s
+        large:
+          size: l
+    steps:
+      - script: echo $(size)
+  - job: paralleljob
+    dependsOn: matrixjob
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      parallel: 3
+    steps:
+      - script: echo shard $(System.JobPositionInPhase)

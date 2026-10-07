@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, parameters-string, template-parameters-default, pool-vmimage, root-steps]
+# expect: ok
+trigger:
+  branches:
+    include: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - template: parts/build-step.yml
+    parameters:
+      project: src/app/app.csproj
+  - template: parts/build-step.yml

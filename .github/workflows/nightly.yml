@@ -1,0 +1,94 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "37 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  race:
+    name: Race (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: true
+      - run: go test -race -count=1 ./...
+
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: true
+      # Every Fuzz* target, 60s each; committed corpora are under testdata/fuzz/<Target>.
+      - run: sh scripts/fuzz.sh 60s
+      - name: Upload new crashers
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashers
+          path: "**/testdata/fuzz/**"
+
+  bench:
+    name: Benchmarks vs main
+    runs-on: ubuntu-latest
+    env:
+      # Benchmarks gated at a 10% regression; extend as new benchmarks land.
+      GATED: BenchmarkList5000Repos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: true
+      - name: Run benchmarks
+        run: go test -run '^$' -bench . -benchmem -count=6 ./... | tee current.txt
+      - name: Download baseline artifact
+        uses: dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477 # v27
+        continue-on-error: true
+        with:
+          workflow: nightly.yml
+          name: bench-baseline
+          branch: main
+          path: baseline
+          if_no_artifact_found: warn
+      - name: Compare with benchstat and gate regressions
+        run: |
+          if [ -f baseline/bench.txt ]; then
+            go run golang.org/x/perf/cmd/benchstat@406019bb8b6893dd1245d31bf511c719619bb5c9 baseline/bench.txt current.txt || true
+            python3 scripts/bench-compare.py baseline/bench.txt current.txt $GATED
+          else
+            echo "No baseline yet; storing this run as baseline."
+          fi
+      - name: Store baseline (main only)
+        if: github.ref == 'refs/heads/main'
+        run: cp current.txt bench.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: bench-baseline
+          path: bench.txt
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: true
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...

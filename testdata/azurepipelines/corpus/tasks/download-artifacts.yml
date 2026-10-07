@@ -1,0 +1,29 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-pipeline-artifact-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-build-artifacts-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-downloadpipelineartifact, task-downloadbuildartifacts, artifacts-download]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: DownloadPipelineArtifact@2
+    displayName: Download pipeline artifact
+    inputs:
+      buildType: specific
+      project: Contoso
+      definition: 42
+      buildVersionToDownload: latestFromBranch
+      branchName: refs/heads/main
+      artifactName: drop
+      targetPath: $(Pipeline.Workspace)/drop
+  - task: DownloadBuildArtifacts@1
+    displayName: Download build artifact
+    inputs:
+      buildType: current
+      downloadType: single
+      artifactName: drop
+      downloadPath: $(System.ArtifactsDirectory)

@@ -6,42 +6,33 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
-type failingSink struct{}
+type errorWriter struct{ calls int }
 
-func (failingSink) Handle(context.Context, Event) error { return errors.New("boom") }
-
-func TestHumanSink(t *testing.T) {
-	var out bytes.Buffer
-	sink := NewHumanSink(&out)
-	e := baseEvent(1, RunFinished, map[string]any{"outcome": "ok"})
-	if err := sink.Handle(context.Background(), e); err != nil {
-		t.Fatal(err)
+func (w *errorWriter) Write(p []byte) (int, error) {
+	w.calls++
+	if w.calls > 1 {
+		return 0, errors.New("write failed")
 	}
-	if err := sink.Handle(context.Background(), baseEvent(2, RunStarted, nil)); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "ok") {
-		t.Fatalf("output %q", out.String())
-	}
+	return len(p), nil
 }
 
-func TestBusSinkFailureSurfacesOnClose(t *testing.T) {
-	bus, err := NewBus("run-1", redact.New(), 2, failingSink{})
-	if err != nil {
+func TestRenderSinks(t *testing.T) {
+	event := finished(1)
+	var jsonl bytes.Buffer
+	if err := NewJSONLSink(&jsonl).Handle(context.Background(), event); err != nil || !strings.HasSuffix(jsonl.String(), "\n") {
+		t.Fatalf("jsonl=%q err=%v", jsonl.String(), err)
+	}
+	var human bytes.Buffer
+	if err := NewHumanSink(&human).Handle(context.Background(), event); err != nil || !strings.Contains(human.String(), "succeeded") {
+		t.Fatalf("human=%q err=%v", human.String(), err)
+	}
+	if err := NewHumanSink(&human).Handle(context.Background(), baseEvent(2, CacheHit, CacheHitPayload{})); err != nil {
 		t.Fatal(err)
 	}
-	ev, _ := New(RunStarted, RunStartedPayload{Command: "plan", ToolVersion: "0.1.0", ConfigDigest: "sha256:x"})
-	_ = bus.Publish(context.Background(), ev)
-	fin, _ := New(RunFinished, RunFinishedPayload{Outcome: "succeeded", Counts: map[string]int{}, ReportRef: "r"})
-	_ = bus.Publish(context.Background(), fin)
-	if err := bus.Close(context.Background()); err == nil {
-		t.Fatal("sink error lost")
-	}
-	if err := bus.Close(context.Background()); err == nil {
-		t.Fatal("second close must return the same error")
+	writer := &errorWriter{}
+	if err := NewJSONLSink(writer).Handle(context.Background(), event); err == nil {
+		t.Fatal("newline write error lost")
 	}
 }

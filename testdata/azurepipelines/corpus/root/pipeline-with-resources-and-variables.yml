@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# features: [root-jobs, variables-map, resources-repositories, trigger-branches]
+# expect: ok
+name: ci-$(Build.SourceBranchName)-$(Rev:r)
+trigger:
+  branches:
+    include:
+    - main
+variables:
+  buildConfiguration: Release
+resources:
+  repositories:
+  - repository: tools
+    type: git
+    name: Platform/build-tools
+jobs:
+- job: build
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+  - checkout: self
+  - checkout: tools
+  - script: echo Building $(buildConfiguration)

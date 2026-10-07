@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/powershell-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-powershell]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: PowerShell@1
+    displayName: Legacy PowerShell
+    inputs:
+      scriptType: inlineScript
+      inlineScript: Write-Host "hello"

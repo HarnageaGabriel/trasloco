@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-publish
+# features: [artifacts-publish]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: mkdir -p out && echo built > out/app.txt
+  - publish: out
+    artifact: drop

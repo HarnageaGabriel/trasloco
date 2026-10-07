@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-runonce, environment, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: deploy
+    jobs:
+      - deployment: web
+        pool:
+          vmImage: ubuntu-latest
+        environment: staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo deploying

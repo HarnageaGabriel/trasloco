@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/repos/azure-repos-git
+# features: [trigger-branches]
+# expect: ok
+trigger:
+- main
+- releases/*
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo CI build

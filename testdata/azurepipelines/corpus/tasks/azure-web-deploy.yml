@@ -1,0 +1,31 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-web-app-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-rm-web-app-deployment-v4
+# features: [trigger-branches, pool-vmimage, root-steps, task-azurewebapp, task-azurermwebappdeployment]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureWebApp@1
+    displayName: Deploy web app
+    inputs:
+      azureSubscription: contoso-arm
+      appType: webAppLinux
+      appName: contoso-web
+      package: $(Pipeline.Workspace)/drop/*.zip
+      runtimeStack: DOTNETCORE|8.0
+  - task: AzureRmWebAppDeployment@4
+    displayName: Deploy to slot
+    inputs:
+      ConnectionType: AzureRM
+      azureSubscription: contoso-arm
+      appType: webApp
+      WebAppName: contoso-api
+      deployToSlotOrASE: true
+      ResourceGroupName: contoso-rg
+      SlotName: staging
+      packageForLinux: $(Pipeline.Workspace)/drop/*.zip

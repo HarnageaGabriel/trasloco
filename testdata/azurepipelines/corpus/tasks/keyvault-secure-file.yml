@@ -1,0 +1,26 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-key-vault-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-secure-file-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-azurekeyvault, task-downloadsecurefile, macro-syntax]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureKeyVault@2
+    displayName: Fetch secrets
+    inputs:
+      azureSubscription: contoso-arm
+      KeyVaultName: contoso-kv
+      SecretsFilter: 'DbPassword,ApiKey'
+      RunAsPreJob: false
+  - task: DownloadSecureFile@1
+    name: signingCert
+    displayName: Download signing cert
+    inputs:
+      secureFile: signing.pfx
+  - script: echo "Cert at $(signingCert.secureFilePath)"
+    displayName: Show cert path

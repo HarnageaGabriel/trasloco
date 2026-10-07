@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-stage, parameters-string, parameters-boolean, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - template: parts/deploy-stage.yml
+    parameters:
+      envName: dev
+  - template: parts/deploy-stage.yml
+    parameters:
+      envName: prod
+      dependsOn: dev
+      runSmoke: false

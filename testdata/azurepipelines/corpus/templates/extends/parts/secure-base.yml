@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-extends, parameters-steplist, directive-each, directive-insert]
+# expect: ok
+parameters:
+  - name: buildSteps
+    type: stepList
+    default: []
+stages:
+  - stage: build
+    jobs:
+      - job: run
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo compliance preamble
+          - ${{ each step in parameters.buildSteps }}:
+              - ${{ step }}

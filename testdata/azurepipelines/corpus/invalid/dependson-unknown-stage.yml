@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+# features: [root-stages]
+# expect: diagnostics: [unknown-dependency]
+stages:
+  - stage: Deploy
+    dependsOn: Build
+    jobs:
+      - job: Ship
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo ship

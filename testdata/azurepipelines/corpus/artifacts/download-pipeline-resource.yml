@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline
+# features: [artifacts-download, resources-pipelines]
+# expect: ok
+trigger: none
+resources:
+  pipelines:
+    - pipeline: upstream
+      source: Contoso-CI
+      version: '20240101.1'
+      branch: main
+      trigger:
+        branches:
+          include: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - download: upstream
+    artifact: drop
+    patterns: '**'
+  - script: ls $(Pipeline.Workspace)/upstream/drop

@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [pr-none, trigger-branches]
+# expect: ok
+trigger:
+- main
+pr: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo CI only

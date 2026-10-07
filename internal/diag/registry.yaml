@@ -1519,6 +1519,16 @@
                       "remediation":  "See the capability matrix.",
                       "since":  "0.1.0",
                       "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-INT-0004",
+                      "area":  "INT",
+                      "title":  "Event sink failed and was detached",
+                      "severity":  "warning",
+                      "exitClass":  "none",
+                      "remediation":  "Check the sink destination (disk space, closed pipe); the run continues without this sink.",
+                      "since":  "0.1.0",
+                      "status":  "active"
                   }
               ]
 }

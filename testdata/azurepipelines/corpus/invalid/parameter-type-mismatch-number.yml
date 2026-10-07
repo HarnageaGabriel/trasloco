@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-number]
+# expect: diagnostics: [parameter-type-mismatch]
+parameters:
+  - name: retries
+    type: number
+    default: many
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.retries }}

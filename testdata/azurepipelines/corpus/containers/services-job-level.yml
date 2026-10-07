@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/service-containers
+# features: [services, containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: my-nginx
+      image: nginx:1.27
+      ports:
+        - 8080:80
+jobs:
+  - job: integration
+    pool:
+      vmImage: ubuntu-latest
+    container: node:20
+    services:
+      nginx: my-nginx
+    steps:
+      - script: curl -s http://nginx:80 | head -n 3

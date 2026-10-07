@@ -1,0 +1,26 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [template-expression, variables-map, root-steps, directive-if]
+# expect: ok
+parameters:
+  - name: branch
+    type: string
+    default: refs/heads/release/1.2
+
+variables:
+  upperName: ${{ upper('abc') }}
+  lowerName: ${{ lower('ABC') }}
+  joined: ${{ join('-', parameters.branch) }}
+  fmt: ${{ format('{0}-{1}', 'app', 'v2') }}
+  replaced: ${{ replace(parameters.branch, 'refs/heads/', '') }}
+  pieces: ${{ split('a,b,c', ',')[1] }}
+  fallback: ${{ coalesce(variables['Override'], 'default') }}
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ if startsWith(parameters.branch, 'refs/heads/release') }}:
+      - script: echo release branch
+  - ${{ if endsWith(parameters.branch, '1.2') }}:
+      - script: echo version 1.2
+  - script: echo "$(upperName) $(lowerName) $(joined) $(fmt) $(replaced) $(pieces) $(fallback)"

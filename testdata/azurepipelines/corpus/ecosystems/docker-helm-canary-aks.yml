@@ -1,0 +1,73 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/kubernetes/deploy
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-docker-k8s, deployment-canary, deployment-hooks, environment, task-helmdeploy, task-docker, variables-map, variables-group]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  - group: aks-shared
+  - name: chartPath
+    value: charts/api
+  - name: releaseName
+    value: api
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Image
+    jobs:
+      - job: Push
+        steps:
+          - task: Docker@2
+            inputs:
+              command: buildAndPush
+              containerRegistry: contoso-acr
+              repository: contoso/api
+              tags: $(Build.BuildId)
+
+  - stage: Deploy
+    dependsOn: Image
+    jobs:
+      - deployment: Canary
+        environment: aks-prod.api
+        strategy:
+          canary:
+            increments:
+              - 10
+              - 50
+            preDeploy:
+              steps:
+                - script: echo Validating cluster before rollout
+            deploy:
+              steps:
+                - task: HelmDeploy@0
+                  inputs:
+                    connectionType: Kubernetes Service Connection
+                    kubernetesServiceConnection: aks-prod
+                    namespace: api
+                    command: upgrade
+                    chartType: FilePath
+                    chartPath: $(chartPath)
+                    releaseName: $(releaseName)
+                    overrideValues: image.tag=$(Build.BuildId),canary.weight=$(strategy.increment)
+                    arguments: --atomic --timeout 5m
+            routeTraffic:
+              steps:
+                - script: echo Shift traffic to $(strategy.increment) percent
+            postRouteTraffic:
+              pool: server
+              steps:
+                - task: Delay@1
+                  inputs:
+                    delayForMinutes: '2'
+            on:
+              failure:
+                steps:
+                  - script: helm rollback $(releaseName) --namespace api
+                    displayName: Rollback
+              success:
+                steps:
+                  - script: echo Canary succeeded

@@ -1,0 +1,32 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-powershell-v5
+# features: [trigger-branches, pool-vmimage, root-steps, task-azurecli, task-azurepowershell]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureCLI@2
+    displayName: Azure CLI script
+    inputs:
+      azureSubscription: contoso-arm
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az group list --query "[].name" -o tsv
+        az account show
+      addSpnToEnvironment: true
+      useGlobalConfig: false
+  - task: AzurePowerShell@5
+    displayName: Azure PowerShell script
+    inputs:
+      azureSubscription: contoso-arm
+      ScriptType: InlineScript
+      Inline: |
+        Get-AzResourceGroup | Select-Object ResourceGroupName
+      azurePowerShellVersion: LatestVersion
+      pwsh: true

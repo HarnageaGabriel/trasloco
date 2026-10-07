@@ -1,0 +1,55 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-node, parameters-object, parameters-string, directive-each, directive-if, template-expression, variables-map, trigger-paths, task-nodetool]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - packages/*
+      - package-lock.json
+
+parameters:
+  - name: packages
+    type: object
+    default:
+      - name: api
+        path: packages/api
+        hasE2E: true
+      - name: web
+        path: packages/web
+        hasE2E: false
+      - name: shared
+        path: packages/shared
+        hasE2E: false
+  - name: nodeVersion
+    type: string
+    default: 20.x
+    values:
+      - 18.x
+      - 20.x
+      - 22.x
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    jobs:
+      - ${{ each pkg in parameters.packages }}:
+          - job: build_${{ pkg.name }}
+            displayName: Build ${{ pkg.name }}
+            steps:
+              - task: NodeTool@0
+                inputs:
+                  versionSpec: ${{ parameters.nodeVersion }}
+              - script: npm ci --workspace ${{ pkg.path }}
+                displayName: Install
+              - script: npm run build --workspace ${{ pkg.path }}
+                displayName: Build
+              - script: npm test --workspace ${{ pkg.path }}
+                displayName: Unit tests
+              - ${{ if eq(pkg.hasE2E, true) }}:
+                  - script: npm run e2e --workspace ${{ pkg.path }}
+                    displayName: E2E tests

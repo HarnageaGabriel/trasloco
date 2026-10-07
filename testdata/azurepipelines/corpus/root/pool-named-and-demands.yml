@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pool, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/demands
+# features: [root-steps, pool-named, pool-demands]
+# expect: ok
+pool:
+  name: OnPremPool
+  demands:
+  - Agent.OS -equals Windows_NT
+  - msbuild
+  - visualstudio
+steps:
+- script: msbuild /version

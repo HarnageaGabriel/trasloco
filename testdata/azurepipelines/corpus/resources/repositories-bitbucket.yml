@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository
+# features: [resources-repositories]
+# expect: ok
+resources:
+  repositories:
+  - repository: bb-repo
+    type: bitbucket
+    endpoint: bitbucket-connection
+    name: myteam/my-repo
+    ref: main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: bb-repo
+- script: git log -1

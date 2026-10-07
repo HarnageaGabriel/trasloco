@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-step, directive-insert]
+# expect: ok
+trigger: none
+parameters:
+- name: preBuildStep
+  type: step
+  default:
+    script: echo default pre-build step
+    displayName: Default pre-build
+pool:
+  vmImage: ubuntu-latest
+steps:
+- ${{ parameters.preBuildStep }}
+- script: echo main build

@@ -1,0 +1,24 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [directive-insert, parameters-object, parameters-steplist, variables-map, template-expression, root-steps]
+# expect: ok
+parameters:
+  - name: extraVars
+    type: object
+    default:
+      feature: on
+      level: 3
+  - name: extraSteps
+    type: stepList
+    default:
+      - script: echo extra step
+
+variables:
+  ${{ insert }}: ${{ parameters.extraVars }}
+  fixed: value
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo start
+  - ${{ parameters.extraSteps }}

@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
+# features: [root-jobs]
+# expect: diagnostics: [unknown-key]
+jobs:
+  - job: Build
+    pool:
+      vmImage: ubuntu-latest
+    runsOn: ubuntu
+    steps:
+      - script: echo hi

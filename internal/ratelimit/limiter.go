@@ -1,3 +1,4 @@
+// Package ratelimit provides adaptive request pacing and concurrency limits.
 package ratelimit
 
 import (
@@ -7,12 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 	"golang.org/x/time/rate"
 )
 
 // LimiterOptions configures adaptive per-host, per-credential scheduling.
 type LimiterOptions struct {
-	Clock          Clock
+	Clock          clock.Clock
 	OnThrottle     func(ThrottleObservation)
 	Policy         Policy
 	MinConcurrency int
@@ -24,7 +26,7 @@ type LimiterOptions struct {
 type Limiter struct {
 	mu         sync.Mutex
 	states     map[string]*limitState
-	clock      Clock
+	clock      clock.Clock
 	onThrottle func(ThrottleObservation)
 	policy     Policy
 	min        int
@@ -46,7 +48,7 @@ type limitState struct {
 // NewLimiter constructs an adaptive limiter.
 func NewLimiter(opts LimiterOptions) *Limiter {
 	if opts.Clock == nil {
-		opts.Clock = RealClock{}
+		opts.Clock = clock.Real{}
 	}
 	if opts.OnThrottle == nil {
 		opts.OnThrottle = func(ThrottleObservation) {}

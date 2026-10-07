@@ -1,0 +1,24 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-containers-container
+# features: [resources-containers, containers, services]
+# expect: ok
+resources:
+  containers:
+  - container: build-env
+    image: ubuntu:22.04
+    options: --cpus 2
+  - container: pg
+    image: postgres:15
+    env:
+      POSTGRES_PASSWORD: example
+    ports:
+    - 5432:5432
+  - container: private
+    image: contoso.azurecr.io/tools/builder:1.4
+    endpoint: acr-connection
+pool:
+  vmImage: ubuntu-latest
+container: build-env
+services:
+  db: pg
+steps:
+- script: printenv | sort

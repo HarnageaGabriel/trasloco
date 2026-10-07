@@ -1,0 +1,5 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-stage, root-stages]
+# expect: diagnostics: [missing-template]
+stages:
+  - template: stages/nonexistent-stage.yml

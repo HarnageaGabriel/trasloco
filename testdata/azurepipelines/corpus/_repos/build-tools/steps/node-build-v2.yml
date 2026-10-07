@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, template-cross-repo, ecosystem-node, task-nodetool]
+# expect: ok
+parameters:
+  - name: nodeVersion
+    type: string
+    default: 22.x
+  - name: buildScript
+    type: string
+    default: build
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: ${{ parameters.nodeVersion }}
+  - script: npm ci && npm run ${{ parameters.buildScript }}

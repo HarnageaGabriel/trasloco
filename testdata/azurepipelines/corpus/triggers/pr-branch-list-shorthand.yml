@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [pr-trigger]
+# expect: ok
+pr:
+- main
+- develop
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo PR build

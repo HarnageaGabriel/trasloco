@@ -1,0 +1,12 @@
+templates-common:
+  dir: templates-common
+  repository: "contoso/templates-common"
+  ref: "refs/heads/main"
+build-tools:
+  dir: build-tools
+  repository: "contoso/build-tools"
+  ref: "refs/tags/v1"
+security-scans:
+  dir: security-scans
+  repository: "contoso/security-scans"
+  ref: "refs/tags/v1"

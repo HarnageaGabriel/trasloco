@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pool
+# features: [root-steps, pool-vmimage]
+# expect: diagnostics: [wrong-shape]
+pool:
+  - vmImage: ubuntu-latest
+
+steps:
+  - script: echo hi

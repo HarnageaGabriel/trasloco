@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-rolling, environment]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: vmdeploy
+    environment:
+      name: web-farm
+      resourceType: VirtualMachine
+      tags: web
+    strategy:
+      rolling:
+        maxParallel: 2
+        deploy:
+          steps:
+            - script: echo update

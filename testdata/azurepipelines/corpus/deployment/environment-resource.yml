@@ -1,0 +1,24 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments
+# features: [environment, deployment-runonce]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: k8s
+    environment: 'smarthotel-dev.bookings'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - script: echo deploying to namespace bookings
+  - deployment: vm
+    environment:
+      name: smarthotel-dev
+      resourceName: vm1
+      resourceType: VirtualMachine
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - script: echo deploy to vm

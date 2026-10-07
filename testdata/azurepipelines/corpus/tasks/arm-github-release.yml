@@ -1,0 +1,39 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-resource-manager-template-deployment-v3, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-azureresourcemanagertemplatedeployment, task-githubrelease]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: Deploy ARM template
+    inputs:
+      deploymentScope: Resource Group
+      azureResourceManagerConnection: contoso-arm
+      subscriptionId: 00000000-0000-0000-0000-000000000000
+      action: Create Or Update Resource Group
+      resourceGroupName: contoso-rg
+      location: West Europe
+      templateLocation: Linked artifact
+      csmFile: infra/main.json
+      csmParametersFile: infra/main.parameters.json
+      deploymentMode: Incremental
+  - task: GitHubRelease@1
+    displayName: Create GitHub release
+    inputs:
+      gitHubConnection: github-contoso
+      repositoryName: contoso/web
+      action: create
+      target: $(Build.SourceVersion)
+      tagSource: userSpecifiedTag
+      tag: v$(Build.BuildNumber)
+      title: Release $(Build.BuildNumber)
+      assets: $(Build.ArtifactStagingDirectory)/*.zip
+      isPreRelease: false
+      changeLogCompareToRelease: lastFullRelease
+      changeLogType: commitBased
