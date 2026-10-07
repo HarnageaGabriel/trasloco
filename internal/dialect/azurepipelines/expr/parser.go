@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -93,6 +92,9 @@ func (p *parser) parseExpr() (Expr, error) {
 			case "null":
 				return nil, p.err(token, "null is not a literal")
 			default:
+				if _, function := findFunction(strings.ToLower(token.Text)); function {
+					return nil, p.err(p.peek(), "expected ( after function name")
+				}
 				node = &Identifier{Span: p.span(token.Span), Name: token.Text}
 			}
 		}
@@ -196,9 +198,8 @@ func (p *parser) err(token Token, msg string) error {
 }
 
 func shiftSyntaxError(err error, base int) error {
-	var e *SyntaxError
-	if errors.As(err, &e) {
-		return syntaxError(e.Offset+base, e.Msg)
+	if span, ok := expressionErrorSpan(err); ok {
+		return syntaxError(span.Start+base, expressionErrorMessage(err))
 	}
 	return err
 }

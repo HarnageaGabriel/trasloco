@@ -2,7 +2,6 @@ package expr
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -28,18 +27,6 @@ type EvalOptions struct {
 	VariableDefinition bool
 	// Scope is step or job; names are invalid in step conditions.
 	Scope string
-}
-
-// EvalError carries an expression failure and relative byte offsets.
-// ADR 0002 migration awaits diag.Error in the shared diagnostics package.
-type EvalError struct {
-	Code string
-	Span Span
-	Msg  string
-}
-
-func (e *EvalError) Error() string {
-	return fmt.Sprintf("%s at bytes %d:%d: %s", e.Code, e.Span.Start, e.Span.End, e.Msg)
 }
 
 // MaxDepth and MaxExpressionLength are DTExpressions v1 parser limits.
@@ -68,7 +55,7 @@ type evaluator struct {
 	values  Context
 	options EvalOptions
 	depth   int
-	memory  int
+	memory  evaluationMemory
 }
 
 func (e *evaluator) eval(node Expr) (Value, error) {
@@ -84,11 +71,9 @@ func (e *evaluator) eval(node Expr) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	cost := valueMemory(value, MaxDepth)
-	if cost > MaxEvaluationMemory-e.memory {
+	if !e.memory.add(e.depth, valueMemory(value)) {
 		return nil, e.failure(node, "expression exceeds evaluation memory")
 	}
-	e.memory += cost
 	return value, nil
 }
 
@@ -200,11 +185,11 @@ func valuesOf(v Value) ([]Value, bool) {
 }
 
 func (e *evaluator) failure(node Expr, msg string) error {
-	return &EvalError{Code: "TRL-EXPR-0001", Span: node.Range(), Msg: msg}
+	return expressionError("TRL-EXPR-0001", node.Range(), msg)
 }
 
 func (e *evaluator) typeFailure(node Expr, msg string) error {
-	return &EvalError{Code: "TRL-EXPR-0005", Span: node.Range(), Msg: msg}
+	return expressionError("TRL-EXPR-0005", node.Range(), msg)
 }
 
 func utf16Length(s string) int {
@@ -218,21 +203,27 @@ func utf16Length(s string) int {
 	return n
 }
 
-func valueMemory(v Value, depth int) int {
-	if depth == 0 {
-		return MaxEvaluationMemory + 1
-	}
+func valueMemory(v Value) int {
 	if s, ok := v.(String); ok {
 		return 26 + 2*utf16Length(string(s))
 	}
-	total := 24
-	if values, ok := valuesOf(v); ok {
-		for _, item := range values {
-			total += valueMemory(item, depth-1)
-			if total > MaxEvaluationMemory {
-				return total
-			}
-		}
+	return 24
+}
+
+type evaluationMemory struct {
+	total   int
+	byLevel [MaxDepth + 1]int
+}
+
+func (m *evaluationMemory) add(level, amount int) bool {
+	for current := level; current < len(m.byLevel); current++ {
+		m.total -= m.byLevel[current]
+		m.byLevel[current] = 0
 	}
-	return total
+	if amount > MaxEvaluationMemory-m.total {
+		return false
+	}
+	m.byLevel[level] = amount
+	m.total += amount
+	return true
 }
