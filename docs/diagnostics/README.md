@@ -88,6 +88,11 @@
 | [TRL-PARSE-0008](TRL-PARSE-0008.md) | error | YAML anchors and aliases are not allowed | active |
 | [TRL-PARSE-0009](TRL-PARSE-0009.md) | error | YAML merge keys are not allowed | active |
 | [TRL-PARSE-0010](TRL-PARSE-0010.md) | error | YAML nesting depth limit exceeded | active |
+| [TRL-PARSE-0011](TRL-PARSE-0011.md) | error | Required key is missing | active |
+| [TRL-PARSE-0012](TRL-PARSE-0012.md) | error | Value is not one of the allowed values | active |
+| [TRL-PARSE-0013](TRL-PARSE-0013.md) | error | Insertion directive is out of place | active |
+| [TRL-PARSE-0014](TRL-PARSE-0014.md) | error | Mapping selects more than one alternative | active |
+| [TRL-PARSE-0015](TRL-PARSE-0015.md) | error | Task reference is malformed | active |
 | [TRL-PLAN-0001](TRL-PLAN-0001.md) | error | Plan stale: source changed | active |
 | [TRL-PLAN-0002](TRL-PLAN-0002.md) | error | Plan stale: target changed (ETag/branch SHA) | active |
 | [TRL-PLAN-0003](TRL-PLAN-0003.md) | error | Tool or catalog version differs from plan | active |
