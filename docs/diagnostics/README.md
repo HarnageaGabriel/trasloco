@@ -66,6 +66,7 @@
 | [TRL-INT-0001](TRL-INT-0001.md) | error | Internal error (recovered panic) | active |
 | [TRL-INT-0002](TRL-INT-0002.md) | error | Internal invariant violated | active |
 | [TRL-INT-0003](TRL-INT-0003.md) | error | Feature not implemented for this platform pair | active |
+| [TRL-INT-0004](TRL-INT-0004.md) | warning | Event sink failed and was detached | active |
 | [TRL-LLM-0001](TRL-LLM-0001.md) | error | Remote data transfer not allowed | active |
 | [TRL-LLM-0002](TRL-LLM-0002.md) | warning | LLM output not accepted | active |
 | [TRL-LLM-0003](TRL-LLM-0003.md) | error | LLM output failed validation | active |
