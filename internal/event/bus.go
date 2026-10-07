@@ -17,8 +17,11 @@ import (
 
 const maxPendingKeys = 1024
 
-// ErrRedaction means an event could not be proven safe for output.
-var ErrRedaction = &diag.Error{Finding: diag.MustNew("TRL-SECRET-0004")}
+// ErrRedaction returns a fresh finding when an event cannot be proven safe.
+// Use errors.As and Finding.Code to identify it, rather than pointer identity.
+func ErrRedaction() *diag.Error {
+	return &diag.Error{Finding: diag.MustNew("TRL-SECRET-0004")}
+}
 
 // Sink consumes serialized, sequenced, redacted events.
 type Sink interface {
@@ -385,10 +388,10 @@ func sanitizeEvent(event Event, r *redact.Redactor) (Event, error) {
 	decoder.UseNumber()
 	var payload bytes.Buffer
 	if err := sanitizeJSONValue(decoder, &payload, "", r, true); err != nil {
-		return Event{}, ErrRedaction
+		return Event{}, ErrRedaction()
 	}
 	if token, err := decoder.Token(); err != io.EOF || token != nil {
-		return Event{}, ErrRedaction
+		return Event{}, ErrRedaction()
 	}
 	event.Payload = append(json.RawMessage(nil), payload.Bytes()...)
 	event.RunID = r.Redact(event.RunID)
@@ -400,7 +403,7 @@ func sanitizeEvent(event Event, r *redact.Redactor) (Event, error) {
 		return Event{}, fmt.Errorf("marshal event for redaction: %w", err)
 	}
 	if r.Contains(string(encoded)) {
-		return Event{}, ErrRedaction
+		return Event{}, ErrRedaction()
 	}
 	return event, nil
 }

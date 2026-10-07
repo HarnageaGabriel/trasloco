@@ -26,9 +26,12 @@ var builtinPatterns = []struct {
 	{regexp.MustCompile(`\b[A-Za-z0-9]{75}AZDO[A-Za-z0-9]{5}\b`), replacement},
 	{regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{20,}\b`), replacement},
 	{regexp.MustCompile(`\bgh[opusr]_[A-Za-z0-9_]{20,}\b`), replacement},
+	// Default prefixes: https://docs.gitlab.com/security/tokens/
+	{regexp.MustCompile(`\b(?:glpat|glptt|gldt)-[A-Za-z0-9_-]{20,}\b`), replacement},
+	// Bot token prefix: https://docs.slack.dev/authentication/tokens
+	{regexp.MustCompile(`\bxoxb-[A-Za-z0-9-]+\b`), replacement},
 	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b`), replacement},
 	{regexp.MustCompile(`(?i)(authorization["']?\s*[:=]\s*["']?)(?:basic|bearer)?\s*[A-Za-z0-9._~+/=-]+`), `${1}` + replacement},
-	{regexp.MustCompile(`(?i)\b(basic|bearer)\s+[A-Za-z0-9._~+/=-]+`), `${1} ` + replacement},
 	{regexp.MustCompile(`(?i)(cookie|set-cookie)(["']?\s*[:=]\s*["']?)[^\s,"'}]+`), `${1}${2}` + replacement},
 }
 
@@ -93,6 +96,7 @@ func (r *Redactor) AddBytes(secret []byte) { r.Add(string(secret)) }
 // Redact replaces registered values, their encodings, and known credential
 // patterns with a constant marker that reveals no secret length.
 func (r *Redactor) Redact(input string) string {
+	input = redactQueries(input)
 	r.mu.RLock()
 	variants := append([]string(nil), r.variants...)
 	r.mu.RUnlock()
@@ -103,6 +107,48 @@ func (r *Redactor) Redact(input string) string {
 		input = pattern.re.ReplaceAllString(input, pattern.repl)
 	}
 	return input
+}
+
+// Match query strings inside URLs embedded in errors or free-form text. Keep
+// spelling and ordering intact; decoding is only used to classify parameter keys.
+var queryPattern = regexp.MustCompile(`\?[^\s"'<>\\]+`)
+
+func redactQueries(input string) string {
+	return queryPattern.ReplaceAllStringFunc(input, func(query string) string {
+		body, fragment, hasFragment := strings.Cut(query[1:], "#")
+		parts := strings.Split(body, "&")
+		hasSignature := false
+		for _, part := range parts {
+			key, _, _ := strings.Cut(part, "=")
+			decoded, _ := url.QueryUnescape(key)
+			if strings.EqualFold(decoded, "sig") {
+				hasSignature = true
+			}
+		}
+		for index, part := range parts {
+			key, value, found := strings.Cut(part, "=")
+			if !found || value == "" {
+				continue
+			}
+			decoded, _ := url.QueryUnescape(key)
+			sensitive := false
+			switch strings.ToLower(decoded) {
+			case "sig", "signature", "x-amz-signature", "x-amz-credential", "x-amz-security-token",
+				"x-goog-signature", "x-goog-credential", "token", "access_token":
+				sensitive = true
+			case "se", "sp", "sv":
+				sensitive = hasSignature
+			}
+			if sensitive {
+				parts[index] = key + "=" + replacement
+			}
+		}
+		result := "?" + strings.Join(parts, "&")
+		if hasFragment {
+			result += "#" + fragment
+		}
+		return result
+	})
 }
 
 // RedactBytes returns a redacted copy of input.

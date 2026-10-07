@@ -68,6 +68,8 @@ func (d *Document) ApplyPatches(patches []Patch) ([]byte, error) {
 }
 
 // ByteRange returns the exact lexical range of a node in the original file.
+// Block scalars include their final newline and trailing blank lines. A
+// replacement must supply any line endings required before the following node.
 func (n *Node) ByteRange() (ByteRange, error) {
 	if n == nil || n.raw == nil || n.ctx == nil {
 		return ByteRange{}, errors.New("yamlx: node has no source range")
@@ -105,11 +107,11 @@ func rawNodeRange(ctx *nodeContext, node *yaml.Node) (ByteRange, error) {
 	if ctx == nil || node == nil {
 		return ByteRange{}, errors.New("yamlx: node has no source range")
 	}
-	start := positionOffset(ctx.data, node.Line, node.Column)
+	start := ctx.positionOffset(node.Line, node.Column)
 	end := start
 	switch node.Kind {
 	case yaml.ScalarNode:
-		start, end = scalarRange(ctx.data, start, node.Style)
+		start, end = scalarRange(ctx, node, start)
 	case yaml.AliasNode:
 		end = scanTokenEnd(ctx.data, start)
 	case yaml.SequenceNode, yaml.MappingNode:
@@ -136,7 +138,9 @@ func rawNodeRange(ctx *nodeContext, node *yaml.Node) (ByteRange, error) {
 	return ByteRange{Start: start + ctx.baseOffset, End: end + ctx.baseOffset}, nil
 }
 
-func scalarRange(data []byte, start int, style yaml.Style) (int, int) {
+func scalarRange(ctx *nodeContext, node *yaml.Node, start int) (int, int) {
+	data, style := ctx.data, node.Style
+	limit := ctx.nextOffset(start)
 	start = skipNodeProperties(data, start)
 	if start >= len(data) {
 		return start, start
@@ -149,7 +153,7 @@ func scalarRange(data []byte, start int, style yaml.Style) (int, int) {
 	case style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0:
 		return start, scanBlockScalarEnd(data, start)
 	default:
-		return start, scanPlainEnd(data, start)
+		return start, scanPlainEnd(data, start, limit, ctx.nodeContexts[node])
 	}
 }
 
@@ -191,40 +195,42 @@ func scanQuotedEnd(data []byte, start int, quote byte) int {
 	return len(data)
 }
 
-func scanPlainEnd(data []byte, start int) int {
+func scanPlainEnd(data []byte, start, limit int, context lexicalContext) int {
 	end := start
-	flow := inFlowContext(data, start)
-	for end < len(data) && data[end] != '\r' && data[end] != '\n' {
-		if data[end] == '#' && end > start && (data[end-1] == ' ' || data[end-1] == '\t') {
+	parentIndent := lineIndent(data, start)
+	for cursor := start; cursor < limit; cursor++ {
+		if data[cursor] == '\r' || data[cursor] == '\n' {
+			next := consumeLineEnding(data, cursor)
+			for next < limit && (data[next] == ' ' || data[next] == '\t' || data[next] == '\r' || data[next] == '\n') {
+				next++
+			}
+			if next >= limit || data[next] == '#' || (!context.flow && !context.root && lineIndent(data, next) <= parentIndent) {
+				break
+			}
+			if !context.flow && lineIndent(data, next) == 0 && isDocumentBoundary(data[next:]) {
+				break
+			}
+			cursor = next
+		}
+		if data[cursor] == '#' && (cursor == start || data[cursor-1] == ' ' || data[cursor-1] == '\t') {
 			break
 		}
-		if data[end] == ':' && (end+1 >= len(data) || data[end+1] == ' ' || data[end+1] == '\t' || data[end+1] == '\r' || data[end+1] == '\n') {
+		if data[cursor] == ':' && (cursor+1 >= len(data) || bytes.ContainsRune([]byte(" \t\r\n"), rune(data[cursor+1]))) {
 			break
 		}
-		if flow && (data[end] == ',' || data[end] == ']' || data[end] == '}') {
+		if context.flow && bytes.ContainsRune([]byte(",[]{}"), rune(data[cursor])) {
 			break
 		}
-		end++
-	}
-	for end > start && (data[end-1] == ' ' || data[end-1] == '\t') {
-		end--
+		if data[cursor] != ' ' && data[cursor] != '\t' {
+			end = cursor + 1
+		}
 	}
 	return end
 }
 
-// inFlowContext reports whether an unmatched flow opener precedes start on its line.
-func inFlowContext(data []byte, start int) bool {
-	lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
-	depth := 0
-	for _, char := range data[lineStart:start] {
-		switch char {
-		case '[', '{':
-			depth++
-		case ']', '}':
-			depth--
-		}
-	}
-	return depth > 0
+func isDocumentBoundary(data []byte) bool {
+	return (bytes.HasPrefix(data, []byte("---")) || bytes.HasPrefix(data, []byte("..."))) &&
+		(len(data) == 3 || bytes.ContainsRune([]byte(" \t\r\n"), rune(data[3])))
 }
 
 func scanBlockScalarEnd(data []byte, start int) int {
@@ -252,6 +258,10 @@ func scanFlowEnd(data []byte, start int) int {
 	stack := []byte{data[start]}
 	for index := start + 1; index < len(data); index++ {
 		switch data[index] {
+		case '#':
+			if index > start && bytes.ContainsRune([]byte(" \t\r\n"), rune(data[index-1])) {
+				index = lineEnd(data, index) - 1
+			}
 		case '\'', '"':
 			index = scanQuotedEnd(data, index, data[index]) - 1
 		case '[', '{':

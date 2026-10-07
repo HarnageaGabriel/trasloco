@@ -30,12 +30,11 @@ func NewScalarMapper(node *Node) (*ScalarMapper, error) {
 	if resolved == nil || resolved.Kind != yaml.ScalarNode {
 		return nil, errors.New("yamlx: scalar mapper requires a scalar node")
 	}
-	start := positionOffset(node.ctx.data, resolved.Line, resolved.Column)
-	start, end := scalarRange(node.ctx.data, start, resolved.Style)
-	next := nextNodeOffset(node.ctx, resolved)
-	if resolved.Style == 0 && resolved.Value != string(node.ctx.data[start:end]) && bytes.Contains(node.ctx.data[end:next], []byte{'\n'}) {
-		end = plainMultilineEnd(node.ctx.data, start, next)
+	span, err := rawNodeRange(node.ctx, resolved)
+	if err != nil {
+		return nil, err
 	}
+	start, end := span.Start-node.ctx.baseOffset, span.End-node.ctx.baseOffset
 	candidate, positions := scalarCandidates(node.ctx.data, start, end, resolved.Style)
 	for index := range positions {
 		positions[index] += node.ctx.baseOffset
@@ -59,7 +58,7 @@ func (m *ScalarMapper) Map(offset int) (diag.Source, error) {
 		return diag.Source{}, fmt.Errorf("yamlx: scalar offset %d outside [0,%d]", offset, len(m.value))
 	}
 	fileOffset := m.offsets[offset]
-	line, col := offsetPosition(m.ctx.data, fileOffset-m.ctx.baseOffset)
+	line, col := m.ctx.offsetPosition(fileOffset - m.ctx.baseOffset)
 	return diag.Source{
 		File: m.ctx.name, Line: line, Col: col,
 		EndLine: line, EndCol: col, Offset: fileOffset, EndOffset: fileOffset,
@@ -294,30 +293,4 @@ func alignScalar(value, candidate []byte, positions []int, end int) []int {
 	}
 	result[len(value)] = end
 	return result
-}
-
-func nextNodeOffset(ctx *nodeContext, target *yaml.Node) int {
-	result := len(ctx.data)
-	stack := append([]*yaml.Node(nil), ctx.roots...)
-	for len(stack) > 0 {
-		last := len(stack) - 1
-		node := stack[last]
-		stack = stack[:last]
-		if node != target && (node.Line > target.Line || node.Line == target.Line && node.Column > target.Column) {
-			offset := positionOffset(ctx.data, node.Line, node.Column)
-			if offset < result {
-				result = offset
-			}
-		}
-		stack = append(stack, node.Content...)
-	}
-	return result
-}
-
-func plainMultilineEnd(data []byte, start, limit int) int {
-	end := limit
-	for end > start && (data[end-1] == '\r' || data[end-1] == '\n' || data[end-1] == ' ' || data[end-1] == '\t') {
-		end--
-	}
-	return end
 }

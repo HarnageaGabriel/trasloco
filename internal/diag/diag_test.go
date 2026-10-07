@@ -111,7 +111,7 @@ func TestAllSpecCodesExist(t *testing.T) {
 }
 
 func TestCollectorDedupAndCap(t *testing.T) {
-	collector := NewCollector(1)
+	collector := NewCollector(WithPerCodeCap(1))
 	first, _ := New("TRL-INT-0001", WithMessage("first"))
 	second, _ := New("TRL-INT-0001", WithMessage("second"))
 	if !collector.Add(first) || collector.Add(first) || collector.Add(second) {

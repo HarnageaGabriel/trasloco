@@ -66,7 +66,9 @@ const (
 	ExitUsage ExitClass = "usage"
 )
 
-// Source identifies a source location. Zero coordinates are omitted.
+// Source identifies a source location. Lines and columns are one-based;
+// columns count Unicode code points, offsets count bytes (zero-based), and ends
+// are exclusive. Zero coordinates are omitted. See ADR 0011.
 type Source struct {
 	Platform  string `json:"platform,omitempty"`
 	File      string `json:"file,omitempty"`
@@ -167,8 +169,9 @@ type Option func(*construction) error
 
 type construction struct {
 	Diagnostic
-	redactor *redact.Redactor
-	args     map[string]any
+	redactor   *redact.Redactor
+	args       map[string]any
+	perCodeCap int
 }
 
 // Error carries a registered finding through an ordinary error chain.
@@ -299,23 +302,32 @@ func New(code string, opts ...Option) (Diagnostic, error) {
 		}
 		d.Message = rendered.String()
 	}
-	d.Message = oneLine(d.redactor.Redact(d.Message))
-	d.Remediation = oneLine(d.redactor.Redact(d.Remediation))
-	params, err := redactParams(d.redactor, d.Params)
+	return redactDiagnostic(d.Diagnostic, d.redactor)
+}
+
+func redactDiagnostic(d Diagnostic, r *redact.Redactor) (Diagnostic, error) {
+	d.Message = oneLine(r.Redact(d.Message))
+	d.Remediation = oneLine(r.Redact(d.Remediation))
+	d.DocsURL = r.Redact(d.DocsURL)
+	params, err := redactParams(r, d.Params)
 	if err != nil {
 		return Diagnostic{}, err
 	}
 	d.Params = params
 	if d.Source != nil {
-		d.Source.File = d.redactor.Redact(d.Source.File)
-		d.Source.Platform = d.redactor.Redact(d.Source.Platform)
+		source := *d.Source
+		d.Source = &source
+		d.Source.File = r.Redact(d.Source.File)
+		d.Source.Platform = r.Redact(d.Source.Platform)
 	}
 	if d.Resource != nil {
-		d.Resource.Kind = d.redactor.Redact(d.Resource.Kind)
-		d.Resource.Key = d.redactor.Redact(d.Resource.Key)
-		d.Resource.Name = d.redactor.Redact(d.Resource.Name)
+		resource := *d.Resource
+		d.Resource = &resource
+		d.Resource.Kind = r.Redact(d.Resource.Kind)
+		d.Resource.Key = r.Redact(d.Resource.Key)
+		d.Resource.Name = r.Redact(d.Resource.Name)
 	}
-	return d.Diagnostic, nil
+	return d, nil
 }
 
 // ExitClassFor returns the registry exit class for a diagnostic.
@@ -348,12 +360,36 @@ func redactParams(r *redact.Redactor, params map[string]any) (map[string]any, er
 	if err != nil {
 		return nil, fmt.Errorf("marshal diagnostic params: %w", err)
 	}
-	encoded = r.RedactBytes(encoded)
 	var result map[string]any
 	if err := json.Unmarshal(encoded, &result); err != nil {
 		return nil, fmt.Errorf("redact diagnostic params: %w", err)
 	}
-	return result, nil
+	return redactParamValue(r, result).(map[string]any), nil
+}
+
+// Redact decoded strings so JSON escapes cannot hide URL query separators or
+// registered secrets. Sort keys before redaction to make collisions deterministic.
+func redactParamValue(r *redact.Redactor, value any) any {
+	switch value := value.(type) {
+	case string:
+		return r.Redact(value)
+	case []any:
+		for index := range value {
+			value[index] = redactParamValue(r, value[index])
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(value))
+		for key := range value {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		result := make(map[string]any, len(value))
+		for _, key := range keys {
+			result[r.Redact(key)] = redactParamValue(r, value[key])
+		}
+		return result
+	}
+	return value
 }
 
 func docsURL(code string) string {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+
+	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
 
 const defaultPerCodeCap = 1000
@@ -18,17 +20,29 @@ type Collector struct {
 	seen       map[string]struct{}
 	counts     map[string]int
 	suppressed map[string]int
+	redactor   *redact.Redactor
 }
 
-// NewCollector creates a collector. Omitting cap uses 1000 per code; a
-// non-positive explicit cap disables the limit.
-func NewCollector(capacity ...int) *Collector {
-	limit := defaultPerCodeCap
-	if len(capacity) > 0 {
-		limit = capacity[0]
+// WithPerCodeCap sets the collector limit. A non-positive cap disables it.
+func WithPerCodeCap(capacity int) Option {
+	return func(d *construction) error { d.perCodeCap = capacity; return nil }
+}
+
+// NewCollector creates a collector with a default cap of 1000 per code.
+// WithRedactor supplies the run's secrets; every Add is redacted before storage.
+func NewCollector(options ...Option) *Collector {
+	config := construction{redactor: redact.New(), perCodeCap: defaultPerCodeCap}
+	for _, option := range options {
+		if option == nil {
+			panic("nil collector option")
+		}
+		if err := option(&config); err != nil {
+			panic(err)
+		}
 	}
 	return &Collector{
-		perCodeCap: limit,
+		perCodeCap: config.perCodeCap,
+		redactor:   config.redactor,
 		seen:       make(map[string]struct{}),
 		counts:     make(map[string]int),
 		suppressed: make(map[string]int),
@@ -37,13 +51,20 @@ func NewCollector(capacity ...int) *Collector {
 
 // Add records d. It returns false when d is a duplicate or over the cap.
 func (c *Collector) Add(d Diagnostic) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.redactor == nil {
+		c.redactor = redact.New()
+	}
+	d, err := redactDiagnostic(d, c.redactor)
+	if err != nil {
+		return false
+	}
 	encoded, err := json.Marshal(d)
 	if err != nil {
 		return false
 	}
 	key := string(encoded)
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.seen == nil {
 		c.seen = make(map[string]struct{})
 		c.counts = make(map[string]int)

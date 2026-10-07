@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -67,13 +68,20 @@ type Document struct {
 }
 
 type nodeContext struct {
-	name       string
-	data       []byte
-	original   []byte
-	baseOffset int
-	aliasMax   int
-	depthMax   int
-	roots      []*yaml.Node
+	name         string
+	data         []byte
+	original     []byte
+	baseOffset   int
+	aliasMax     int
+	depthMax     int
+	lineStarts   []int
+	nodeOffsets  []int
+	nodeContexts map[*yaml.Node]lexicalContext
+}
+
+type lexicalContext struct {
+	flow bool
+	root bool
 }
 
 // Root returns the first document root, or nil for an empty stream.
@@ -161,6 +169,7 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 	document.ctx = &nodeContext{
 		name: name, data: data, original: original, baseOffset: baseOffset,
 		aliasMax: config.aliasLimit, depthMax: config.depthLimit,
+		lineStarts: sourceLineStarts(data), nodeContexts: make(map[*yaml.Node]lexicalContext),
 	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	for {
@@ -180,7 +189,7 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 			continue
 		}
 		document.raw = append(document.raw, &raw)
-		document.ctx.roots = append(document.ctx.roots, raw.Content[0])
+		document.ctx.indexNodes(raw.Content[0])
 		root := wrap(raw.Content[0], document.ctx)
 		root.commentFallback = &raw
 		document.Documents = append(document.Documents, root)
@@ -356,37 +365,30 @@ func (n *Node) sourceOf(node *yaml.Node) diag.Source {
 	if node == nil {
 		return diag.Source{File: n.ctx.name}
 	}
-	start := positionOffset(n.ctx.data, node.Line, node.Column) + n.ctx.baseOffset
+	start := n.ctx.positionOffset(node.Line, node.Column) + n.ctx.baseOffset
 	end := start
 	if byteRange, err := rawNodeRange(n.ctx, node); err == nil {
 		start, end = byteRange.Start, byteRange.End
 	}
 	start = min(start, len(n.ctx.original))
 	end = min(end, len(n.ctx.original))
-	endLine, endCol := offsetPosition(n.ctx.data, max(0, end-n.ctx.baseOffset))
+	endLine, endCol := n.ctx.offsetPosition(max(0, end-n.ctx.baseOffset))
 	return diag.Source{
 		File: n.ctx.name, Line: node.Line, Col: node.Column,
 		EndLine: endLine, EndCol: endCol, Offset: start, EndOffset: end,
 	}
 }
 
-func positionOffset(data []byte, line, column int) int {
+func (ctx *nodeContext) positionOffset(line, column int) int {
 	if line < 1 {
 		return 0
 	}
-	offset := 0
-	for current := 1; current < line && offset < len(data); current++ {
-		newline := bytes.IndexByte(data[offset:], '\n')
-		if newline < 0 {
-			return len(data)
-		}
-		offset += newline + 1
+	if line > len(ctx.lineStarts) {
+		return len(ctx.data)
 	}
-	for current := 1; current < column && offset < len(data) && data[offset] != '\n'; current++ {
-		_, size := utf8.DecodeRune(data[offset:])
-		if size == 0 {
-			break
-		}
+	offset := ctx.lineStarts[line-1]
+	for current := 1; current < column && offset < len(ctx.data) && ctx.data[offset] != '\n'; current++ {
+		_, size := utf8.DecodeRune(ctx.data[offset:])
 		offset += size
 	}
 	return offset
@@ -460,11 +462,58 @@ func offsetPosition(data []byte, offset int) (int, int) {
 	for index := 0; index < offset; index++ {
 		if data[index] == '\n' {
 			line, column = line+1, 1
-		} else if data[index] != '\r' {
+		} else if data[index] != '\r' && utf8.RuneStart(data[index]) {
 			column++
 		}
 	}
 	return line, column
+}
+
+func sourceLineStarts(data []byte) []int {
+	starts := []int{0}
+	for index, char := range data {
+		if char == '\n' {
+			starts = append(starts, index+1)
+		}
+	}
+	return starts
+}
+
+func (ctx *nodeContext) offsetPosition(offset int) (int, int) {
+	offset = max(0, min(offset, len(ctx.data)))
+	line := sort.Search(len(ctx.lineStarts), func(i int) bool { return ctx.lineStarts[i] > offset })
+	if line == 0 {
+		return offsetPosition(ctx.data, offset)
+	}
+	_, col := offsetPosition(ctx.data[ctx.lineStarts[line-1]:], offset-ctx.lineStarts[line-1])
+	return line, col
+}
+
+func (ctx *nodeContext) indexNodes(root *yaml.Node) {
+	type item struct {
+		node *yaml.Node
+		flow bool
+	}
+	stack := []item{{node: root}}
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		flow := current.flow || current.node.Style&yaml.FlowStyle != 0
+		ctx.nodeContexts[current.node] = lexicalContext{flow: flow, root: current.node == root}
+		ctx.nodeOffsets = append(ctx.nodeOffsets, ctx.positionOffset(current.node.Line, current.node.Column))
+		for _, child := range current.node.Content {
+			stack = append(stack, item{node: child, flow: flow})
+		}
+	}
+	sort.Ints(ctx.nodeOffsets)
+}
+
+func (ctx *nodeContext) nextOffset(start int) int {
+	index := sort.Search(len(ctx.nodeOffsets), func(i int) bool { return ctx.nodeOffsets[i] > start })
+	if index == len(ctx.nodeOffsets) {
+		return len(ctx.data)
+	}
+	return ctx.nodeOffsets[index]
 }
 
 var linePattern = regexp.MustCompile(`line ([0-9]+)(?::([0-9]+))?`)
