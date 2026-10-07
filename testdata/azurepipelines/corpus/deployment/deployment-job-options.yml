@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+# features: [deployment-runonce, environment, variables-map]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - deployment: api
+    displayName: Deploy API
+    timeoutInMinutes: 60
+    continueOnError: false
+    variables:
+      slot: green
+    environment: production
+    workspace:
+      clean: all
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+            - script: echo deploy to $(slot)

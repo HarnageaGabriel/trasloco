@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/container-phases
+# features: [containers, resources-containers, pool-vmimage]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+container: node:20-bookworm
+steps:
+  - script: node --version

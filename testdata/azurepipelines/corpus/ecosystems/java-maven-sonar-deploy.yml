@@ -1,0 +1,77 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/maven-v4
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-java, variables-group, variables-map, task-maven, task-sonarqubeprepare, task-sonarqubeanalyze, task-sonarqubepublish, task-javatoolinstaller, environment, deployment-runonce, conditions, caching, task-cache]
+# expect: ok
+trigger:
+  - main
+
+pr:
+  - main
+
+variables:
+  - group: sonar-settings
+  - name: MAVEN_CACHE_FOLDER
+    value: $(Pipeline.Workspace)/.m2/repository
+  - name: MAVEN_OPTS
+    value: -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    jobs:
+      - job: MavenBuild
+        steps:
+          - task: Cache@2
+            inputs:
+              key: 'maven | "$(Agent.OS)" | **/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_CACHE_FOLDER)
+          - task: SonarQubePrepare@5
+            inputs:
+              SonarQube: sonarqube-connection
+              scannerMode: Other
+              extraProperties: |
+                sonar.projectKey=contoso_orders
+                sonar.projectName=Orders
+          - task: Maven@4
+            displayName: Build and test
+            inputs:
+              mavenPOMFile: pom.xml
+              goals: clean verify
+              options: -B -Dmaven.test.failure.ignore=false
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              codeCoverageToolOption: JaCoCo
+              javaHomeOption: JDKVersion
+              jdkVersionOption: '1.17'
+              sonarQubeRunAnalysis: true
+              sqMavenPluginVersionChoice: latest
+          - task: SonarQubePublish@5
+            inputs:
+              pollingTimeoutSec: '300'
+          - task: CopyFiles@2
+            inputs:
+              Contents: '**/target/*.jar'
+              TargetFolder: $(Build.ArtifactStagingDirectory)
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: jar
+
+  - stage: Deploy
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployJar
+        environment: orders-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: contoso-arm
+                    appType: webAppLinux
+                    appName: contoso-orders
+                    package: $(Pipeline.Workspace)/jar/**/*.jar
+                    runtimeStack: JAVA|17-java17

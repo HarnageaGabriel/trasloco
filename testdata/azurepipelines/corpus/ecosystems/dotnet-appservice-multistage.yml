@@ -1,0 +1,106 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/dotnet-core, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-dotnet, variables-map, variables-group, environment, deployment-runonce, conditions, task-dotnetcorecli, task-azurewebapp, task-publishpipelineartifact, macro-syntax]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+      - release/*
+  paths:
+    exclude:
+      - docs/**
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  - group: contoso-shared
+  - name: buildConfiguration
+    value: Release
+  - name: dotnetVersion
+    value: 8.x
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    displayName: Build and test
+    jobs:
+      - job: BuildJob
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: $(dotnetVersion)
+          - task: DotNetCoreCLI@2
+            displayName: Restore
+            inputs:
+              command: restore
+              projects: '**/*.sln'
+          - task: DotNetCoreCLI@2
+            displayName: Build
+            inputs:
+              command: build
+              projects: '**/*.sln'
+              arguments: --configuration $(buildConfiguration) --no-restore
+          - task: DotNetCoreCLI@2
+            displayName: Test
+            inputs:
+              command: test
+              projects: '**/*Tests.csproj'
+              arguments: --configuration $(buildConfiguration) --no-build --logger trx
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: '**/*.trx'
+          - task: DotNetCoreCLI@2
+            displayName: Publish
+            inputs:
+              command: publish
+              publishWebProjects: true
+              arguments: --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)
+              zipAfterPublish: true
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)
+              artifact: web
+
+  - stage: DeployStaging
+    displayName: Deploy to staging
+    dependsOn: Build
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: DeployWeb
+        environment: contoso-staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: contoso-arm
+                    appType: webAppLinux
+                    appName: contoso-web-staging
+                    package: $(Pipeline.Workspace)/web/**/*.zip
+
+  - stage: DeployProd
+    displayName: Deploy to production
+    dependsOn: DeployStaging
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployWebProd
+        environment: contoso-production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: contoso-arm
+                    appType: webAppLinux
+                    appName: contoso-web-prod
+                    package: $(Pipeline.Workspace)/web/**/*.zip

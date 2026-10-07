@@ -1,0 +1,57 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-java, parameters-string, parameters-boolean, parameters-values, directive-if, directive-else, template-expression, task-maven, environment, deployment-rolling]
+# expect: ok
+trigger:
+  - main
+
+parameters:
+  - name: environment
+    displayName: Target environment
+    type: string
+    default: dev
+    values:
+      - dev
+      - test
+      - prod
+  - name: runIntegrationTests
+    type: boolean
+    default: true
+  - name: replicas
+    type: number
+    default: 3
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Package
+        steps:
+          - task: Maven@4
+            inputs:
+              mavenPOMFile: pom.xml
+              goals: package
+              ${{ if eq(parameters.runIntegrationTests, true) }}:
+                options: -B
+              ${{ else }}:
+                options: -B -DskipITs
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              javaHomeOption: JDKVersion
+              jdkVersionOption: '1.17'
+          - publish: target
+            artifact: target
+
+  - stage: Deploy_${{ parameters.environment }}
+    dependsOn: Build
+    jobs:
+      - deployment: Rollout
+        environment: svc-${{ parameters.environment }}
+        strategy:
+          rolling:
+            maxParallel: ${{ parameters.replicas }}
+            deploy:
+              steps:
+                - script: echo Deploying to ${{ parameters.environment }} with ${{ parameters.replicas }} replicas
+                  displayName: Deploy

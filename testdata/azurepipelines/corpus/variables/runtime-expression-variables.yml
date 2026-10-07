@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-map, runtime-expression, template-expression, conditions]
+# expect: ok
+trigger:
+- main
+variables:
+  isMain: $[ eq(variables['Build.SourceBranch'], 'refs/heads/main') ]
+  compileTime: ${{ format('{0}-ci', 'app') }}
+  fullName: $[ format('{0}-{1}', variables['Build.DefinitionName'], variables['Build.BuildId']) ]
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo isMain=$(isMain) name=$(fullName) ct=$(compileTime)
+- script: echo on main
+  condition: eq(variables.isMain, true)

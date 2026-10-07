@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted
+# features: [trigger-branches, pool-vmimage, root-steps, image-retired, macro-syntax]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: macOS-13
+
+steps:
+  - script: uname -a
+    displayName: Show OS
+  - script: echo Building $(Build.BuildId)
+    displayName: Build

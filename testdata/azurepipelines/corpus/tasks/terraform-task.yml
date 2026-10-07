@@ -1,0 +1,31 @@
+# source: https://learn.microsoft.com/en-us/azure/developer/terraform/
+# features: [trigger-branches, pool-vmimage, root-steps, task-terraformtask, ecosystem-terraform, task-terraformtaskv4]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: TerraformTaskV4@4
+    displayName: terraform init
+    inputs:
+      provider: azurerm
+      command: init
+      workingDirectory: infra
+      backendServiceArm: contoso-arm
+      backendAzureRmResourceGroupName: tfstate-rg
+      backendAzureRmStorageAccountName: contosotfstate
+      backendAzureRmContainerName: tfstate
+      backendAzureRmKey: prod.tfstate
+  - task: TerraformTaskV4@4
+    displayName: terraform plan
+    inputs:
+      provider: azurerm
+      command: plan
+      workingDirectory: infra
+      environmentServiceNameAzureRM: contoso-arm
+      commandOptions: -out=tfplan

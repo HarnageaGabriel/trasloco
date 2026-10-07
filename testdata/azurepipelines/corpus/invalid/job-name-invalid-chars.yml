@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
+# features: [root-jobs]
+# expect: diagnostics: [bad-identifier]
+jobs:
+  - job: build-and test
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo hi

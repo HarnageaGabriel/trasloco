@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+# features: [strategy-matrix, ecosystem-dotnet, task-dotnetcorecli]
+# expect: ok
+trigger: [main]
+strategy:
+  matrix:
+    linux:
+      vm: ubuntu-latest
+    mac:
+      vm: macos-latest
+    win:
+      vm: windows-latest
+pool:
+  vmImage: $(vm)
+steps:
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: test
+      projects: '**/*Tests.csproj'

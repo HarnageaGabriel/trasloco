@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-pipeline-artifact-v2
+# features: [artifacts-download, task-downloadpipelineartifact]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      source: current
+      artifact: webapp
+      path: $(Pipeline.Workspace)/webapp
+      patterns: |
+        **/*.zip
+        !**/*.pdb

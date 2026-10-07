@@ -1,0 +1,32 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/node-tool-v0, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/npm-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-node-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-nodetool, task-npm, task-usenode, ecosystem-node]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: NodeTool@0
+    displayName: Install Node 20
+    inputs:
+      versionSpec: 20.x
+      checkLatest: true
+  - task: Npm@1
+    displayName: npm ci
+    inputs:
+      command: ci
+      workingDir: app
+  - task: Npm@1
+    displayName: npm test
+    inputs:
+      command: custom
+      workingDir: app
+      customCommand: run test -- --ci
+  - task: UseNode@1
+    displayName: Use Node 22
+    inputs:
+      version: 22.x

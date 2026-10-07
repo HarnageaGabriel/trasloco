@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-nested, template-job, root-jobs]
+# expect: ok
+trigger: [main]
+jobs:
+  - template: parts/level1.yml
+    parameters:
+      label: top

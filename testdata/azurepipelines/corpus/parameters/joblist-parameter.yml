@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-joblist, root-jobs, directive-each]
+# expect: ok
+trigger: none
+parameters:
+- name: validationJobs
+  type: jobList
+  default:
+  - job: lint
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo lint
+  - job: scan
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo scan
+jobs:
+- ${{ each j in parameters.validationJobs }}:
+  - ${{ j }}

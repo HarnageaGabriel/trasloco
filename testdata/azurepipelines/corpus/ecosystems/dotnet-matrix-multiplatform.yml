@@ -1,0 +1,67 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/dotnet-core, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases#multi-job-configuration
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-dotnet, strategy-matrix, variables-map, pr-trigger, macro-syntax, task-dotnetcorecli, task-publishtestresults, task-publishcodecoverageresults, caching, task-cache]
+# expect: ok
+trigger:
+  - main
+
+pr:
+  branches:
+    include:
+      - main
+  drafts: false
+
+variables:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+
+stages:
+  - stage: Test
+    jobs:
+      - job: Test
+        strategy:
+          matrix:
+            linux:
+              imageName: ubuntu-latest
+              framework: net8.0
+            windows:
+              imageName: windows-latest
+              framework: net8.0
+            macos:
+              imageName: macos-latest
+              framework: net8.0
+            linuxLegacy:
+              imageName: ubuntu-latest
+              framework: net6.0
+          maxParallel: 2
+        pool:
+          vmImage: $(imageName)
+        steps:
+          - task: Cache@2
+            inputs:
+              key: 'nuget | "$(Agent.OS)" | **/packages.lock.json'
+              restoreKeys: |
+                nuget | "$(Agent.OS)"
+              path: $(NUGET_PACKAGES)
+          - task: DotNetCoreCLI@2
+            displayName: Test $(framework)
+            inputs:
+              command: test
+              projects: '**/*Tests.csproj'
+              arguments: --framework $(framework) --collect:"XPlat Code Coverage" --results-directory $(Agent.TempDirectory)/results
+              publishTestResults: true
+          - task: PublishCodeCoverageResults@2
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: $(Agent.TempDirectory)/results/**/coverage.cobertura.xml
+
+  - stage: Package
+    dependsOn: Test
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - job: Pack
+        steps:
+          - script: dotnet pack -c Release -o $(Build.ArtifactStagingDirectory)
+            displayName: dotnet pack
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: nupkg

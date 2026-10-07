@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [runtime-expression, template-expression, variables-map, root-steps]
+# expect: ok
+variables:
+  major: 2
+  minor: 4
+  patch: $[ counter(format('{0}.{1}', variables['major'], variables['minor']), 0) ]
+  versionLabel: ${{ format('v{0}.{1}', variables.major, variables.minor) }}
+
+name: $(versionLabel).$(patch)
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo "build $(Build.BuildNumber)"

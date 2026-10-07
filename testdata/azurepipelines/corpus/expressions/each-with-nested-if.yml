@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [directive-each, directive-if, directive-else, parameters-object, template-expression, root-steps]
+# expect: ok
+parameters:
+  - name: services
+    type: object
+    default:
+      - name: api
+        deploy: true
+      - name: docs
+        deploy: false
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ each svc in parameters.services }}:
+      - ${{ if eq(svc.deploy, true) }}:
+          - script: echo deploy ${{ svc.name }}
+            displayName: Deploy ${{ svc.name }}
+      - ${{ else }}:
+          - script: echo skip ${{ svc.name }}

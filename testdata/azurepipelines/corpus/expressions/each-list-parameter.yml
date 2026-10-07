@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions, https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [directive-each, parameters-object, template-expression, root-steps]
+# expect: ok
+parameters:
+  - name: projects
+    type: object
+    default:
+      - api
+      - web
+      - worker
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ each project in parameters.projects }}:
+      - script: dotnet build src/${{ project }}/${{ project }}.csproj
+        displayName: Build ${{ project }}

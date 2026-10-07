@@ -1,0 +1,25 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/parameters
+# features: [parameters-string, parameters-number, parameters-boolean, parameters-object, parameters-values, template-parameters-default, trigger-none]
+# expect: ok
+parameters:
+  - name: environment
+    type: string
+    default: dev
+    values: [dev, test, prod]
+  - name: retries
+    type: number
+    default: 3
+  - name: verbose
+    type: boolean
+    default: false
+  - name: regions
+    type: object
+    default:
+      - eastus
+      - westus
+trigger: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - ${{ each r in parameters.regions }}:
+      - script: echo deploy ${{ parameters.environment }} to ${{ r }} retries=${{ parameters.retries }}

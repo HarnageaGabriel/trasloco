@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-object, directive-each, root-jobs]
+# expect: ok
+trigger: none
+parameters:
+- name: targets
+  type: object
+  default:
+  - name: linux
+    image: ubuntu-latest
+  - name: windows
+    image: windows-latest
+  - name: mac
+    image: macOS-latest
+jobs:
+- ${{ each target in parameters.targets }}:
+  - job: build_${{ target.name }}
+    displayName: Build on ${{ target.name }}
+    pool:
+      vmImage: ${{ target.image }}
+    steps:
+    - script: echo building on ${{ target.name }}

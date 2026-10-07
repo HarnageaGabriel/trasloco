@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-cross-repo, resources-repositories, template-step]
+# expect: ok
+trigger: [main]
+resources:
+  repositories:
+    - repository: common
+      type: git
+      name: contoso/templates-common
+      ref: refs/heads/main
+    - repository: scans
+      type: git
+      name: contoso/security-scans
+      ref: refs/tags/v1
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - template: steps/restore.yml@common
+    parameters:
+      feed: internal
+  - template: steps/sast.yml@scans

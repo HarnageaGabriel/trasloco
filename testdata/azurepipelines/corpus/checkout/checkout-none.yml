@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout
+# features: [checkout-none]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - checkout: none
+  - script: echo no sources needed

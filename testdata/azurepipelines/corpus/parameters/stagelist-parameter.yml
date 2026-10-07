@@ -1,0 +1,33 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-stagelist, root-stages, directive-each]
+# expect: ok
+trigger: none
+parameters:
+- name: extraStages
+  type: stageList
+  default:
+  - stage: Canary
+    jobs:
+    - job: canary
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - script: echo canary
+  - stage: Prod
+    dependsOn: Canary
+    jobs:
+    - job: prod
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - script: echo prod
+stages:
+- stage: Build
+  jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo build
+- ${{ each s in parameters.extraStages }}:
+  - ${{ s }}

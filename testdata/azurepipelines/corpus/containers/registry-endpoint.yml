@@ -1,0 +1,18 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources
+# features: [containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: private
+      image: contoso.azurecr.io/build/agent:1.4
+      endpoint: contoso-acr-connection
+    - container: hub
+      image: myorg/tools:latest
+      endpoint: dockerhub-connection
+      mapDockerSocket: false
+pool:
+  vmImage: ubuntu-latest
+container: private
+steps:
+  - script: echo in private container

@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-download
+# features: [artifacts-download]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - job: build
+    steps:
+      - script: mkdir -p out && echo built > out/app.txt
+      - publish: out
+        artifact: drop
+  - job: consume
+    dependsOn: build
+    steps:
+      - download: current
+        artifact: drop
+        patterns: '**/*.txt'
+      - script: cat $(Pipeline.Workspace)/drop/app.txt

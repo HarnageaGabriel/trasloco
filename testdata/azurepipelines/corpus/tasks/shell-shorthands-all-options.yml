@@ -1,0 +1,66 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-bash, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-pwsh, https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-powershell
+# features: [trigger-branches, pool-vmimage, root-steps, conditions, status-functions, macro-syntax]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: |
+      echo "build $(Build.BuildId)"
+      ./build.sh
+    name: buildScript
+    displayName: Build with script
+    workingDirectory: $(Build.SourcesDirectory)/src
+    failOnStderr: false
+    env:
+      CONFIGURATION: Release
+      API_TOKEN: $(apiToken)
+    condition: succeeded()
+    continueOnError: false
+    timeoutInMinutes: 15
+    retryCountOnTaskFailure: 2
+    enabled: true
+  - bash: |
+      set -e
+      echo "bash step"
+    name: bashStep
+    displayName: Bash step
+    workingDirectory: $(Pipeline.Workspace)
+    failOnStderr: true
+    env:
+      MODE: ci
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    continueOnError: true
+    timeoutInMinutes: 5
+    retryCountOnTaskFailure: 1
+    enabled: true
+  - pwsh: |
+      Write-Host "pwsh step"
+      Write-Error "recoverable" -ErrorAction Continue
+    name: pwshStep
+    displayName: PowerShell Core step
+    errorActionPreference: continue
+    ignoreLASTEXITCODE: true
+    workingDirectory: $(Build.SourcesDirectory)
+    failOnStderr: false
+    env:
+      MODE: ci
+    condition: succeededOrFailed()
+    continueOnError: true
+    timeoutInMinutes: 10
+    retryCountOnTaskFailure: 3
+    enabled: true
+  - powershell: Write-Host "Windows PowerShell"
+    name: winPs
+    displayName: Windows PowerShell step
+    workingDirectory: $(Build.SourcesDirectory)
+    failOnStderr: false
+    env:
+      MODE: ci
+    condition: always()
+    continueOnError: false
+    timeoutInMinutes: 5
+    enabled: false

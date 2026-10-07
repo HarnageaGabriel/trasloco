@@ -1,0 +1,57 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/java, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/gradle-v3
+# features: [root-jobs, trigger-branches, pool-vmimage, ecosystem-java, task-gradle, task-publishtestresults, task-javatoolinstaller, caching, task-cache, variables-map, strategy-matrix, conditions]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+      - feature/*
+
+variables:
+  GRADLE_USER_HOME: $(Pipeline.Workspace)/.gradle
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+  - job: Build
+    strategy:
+      matrix:
+        jdk17:
+          jdkVersion: '1.17'
+        jdk21:
+          jdkVersion: '1.21'
+    steps:
+      - task: Cache@2
+        inputs:
+          key: 'gradle | "$(Agent.OS)" | **/build.gradle* | **/gradle-wrapper.properties'
+          restoreKeys: |
+            gradle | "$(Agent.OS)"
+          path: $(GRADLE_USER_HOME)
+      - task: Gradle@3
+        displayName: Build and test
+        inputs:
+          gradleWrapperFile: gradlew
+          tasks: build
+          options: --no-daemon --build-cache
+          publishJUnitResults: true
+          testResultsFiles: '**/build/test-results/test/TEST-*.xml'
+          javaHomeOption: JDKVersion
+          jdkVersionOption: $(jdkVersion)
+          sonarQubeRunAnalysis: false
+      - script: ./gradlew --stop
+        displayName: Stop daemon
+        condition: always()
+  - job: Publish
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    steps:
+      - task: Gradle@3
+        displayName: Publish to Azure Artifacts
+        inputs:
+          gradleWrapperFile: gradlew
+          tasks: publish
+          javaHomeOption: JDKVersion
+          jdkVersionOption: '1.17'
+        env:
+          ARTIFACTS_TOKEN: $(System.AccessToken)

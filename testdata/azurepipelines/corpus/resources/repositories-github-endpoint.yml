@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-repositories-repository
+# features: [resources-repositories, checkout-multi-repo]
+# expect: ok
+resources:
+  repositories:
+  - repository: oss-lib
+    type: github
+    endpoint: github-service-connection
+    name: contoso/oss-lib
+    ref: refs/tags/v2.1.0
+pool:
+  vmImage: ubuntu-latest
+steps:
+- checkout: self
+- checkout: oss-lib
+  path: libs/oss
+- script: ls libs/oss

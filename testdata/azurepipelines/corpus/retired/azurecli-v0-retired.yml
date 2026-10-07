@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-azurecli]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureCLI@0
+    displayName: Azure CLI (legacy)
+    inputs:
+      azureSubscription: contoso-arm
+      scriptLocation: inlineScript
+      inlineScript: az account show

@@ -1,0 +1,24 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-stage, parameters-string, parameters-boolean, directive-if, template-parameters-default]
+# expect: ok
+parameters:
+  - name: envName
+    type: string
+  - name: dependsOn
+    type: string
+    default: ''
+  - name: runSmoke
+    type: boolean
+    default: true
+stages:
+  - stage: deploy_${{ parameters.envName }}
+    ${{ if ne(parameters.dependsOn, '') }}:
+      dependsOn: deploy_${{ parameters.dependsOn }}
+    jobs:
+      - job: deploy
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo deploying to ${{ parameters.envName }}
+          - ${{ if eq(parameters.runSmoke, true) }}:
+              - script: echo smoke tests

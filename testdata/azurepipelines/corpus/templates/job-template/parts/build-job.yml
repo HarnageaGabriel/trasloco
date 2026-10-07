@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-job, parameters-string, parameters-object, directive-each, template-expression]
+# expect: ok
+parameters:
+  - name: name
+    type: string
+  - name: vmImage
+    type: string
+    default: ubuntu-latest
+  - name: scripts
+    type: object
+    default: []
+jobs:
+  - job: build_${{ parameters.name }}
+    displayName: Build on ${{ parameters.name }}
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+    steps:
+      - ${{ each s in parameters.scripts }}:
+          - script: ${{ s }}
+            displayName: Run ${{ s }}

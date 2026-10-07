@@ -1,0 +1,22 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [directive-if, directive-else, parameters-string, root-jobs, template-expression, pool-vmimage]
+# expect: ok
+parameters:
+  - name: os
+    type: string
+    default: linux
+    values: [linux, windows]
+
+jobs:
+  - ${{ if eq(parameters.os, 'linux') }}:
+      - job: LinuxBuild
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: ./build.sh
+  - ${{ else }}:
+      - job: WindowsBuild
+        pool:
+          vmImage: windows-latest
+        steps:
+          - script: build.cmd

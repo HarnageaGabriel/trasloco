@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources
+# features: [containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: legacy
+      image: ubuntu:20.04
+      options: --user 0
+      localImage: false
+      mountReadOnly:
+        externals: true
+        tools: true
+        tasks: true
+        work: false
+pool:
+  vmImage: ubuntu-latest
+container: legacy
+steps:
+  - script: id

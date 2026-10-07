@@ -1,0 +1,35 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/archive-files-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/extract-files-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/delete-files-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-archivefiles, task-extractfiles, task-deletefiles]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: ExtractFiles@1
+    displayName: Extract archive
+    inputs:
+      archiveFilePatterns: '**/*.zip'
+      destinationFolder: $(Agent.TempDirectory)/unzipped
+      cleanDestinationFolder: true
+      overwriteExistingFiles: false
+  - task: ArchiveFiles@2
+    displayName: Create archive
+    inputs:
+      rootFolderOrFile: $(Agent.TempDirectory)/unzipped
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/app-$(Build.BuildId).zip
+      replaceExistingArchive: true
+  - task: DeleteFiles@1
+    displayName: Clean temp
+    inputs:
+      SourceFolder: $(Agent.TempDirectory)
+      Contents: |
+        unzipped/**
+        *.tmp
+      RemoveDotFiles: true

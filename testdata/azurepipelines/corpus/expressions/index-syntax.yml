@@ -1,0 +1,25 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [template-expression, parameters-object, parameters-string, variables-map, root-steps]
+# expect: ok
+parameters:
+  - name: config
+    type: object
+    default:
+      name: demo
+      port: 8080
+  - name: key
+    type: string
+    default: name
+
+variables:
+  sample: value
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.config.name }}
+  - script: echo ${{ parameters['config']['port'] }}
+  - script: echo ${{ parameters.config[parameters.key] }}
+  - script: echo ${{ variables['sample'] }}
+  - script: echo ${{ variables.sample }}

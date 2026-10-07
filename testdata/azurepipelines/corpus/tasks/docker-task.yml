@@ -1,0 +1,35 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/docker-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-docker, ecosystem-docker-k8s]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Docker@2
+    displayName: Login to ACR
+    inputs:
+      command: login
+      containerRegistry: acr-service-connection
+  - task: Docker@2
+    displayName: Build image
+    inputs:
+      command: build
+      repository: contoso/web
+      Dockerfile: src/Dockerfile
+      buildContext: src
+      tags: |
+        $(Build.BuildId)
+        latest
+      arguments: --build-arg CONFIG=Release
+  - task: Docker@2
+    displayName: Push image
+    inputs:
+      command: push
+      containerRegistry: acr-service-connection
+      repository: contoso/web
+      tags: $(Build.BuildId)

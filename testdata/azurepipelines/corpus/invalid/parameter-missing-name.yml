@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string]
+# expect: diagnostics: [wrong-shape]
+parameters:
+  - type: string
+    default: orphan
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo hi

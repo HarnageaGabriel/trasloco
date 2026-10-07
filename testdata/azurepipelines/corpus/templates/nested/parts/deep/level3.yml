@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-nested, template-step, parameters-string]
+# expect: ok
+parameters:
+  - name: label
+    type: string
+    default: l3
+steps:
+  - bash: echo "level3 ${{ parameters.label }}"
+    displayName: Leaf template

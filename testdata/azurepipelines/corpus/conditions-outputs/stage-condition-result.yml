@@ -1,0 +1,30 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+# features: [conditions, status-functions, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: A
+    jobs:
+      - job: a
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo a
+  - stage: B
+    dependsOn: A
+    condition: eq(dependencies.A.result, 'Succeeded')
+    jobs:
+      - job: b
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo b
+  - stage: C
+    dependsOn: A
+    condition: in(dependencies.A.result, 'Failed', 'Canceled', 'SucceededWithIssues')
+    jobs:
+      - job: c
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo recovery

@@ -1,0 +1,26 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/service-containers
+# features: [services, containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: pg
+      image: postgres:16
+      env:
+        POSTGRES_PASSWORD: example
+      ports:
+        - 5432:5432
+    - container: cache
+      image: redis:7
+      ports:
+        - 6379:6379
+pool:
+  vmImage: ubuntu-latest
+services:
+  postgres: pg
+  redis: cache
+steps:
+  - script: |
+      pg_isready -h localhost -p 5432 || true
+      redis-cli -h localhost ping || true
+    displayName: Probe services

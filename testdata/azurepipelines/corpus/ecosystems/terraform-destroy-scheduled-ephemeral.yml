@@ -1,0 +1,55 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+# features: [root-stages, trigger-none, pool-vmimage, ecosystem-terraform, schedules-cron, trigger-none, task-azurecli, conditions, parameters-boolean, template-expression, directive-if, environment, deployment-runonce, logging-commands]
+# expect: ok
+trigger: none
+
+schedules:
+  - cron: '0 3 * * 1-5'
+    displayName: Nightly ephemeral teardown
+    branches:
+      include:
+        - main
+    always: true
+
+parameters:
+  - name: forceDestroy
+    displayName: Destroy even outside the schedule window
+    type: boolean
+    default: false
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Teardown
+    condition: or(eq(variables['Build.Reason'], 'Schedule'), eq('${{ parameters.forceDestroy }}', 'True'))
+    jobs:
+      - deployment: Destroy
+        environment: ephemeral-testing
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: AzureCLI@2
+                  displayName: Terraform init and destroy
+                  inputs:
+                    azureSubscription: contoso-arm
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    workingDirectory: $(Build.SourcesDirectory)/infra/ephemeral
+                    inlineScript: |
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_CLIENT_SECRET=$servicePrincipalKey
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                      terraform init -input=false \
+                        -backend-config="resource_group_name=tfstate-rg" \
+                        -backend-config="storage_account_name=contosotfstate" \
+                        -backend-config="container_name=tfstate" \
+                        -backend-config="key=ephemeral.tfstate"
+                      terraform destroy -auto-approve -input=false
+                - ${{ if eq(parameters.forceDestroy, true) }}:
+                    - script: echo "##vso[task.logissue type=warning]Forced destroy requested"
+                      displayName: Warn on forced destroy

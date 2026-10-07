@@ -1,0 +1,17 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs
+# features: [root-jobs, pool-vmimage]
+# expect: ok
+jobs:
+- job: build
+  displayName: Build
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+  - script: make build
+- job: test
+  displayName: Test
+  dependsOn: build
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+  - script: make test

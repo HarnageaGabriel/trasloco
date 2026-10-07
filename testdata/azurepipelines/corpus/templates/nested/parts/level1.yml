@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-nested, template-job, parameters-string]
+# expect: ok
+parameters:
+  - name: label
+    type: string
+    default: l1
+jobs:
+  - job: level1
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo level1 ${{ parameters.label }}
+      - template: level2.yml
+        parameters:
+          label: ${{ parameters.label }}-l2

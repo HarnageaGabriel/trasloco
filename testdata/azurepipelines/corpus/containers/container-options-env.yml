@@ -1,0 +1,21 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/resources
+# features: [containers, resources-containers]
+# expect: ok
+trigger: [main]
+resources:
+  containers:
+    - container: builder
+      image: mcr.microsoft.com/dotnet/sdk:8.0
+      options: --cpus 2 --memory 4g
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        NUGET_PACKAGES: /nuget
+      ports:
+        - 8080:80
+      volumes:
+        - /tmp/cache:/nuget
+pool:
+  vmImage: ubuntu-latest
+container: builder
+steps:
+  - script: dotnet --info

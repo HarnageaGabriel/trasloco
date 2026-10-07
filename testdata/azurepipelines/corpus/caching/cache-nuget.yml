@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [caching, ecosystem-dotnet, task-cache]
+# expect: ok
+trigger: [main]
+variables:
+  NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'nuget | "$(Agent.OS)" | **/packages.lock.json,!**/bin/**,!**/obj/**'
+      restoreKeys: |
+        nuget | "$(Agent.OS)"
+        nuget
+      path: $(NUGET_PACKAGES)
+      cacheHitVar: CACHE_RESTORED
+  - script: dotnet restore --locked-mode
+    condition: ne(variables.CACHE_RESTORED, 'true')

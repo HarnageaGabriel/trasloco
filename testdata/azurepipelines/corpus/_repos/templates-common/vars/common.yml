@@ -1,0 +1,6 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-variable, template-cross-repo]
+# expect: ok
+variables:
+  company: contoso
+  feedName: internal

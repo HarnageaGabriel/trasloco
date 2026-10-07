@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-dotnetcoreinstaller, ecosystem-dotnet]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: DotNetCoreInstaller@0
+    displayName: Install .NET Core SDK (legacy)
+    inputs:
+      version: 2.2.402

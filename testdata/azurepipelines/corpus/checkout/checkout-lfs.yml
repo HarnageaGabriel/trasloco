@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout
+# features: [checkout-lfs, checkout-fetchdepth]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - checkout: self
+    lfs: true
+    fetchDepth: 0
+    fetchTags: true

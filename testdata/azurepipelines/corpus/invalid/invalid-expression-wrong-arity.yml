@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [template-expression, directive-if, root-steps]
+# expect: diagnostics: [invalid-expression]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - ${{ if eq('only-one-argument') }}:
+      - script: echo never

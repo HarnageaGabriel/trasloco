@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-list, variables-readonly]
+# expect: ok
+trigger:
+- main
+variables:
+- name: releaseChannel
+  value: stable
+  readonly: true
+- name: region
+  value: westeurope
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo channel $(releaseChannel) in $(region)

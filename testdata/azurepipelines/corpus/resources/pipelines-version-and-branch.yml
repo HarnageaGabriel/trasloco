@@ -1,0 +1,16 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources-pipelines-pipeline
+# features: [resources-pipelines, artifacts-download]
+# expect: ok
+resources:
+  pipelines:
+  - pipeline: baseline
+    source: Release-Pipeline
+    project: Fabrikam
+    version: '20240101.1'
+    branch: refs/heads/main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- download: baseline
+  artifact: binaries
+- script: echo run id $(resources.pipeline.baseline.runID)

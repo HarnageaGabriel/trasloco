@@ -1,0 +1,57 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/python, https://learn.microsoft.com/en-us/azure/devops/pipelines/library/variable-groups
+# features: [root-stages, trigger-branches, pool-vmimage, ecosystem-python, variables-group, variables-map, conditions, trigger-tags, environment, deployment-runonce, task-usepythonversion, task-twineauthenticate, artifacts-publish, artifacts-download]
+# expect: ok
+trigger:
+  tags:
+    include:
+      - v*
+  branches:
+    include:
+      - main
+
+variables:
+  - group: pypi-publishing
+  - name: pythonVersion
+    value: '3.12'
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Wheel
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(pythonVersion)
+          - script: python -m pip install --upgrade pip build twine
+            displayName: Install build tooling
+          - script: python -m build --sdist --wheel --outdir dist
+            displayName: Build sdist and wheel
+          - script: twine check dist/*
+            displayName: Validate metadata
+          - publish: dist
+            artifact: dist
+
+  - stage: Publish
+    dependsOn: Build
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+    jobs:
+      - deployment: PyPI
+        environment: pypi
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: $(pythonVersion)
+                - script: python -m pip install twine
+                  displayName: Install twine
+                - task: TwineAuthenticate@1
+                  inputs:
+                    artifactFeed: Contoso/python-feed
+                    pythonUploadServiceConnection: pypi-connection
+                - script: python -m twine upload -r python-feed --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/dist/*
+                  displayName: Upload

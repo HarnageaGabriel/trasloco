@@ -1,0 +1,34 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-build-artifacts-v1, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-pipeline-artifact-v1
+# features: [trigger-branches, pool-vmimage, root-steps, task-publishbuildartifacts, task-copyfiles, task-publishpipelineartifact, artifacts-publish]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: CopyFiles@2
+    displayName: Stage binaries
+    inputs:
+      SourceFolder: $(Build.SourcesDirectory)
+      Contents: |
+        **/bin/Release/**
+        !**/obj/**
+      TargetFolder: $(Build.ArtifactStagingDirectory)
+      CleanTargetFolder: true
+      OverWrite: true
+  - task: PublishBuildArtifacts@1
+    displayName: Publish drop
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)
+      ArtifactName: drop
+      publishLocation: Container
+  - task: PublishPipelineArtifact@1
+    displayName: Publish docs
+    inputs:
+      targetPath: $(Build.SourcesDirectory)/docs
+      artifact: docs
+      publishLocation: pipeline

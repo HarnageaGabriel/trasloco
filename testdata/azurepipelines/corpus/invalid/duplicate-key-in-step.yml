@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script
+# features: [root-steps]
+# expect: diagnostics: [duplicate-key]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo hello
+    displayName: First
+    displayName: Second

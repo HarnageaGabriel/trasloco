@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-cross-repo, template-step, parameters-string]
+# expect: ok
+parameters:
+  - name: feed
+    type: string
+    default: internal
+steps:
+  - template: steps/restore.yml@common
+    parameters:
+      feed: ${{ parameters.feed }}

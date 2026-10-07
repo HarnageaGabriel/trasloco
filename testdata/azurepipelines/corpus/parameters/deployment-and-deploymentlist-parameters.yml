@@ -1,0 +1,33 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-deployment, parameters-deploymentlist, deployment-runonce, root-jobs, environment]
+# expect: ok
+trigger: none
+parameters:
+- name: primaryDeploy
+  type: deployment
+  default:
+    deployment: deployPrimary
+    environment: staging
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: echo primary deploy
+- name: extraDeploys
+  type: deploymentList
+  default:
+  - deployment: deployExtra
+    environment: staging
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: echo extra deploy
+jobs:
+- ${{ parameters.primaryDeploy }}
+- ${{ each d in parameters.extraDeploys }}:
+  - ${{ d }}

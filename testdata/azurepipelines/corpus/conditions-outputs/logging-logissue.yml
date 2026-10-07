@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands
+# features: [logging-commands]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - bash: |
+      echo "##vso[task.logissue type=warning;sourcepath=src/app.js;linenumber=12;columnnumber=3;code=100]Deprecated API"
+      echo "##vso[task.logissue type=error]Something went wrong"
+      echo "##vso[task.complete result=SucceededWithIssues;]DONE"
+    displayName: Emit issues

@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-string, parameters-values]
+# expect: diagnostics: [bad-parameter-value]
+parameters:
+  - name: env
+    type: string
+    default: staging
+    values: [dev, test, prod]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo ${{ parameters.env }}

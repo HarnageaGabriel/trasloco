@@ -1,0 +1,30 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
+# features: [stage-dependencies-outputs, output-variables, runtime-expression, root-stages]
+# expect: ok
+trigger: [main]
+stages:
+  - stage: build
+    jobs:
+      - job: compute
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - bash: echo "##vso[task.setvariable variable=tag;isOutput=true]v$(Build.BuildId)"
+            name: gen
+  - stage: deploy
+    dependsOn: build
+    variables:
+      imageTag: $[ stageDependencies.build.compute.outputs['gen.tag'] ]
+    jobs:
+      - job: push
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo pushing $(imageTag)
+      - job: inline
+        pool:
+          vmImage: ubuntu-latest
+        variables:
+          viaJob: $[ stageDependencies.build.compute.outputs['gen.tag'] ]
+        steps:
+          - script: echo $(viaJob)

@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+# features: [parameters-object, directive-each]
+# expect: ok
+trigger: none
+parameters:
+- name: services
+  type: object
+  default:
+    api:
+      port: 8080
+      replicas: 3
+    web:
+      port: 80
+      replicas: 2
+pool:
+  vmImage: ubuntu-latest
+steps:
+- ${{ each service in parameters.services }}:
+  - script: echo ${{ service.key }} listens on ${{ service.value.port }} with ${{ service.value.replicas }} replicas
+    displayName: Configure ${{ service.key }}

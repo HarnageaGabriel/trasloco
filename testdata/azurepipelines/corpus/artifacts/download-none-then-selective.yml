@@ -1,0 +1,13 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-download
+# features: [artifacts-download]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - download: none
+  - download: current
+    artifact: drop
+    patterns: |
+      **/*.dll
+      **/*.json

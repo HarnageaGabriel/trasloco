@@ -1,0 +1,14 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions
+# features: [conditions, status-functions]
+# expect: ok
+trigger: [main]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: exit 1
+    displayName: Might fail
+    continueOnError: true
+  - script: echo only on success
+    condition: succeeded()
+  - script: echo only on failure
+    condition: failed()

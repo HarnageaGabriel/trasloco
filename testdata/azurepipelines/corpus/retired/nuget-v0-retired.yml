@@ -1,0 +1,15 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-retired-version, task-nuget]
+# expect: ok
+trigger:
+  - main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: NuGet@0
+    displayName: NuGet restore (legacy)
+    inputs:
+      command: restore
+      solution: '**/*.sln'

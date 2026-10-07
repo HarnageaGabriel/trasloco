@@ -1,0 +1,12 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps
+# features: [root-steps, task-powershell]
+# expect: ok
+steps:
+- script: echo Hello, world!
+  displayName: Greet
+- task: PowerShell@2
+  displayName: Show environment
+  inputs:
+    targetType: inline
+    script: |
+      Get-ChildItem Env: | Sort-Object Name

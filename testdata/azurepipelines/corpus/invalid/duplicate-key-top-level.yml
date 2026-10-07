@@ -1,0 +1,9 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
+# features: [root-steps, pool-vmimage]
+# expect: diagnostics: [duplicate-key]
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: echo first
+pool:
+  vmImage: windows-latest

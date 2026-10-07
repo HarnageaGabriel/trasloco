@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, template-cross-repo, parameters-string, task-nugetauthenticate]
+# expect: ok
+parameters:
+  - name: feed
+    type: string
+    default: internal
+steps:
+  - task: NuGetAuthenticate@1
+  - script: dotnet restore --source ${{ parameters.feed }}
+    displayName: Restore from ${{ parameters.feed }}

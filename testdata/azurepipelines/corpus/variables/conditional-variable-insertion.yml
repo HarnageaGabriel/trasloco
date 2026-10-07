@@ -1,0 +1,23 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables
+# features: [variables-list, directive-if, directive-else, template-expression]
+# expect: ok
+trigger:
+- main
+parameters:
+- name: env
+  type: string
+  default: dev
+variables:
+- name: base
+  value: shared
+- ${{ if eq(parameters.env, 'prod') }}:
+  - name: replicas
+    value: 5
+  - group: prod-secrets
+- ${{ else }}:
+  - name: replicas
+    value: 1
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo $(base) $(replicas)

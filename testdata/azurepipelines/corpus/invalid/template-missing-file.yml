@@ -1,0 +1,10 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+# features: [template-step, root-steps]
+# expect: diagnostics: [missing-template]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - template: does-not-exist/steps.yml
+    parameters:
+      name: x

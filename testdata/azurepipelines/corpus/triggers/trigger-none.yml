@@ -1,0 +1,8 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/trigger
+# features: [trigger-none]
+# expect: ok
+trigger: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo manual only

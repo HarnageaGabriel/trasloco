@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+# features: [root-steps, macro-syntax]
+# expect: ok
+name: $(Date:yyyyMMdd)$(Rev:.r)
+appendCommitMessageToRunName: false
+trigger:
+- main
+pool:
+  vmImage: ubuntu-latest
+steps:
+- script: echo Build number is $(Build.BuildNumber)

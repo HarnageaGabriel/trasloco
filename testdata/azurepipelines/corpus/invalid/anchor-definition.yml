@@ -1,0 +1,11 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/
+# features: [root-steps]
+# expect: diagnostics: [yaml-anchor-forbidden]
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo one
+    env: &shared
+      MODE: fast
+  - script: echo two

@@ -1,0 +1,20 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+# features: [root-stages, pool-vmimage]
+# expect: ok
+stages:
+- stage: Build
+  jobs:
+  - job: Compile
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo compiling
+- stage: Deploy
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: Release
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: echo releasing

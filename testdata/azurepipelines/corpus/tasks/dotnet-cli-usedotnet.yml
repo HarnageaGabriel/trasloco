@@ -1,0 +1,43 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2, https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2
+# features: [trigger-branches, pool-vmimage, root-steps, task-dotnetcorecli, task-usedotnet, ecosystem-dotnet]
+# expect: ok
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UseDotNet@2
+    displayName: Install SDK
+    inputs:
+      packageType: sdk
+      version: 8.x
+      includePreviewVersions: false
+  - task: DotNetCoreCLI@2
+    displayName: Restore
+    inputs:
+      command: restore
+      projects: '**/*.csproj'
+      feedsToUse: select
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      command: build
+      projects: '**/*.csproj'
+      arguments: --configuration Release --no-restore
+  - task: DotNetCoreCLI@2
+    displayName: Test
+    inputs:
+      command: test
+      projects: '**/*Tests.csproj'
+      arguments: --configuration Release --collect "XPlat Code Coverage"
+  - task: DotNetCoreCLI@2
+    displayName: Publish
+    inputs:
+      command: publish
+      publishWebProjects: true
+      arguments: --configuration Release --output $(Build.ArtifactStagingDirectory)
+      zipAfterPublish: true

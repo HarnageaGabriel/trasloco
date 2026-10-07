@@ -1,0 +1,19 @@
+# source: https://learn.microsoft.com/en-us/azure/devops/pipelines/release/caching
+# features: [caching, ecosystem-node, task-cache, conditions]
+# expect: ok
+trigger: [main]
+variables:
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: Cache@2
+    inputs:
+      key: 'npm | "$(Agent.OS)" | package-lock.json'
+      restoreKeys: |
+        npm | "$(Agent.OS)"
+      path: $(npm_config_cache)
+      cacheHitVar: NPM_CACHE_RESTORED
+    displayName: Cache npm
+  - script: npm ci
+    condition: ne(variables.NPM_CACHE_RESTORED, 'true')
