@@ -45,9 +45,14 @@ func NewHumanSink(w io.Writer) *HumanSink { return &HumanSink{w: w} }
 // Handle writes one concise human-readable line.
 func (s *HumanSink) Handle(_ context.Context, event Event) error {
 	detail := ""
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(event.Payload, &fields)
 	for _, key := range []string{"outcome", "name", "action", "reason", "diagnosticCode"} {
-		if value, ok := event.Payload[key]; ok {
-			detail = " " + strings.Join(strings.Fields(fmt.Sprint(value)), " ")
+		if raw, ok := fields[key]; ok {
+			var value any
+			if json.Unmarshal(raw, &value) == nil {
+				detail = " " + strings.Join(strings.Fields(fmt.Sprint(value)), " ")
+			}
 			break
 		}
 	}

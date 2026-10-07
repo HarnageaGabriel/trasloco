@@ -5,10 +5,13 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 )
 
 // Clock advances instead of blocking, and is safe for client and server use.
 type Clock struct {
+	clock.Real
 	mu     sync.Mutex
 	now    time.Time
 	sleeps []time.Duration

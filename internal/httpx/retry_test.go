@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -52,7 +54,7 @@ func TestGETRetries(t *testing.T) {
 	_ = response.Body.Close()
 }
 
-type cancelClock struct{}
+type cancelClock struct{ clock.Real }
 
 func (cancelClock) Now() time.Time { return time.Unix(0, 0) }
 func (cancelClock) Sleep(ctx context.Context, _ time.Duration) error {
