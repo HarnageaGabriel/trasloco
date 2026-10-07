@@ -360,8 +360,9 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0001 | error | - | E | Internal error (recovered panic) | Report a bug with the run report and `--debug` log. |
 | TRL-INT-0002 | error | - | E | Internal invariant violated | Report a bug. |
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
+| TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 131 codes.
+Total: 132 codes.
 
 ## 8. Test vectors
 

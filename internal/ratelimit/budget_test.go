@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 )
 
 // Source: docs/adr/0007-http-auth-retries-limits.md. GraphQL secondary ceiling:
@@ -148,19 +150,19 @@ func TestPolicyAliasesAndMalformedHeaders(t *testing.T) {
 			t.Fatalf("%s: %v", tc.value, got)
 		}
 	}
-	clock := RealClock{}
-	if clock.Now().IsZero() {
+	realClock := clock.Real{}
+	if realClock.Now().IsZero() {
 		t.Fatal("clock")
 	}
-	if err := clock.Sleep(t.Context(), time.Nanosecond); err != nil {
+	if err := realClock.Sleep(t.Context(), time.Nanosecond); err != nil {
 		t.Fatal(err)
 	}
-	if err := clock.Sleep(t.Context(), 0); err != nil {
+	if err := realClock.Sleep(t.Context(), 0); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := clock.Sleep(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+	if err := realClock.Sleep(ctx, time.Hour); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	_ = NewLimiter(LimiterOptions{})

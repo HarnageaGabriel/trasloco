@@ -51,8 +51,8 @@ linters:
           msg: "Inject internal/clock.Clock (ADR 0010)."
   exclusions:
     rules:
-      # TODO(ADR 0010): migrate cache, httpx and ratelimit to internal/clock, then drop them here.
-      - path: 'internal[\/](clock|cache|httpx|ratelimit)[\/]'
+      # TODO(ADR 0010): migrate cache to internal/clock, then drop it here.
+      - path: 'internal[\/](clock|cache)[\/]'
         linters:
           - forbidigo
       - path: _test\.go

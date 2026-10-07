@@ -1,3 +1,4 @@
+// Package httpx provides retrying, cache-aware HTTP transport.
 package httpx
 
 import (
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HarnageaGabriel/trasloco/internal/clock"
 	"github.com/HarnageaGabriel/trasloco/internal/ratelimit"
 
 	responsecache "github.com/HarnageaGabriel/trasloco/internal/cache"
@@ -41,7 +43,7 @@ type Options struct {
 	Platform       string
 	Credentials    *credpool.Pool
 	Cache          *responsecache.Store
-	Clock          Clock
+	Clock          clock.Clock
 	Observer       Observer
 	Policy         RateLimitPolicy
 	Base           http.RoundTripper
@@ -61,7 +63,7 @@ func NewClient(opts Options) *http.Client {
 // NewTransport builds auth -> observation -> cache -> retry -> limiter -> base transport.
 func NewTransport(opts Options) http.RoundTripper {
 	if opts.Clock == nil {
-		opts.Clock = RealClock{}
+		opts.Clock = clock.Real{}
 	}
 	if opts.Observer == nil {
 		opts.Observer = nopObserver{}
@@ -145,7 +147,7 @@ func (transport *authTransport) RoundTrip(request *http.Request) (*http.Response
 
 type observingTransport struct {
 	next     http.RoundTripper
-	clock    Clock
+	clock    clock.Clock
 	observer Observer
 }
 
