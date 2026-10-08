@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HarnageaGabriel/trasloco/schemas/catalog/v1.schema.json",
+  "title": "trasloco catalog file, version 1",
+  "type": "object",
+  "required": ["schemaVersion", "kind"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "enum": ["tasks-generated", "task-retirement", "task-mapping", "actions-lock"] }
+  },
+  "unevaluatedProperties": false,
+  "allOf": [
+    { "if": { "properties": { "kind": { "const": "tasks-generated" } } }, "then": { "$ref": "#/$defs/tasksGenerated" } },
+    { "if": { "properties": { "kind": { "const": "task-retirement" } } }, "then": { "$ref": "#/$defs/taskRetirement" } },
+    { "if": { "properties": { "kind": { "const": "task-mapping" } } }, "then": { "$ref": "#/$defs/taskMapping" } },
+    { "if": { "properties": { "kind": { "const": "actions-lock" } } }, "then": { "$ref": "#/$defs/actionsLock" } }
+  ],
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "taskRef": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+@[0-9]+$" },
+    "httpURL": { "type": "string", "pattern": "^https?://[^\\s]+$" },
+    "source": {
+      "type": "object",
+      "required": ["repo", "commit", "license"],
+      "additionalProperties": false,
+      "properties": {
+        "repo": { "$ref": "#/$defs/httpURL" },
+        "commit": { "$ref": "#/$defs/sha" },
+        "license": { "type": "string", "minLength": 1 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "type": { "type": "string", "minLength": 1 },
+        "default": { "type": "string" },
+        "defaultOmitted": { "type": "boolean" },
+        "required": { "type": "boolean" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "visibleRule": { "type": "string" },
+        "group": { "type": "string" }
+      }
+    },
+    "taskVersion": {
+      "type": "object",
+      "required": ["major", "minor", "patch", "dir"],
+      "additionalProperties": false,
+      "properties": {
+        "major": { "type": "integer", "minimum": 0 },
+        "minor": { "type": "integer", "minimum": 0 },
+        "patch": { "type": "integer", "minimum": 0 },
+        "dir": { "type": "string", "minLength": 1 },
+        "deprecated": { "type": "boolean" },
+        "hasDeprecationMessage": { "type": "boolean" },
+        "removalDate": { "type": "string" },
+        "preview": { "type": "boolean" },
+        "handlers": { "type": "array", "items": { "type": "string" } },
+        "preJobHandlers": { "type": "array", "items": { "type": "string" } },
+        "postJobHandlers": { "type": "array", "items": { "type": "string" } },
+        "groups": { "type": "array", "items": { "type": "string" } },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/input" } }
+      }
+    },
+    "tasksGenerated": {
+      "required": ["source", "tasks"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "id", "versions"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+              "versions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/taskVersion" } }
+            }
+          }
+        }
+      }
+    },
+    "taskRetirement": {
+      "required": ["source", "retirementDate", "removalDate", "tasks"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["url"],
+          "additionalProperties": false,
+          "properties": { "url": { "$ref": "#/$defs/httpURL" } }
+        },
+        "retirementDate": { "$ref": "#/$defs/date" },
+        "removalDate": { "$ref": "#/$defs/date" },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task", "name", "major", "replacementKind"],
+            "additionalProperties": false,
+            "properties": {
+              "task": { "$ref": "#/$defs/taskRef" },
+              "name": { "type": "string", "minLength": 1 },
+              "major": { "type": "integer", "minimum": 0 },
+              "deprecatedOn": { "$ref": "#/$defs/date" },
+              "legacyBuiltin": { "type": "boolean" },
+              "replacementKind": { "enum": ["task", "external", "none"] },
+              "replacements": { "type": "array", "items": { "$ref": "#/$defs/taskRef" } }
+            }
+          }
+        }
+      }
+    },
+    "taskMapping": {
+      "required": ["task", "source", "fidelity", "target", "tests"],
+      "properties": {
+        "task": { "$ref": "#/$defs/taskRef" },
+        "source": { "$ref": "#/$defs/httpURL" },
+        "fidelity": { "enum": ["exact", "approximated", "needs-manual", "unsupported"] },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when"],
+            "additionalProperties": false,
+            "properties": { "when": { "type": "string", "minLength": 1 }, "note": { "type": "string" } }
+          }
+        },
+        "target": {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "enum": ["run", "uses", "manual"] },
+            "run": { "type": "string" },
+            "uses": { "type": "string" },
+            "shell": { "type": "string" }
+          },
+          "allOf": [
+            { "if": { "properties": { "kind": { "const": "run" } } }, "then": { "required": ["run"] } },
+            { "if": { "properties": { "kind": { "const": "uses" } } }, "then": { "required": ["uses"] } }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from"],
+            "additionalProperties": false,
+            "properties": {
+              "from": { "type": "string", "minLength": 1 },
+              "to": { "type": "string" },
+              "transform": { "type": "string" },
+              "default": { "type": "string" },
+              "drop": { "type": "boolean" }
+            }
+          }
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "inputs", "expect"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "inputs": { "type": "object" },
+              "expect": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "actionsLock": {
+      "required": ["actions"],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "version", "sha", "runsUsing"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(/[A-Za-z0-9_./-]+)?$" },
+              "version": { "type": "string", "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" },
+              "sha": { "$ref": "#/$defs/sha" },
+              "runsUsing": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "version", "runsUsing"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" },
+              "runsUsing": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
