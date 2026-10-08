@@ -18,7 +18,8 @@ type Origin struct {
 	OriginalTextHash string        `json:"originalTextHash"`
 }
 
-// Extensions holds provider-owned JSON. Keys are x-<provider>.
+// Extensions holds provider-owned JSON. Keys are x-<provider>. Key order is
+// semantically irrelevant; validation and canonical output sort keys.
 type Extensions map[string]json.RawMessage
 
 // Metadata is embedded by semantic nodes for traceability and loss accounting.
@@ -168,32 +169,32 @@ type Stage struct {
 // Job is one DAG vertex.
 type Job struct {
 	Metadata
-	Uses         *ReusableCall     `json:"uses,omitempty"`
-	Permissions  map[string]string `json:"permissions,omitempty"`
-	Concurrency  *Concurrency      `json:"concurrency,omitempty"`
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	Needs        []string          `json:"needs,omitempty"`
-	If           *Cond             `json:"if,omitempty"`
-	Runner       RunnerReq         `json:"runner"`
-	Container    *Container        `json:"container,omitempty"`
-	Services     []Service         `json:"services,omitempty"`
-	Variables    []Variable        `json:"variables,omitempty"`
-	Secrets      []SecretRef       `json:"secrets,omitempty"`
-	Outputs      []OutputDef       `json:"outputs,omitempty"`
-	Steps        []Step            `json:"steps"`
-	Matrix       *Matrix           `json:"matrix,omitempty"`
-	Timeout      *Duration         `json:"timeout,omitempty"`
-	AllowFailure bool              `json:"allowFailure"`
-	Deployment   *DeploymentIntent `json:"deployment,omitempty"`
-	Result       ResultModel       `json:"result"`
+	Uses         *ReusableCall      `json:"uses,omitempty"`
+	Permissions  OrderedMap[string] `json:"permissions,omitempty"`
+	Concurrency  *Concurrency       `json:"concurrency,omitempty"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Needs        []string           `json:"needs,omitempty"`
+	If           *Cond              `json:"if,omitempty"`
+	Runner       RunnerReq          `json:"runner"`
+	Container    *Container         `json:"container,omitempty"`
+	Services     []Service          `json:"services,omitempty"`
+	Variables    []Variable         `json:"variables,omitempty"`
+	Secrets      []SecretRef        `json:"secrets,omitempty"`
+	Outputs      []OutputDef        `json:"outputs,omitempty"`
+	Steps        []Step             `json:"steps"`
+	Matrix       *Matrix            `json:"matrix,omitempty"`
+	Timeout      *Duration          `json:"timeout,omitempty"`
+	AllowFailure bool               `json:"allowFailure"`
+	Deployment   *DeploymentIntent  `json:"deployment,omitempty"`
+	Result       ResultModel        `json:"result"`
 }
 
 // ReusableCall binds inputs and secret references to a reusable workflow.
 type ReusableCall struct {
-	Ref     string               `json:"ref"`
-	With    map[string]Expr      `json:"with,omitempty"`
-	Secrets map[string]SecretRef `json:"secrets,omitempty"`
+	Ref     string                `json:"ref"`
+	With    OrderedMap[Expr]      `json:"with,omitempty"`
+	Secrets OrderedMap[SecretRef] `json:"secrets,omitempty"`
 }
 
 // ResultModel is the portable terminal result taxonomy.
@@ -232,8 +233,8 @@ type Matrix struct {
 
 // MatrixLeg is one explicit assignment set.
 type MatrixLeg struct {
-	ID     string             `json:"id"`
-	Values map[string]Literal `json:"values"`
+	ID     string              `json:"id"`
+	Values OrderedMap[Literal] `json:"values"`
 }
 
 // ConcurrencyMode states the scheduling intent.
@@ -274,7 +275,7 @@ type RunnerReq struct {
 type Container struct {
 	Image       string            `json:"image"`
 	ImagePin    string            `json:"imagePin,omitempty"`
-	Env         map[string]Expr   `json:"env,omitempty"`
+	Env         OrderedMap[Expr]  `json:"env,omitempty"`
 	Ports       []string          `json:"ports,omitempty"`
 	Options     []string          `json:"options,omitempty"`
 	Credentials *ContainerAuthRef `json:"credentials,omitempty"`
@@ -328,7 +329,7 @@ type Step struct {
 	Name            string               `json:"name"`
 	Kind            StepKind             `json:"kind"`
 	If              *Cond                `json:"if,omitempty"`
-	Env             map[string]Expr      `json:"env,omitempty"`
+	Env             OrderedMap[Expr]     `json:"env,omitempty"`
 	Timeout         *Duration            `json:"timeout,omitempty"`
 	ContinueOnError bool                 `json:"continueOnError"`
 	Retry           int                  `json:"retry"`
@@ -384,11 +385,11 @@ type CacheStep struct {
 
 // ActionStep invokes a provider action/task retained as a portable reference.
 type ActionStep struct {
-	Provider string          `json:"provider"`
-	Name     string          `json:"name"`
-	Version  string          `json:"version"`
-	Digest   string          `json:"digest,omitempty"`
-	With     map[string]Expr `json:"with,omitempty"`
+	Provider string           `json:"provider"`
+	Name     string           `json:"name"`
+	Version  string           `json:"version"`
+	Digest   string           `json:"digest,omitempty"`
+	With     OrderedMap[Expr] `json:"with,omitempty"`
 }
 
 // ProtocolOperation is one statically recognized runner command.

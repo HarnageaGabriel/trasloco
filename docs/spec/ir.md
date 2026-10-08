@@ -103,8 +103,8 @@ Normalization MUST materialize provider defaults:
 |---|---|---|---|
 | common metadata | `Metadata` | yes | Job loss/provenance data. |
 | `id`, `name` | string | yes | Stable identity and display name. |
-| `uses` | `ReusableCall` | no | Reusable workflow call with required `ref`, expression map `with`, and `secrets` mapping input names to `SecretRef`. Mutually exclusive with non-empty `steps`. |
-| `permissions` | object | no | Explicit permission names mapped to `read`, `write`, or `none`. |
+| `uses` | `ReusableCall` | no | Reusable workflow call with required `ref`, ordered expression object `with`, and ordered `secrets` object mapping input names to `SecretRef`. Mutually exclusive with non-empty `steps`. |
+| `permissions` | ordered object | no | Explicit permission names mapped to `read`, `write`, or `none`, preserving declaration order. |
 | `concurrency` | `Concurrency` | no | Job scheduling intent, using the pipeline concurrency model. |
 | `needs` | string[] | no | Direct incoming DAG edges. |
 | `if` | `Cond` | yes | Explicit creation/runtime gate, including the normalized success gate. |
@@ -122,7 +122,7 @@ Normalization MUST materialize provider defaults:
 
 `OutputDef` has public `name` and `from: OutputRef`. `OutputRef` has mandatory `stage`, `job`, `step`, and output `name`; it is syntax-free and emitters select target syntax.
 
-`Matrix` has exactly one of non-empty explicit `legs` or `opaque: Raw`, optional positive `maxParallel` (`0` means unbounded), and explicit `failFast`. Each `MatrixLeg` has unique `id` and scalar-literal `values`. Parsers expand include/exclude rules before producing IR; dynamic unbounded matrices use `opaque`, retaining source text and origin without inventing legs.
+`Matrix` has exactly one of non-empty explicit `legs` or `opaque: Raw`, optional positive `maxParallel` (`0` means unbounded), and explicit `failFast`. Each `MatrixLeg` has unique `id` and scalar-literal `values` as an ordered object preserving declaration order. Parsers expand include/exclude rules before producing IR; dynamic unbounded matrices use `opaque`, retaining source text and origin without inventing legs.
 
 `Concurrency` has expression `group` and mode `cancel-in-progress`, `queue-latest`, or `serialize`. These are intents: capability checking grades any destination approximation. `DeploymentIntent` has target `environment`, optional portable `strategy`, and optional source lifecycle `hook`; unmodeled strategy detail remains in extensions.
 
@@ -130,11 +130,11 @@ Normalization MUST materialize provider defaults:
 
 `RunnerReq` fields are optional `os`, `arch`, ordered `labels`, `image`, immutable `imagePin`, `pool`, and ordered `demands`. `image` is the human/provider image identity; `imagePin` is an immutable digest or dated catalog identity. A moving `*-latest` alias MUST NOT be represented as a pin.
 
-`Container` has required `image`, optional `imagePin`, expression map `env`, ordered `ports` and `options`, and optional `credentials`. `ContainerAuthRef.username` is an expression; `password` is a `SecretRef`. `Service` has stable `id`, `container`, and optional `health`. `ServiceHealth` has command argv `command`, optional `interval` and `timeout`, and non-negative `retries`.
+`Container` has required `image`, optional `imagePin`, ordered expression object `env`, ordered `ports` and `options`, and optional `credentials`. `ContainerAuthRef.username` is an expression; `password` is a `SecretRef`. `Service` has stable `id`, `container`, and optional `health`. `ServiceHealth` has command argv `command`, optional `interval` and `timeout`, and non-negative `retries`.
 
 ## 6. Steps
 
-`Step` has common metadata, stable `id`, display `name`, discriminator `kind`, required explicit `if`, expression map `env`, optional `timeout`, explicit `continueOnError`, non-negative `retry`, and exactly one matching payload:
+`Step` has common metadata, stable `id`, display `name`, discriminator `kind`, required explicit `if`, ordered expression object `env`, optional `timeout`, explicit `continueOnError`, non-negative `retry`, and exactly one matching payload:
 
 | Kind / payload | Fields and semantics |
 |---|---|
@@ -143,7 +143,7 @@ Normalization MUST materialize provider defaults:
 | `artifactPublish` / `artifactPublish` | Artifact `name` and path expression `path`. |
 | `artifactRestore` / `artifactRestore` | Artifact `name` and destination expression `path`. |
 | `cache` / `cache` | Key expression `key`, ordered `restoreKeys`, path expressions `paths`, and `save` intent. |
-| `action` / `action` | Source `provider`, action/task `name`, `version`, optional immutable `digest`, and expression map `with`. |
+| `action` / `action` | Source `provider`, action/task `name`, `version`, optional immutable `digest`, and ordered expression object `with`. |
 | `setOutput`, `setEnv`, `setPipelineVar`, `addPath`, `mask`, `annotate` / `operation` | One abstract runner-protocol operation as defined below and in `script-protocol.md`. |
 | `raw` / `raw` | Explicit unmodeled provider fragment. |
 
@@ -179,6 +179,8 @@ Any other function, dynamic property operation, object/array construction, or di
 ## 8. JSON, equality, debug form, and digests
 
 `encoding/json` field names in the Go types are the normative serialized names. Marshal and unmarshal require schema version 1; unmarshal rejects unknown fields. Arrays retain semantic order. Extension values retain JSON meaning; byte-for-byte extension spelling is not promised after a JSON round trip.
+
+Ordered objects retain source key order through JSON round trips. Their Go `Set` operation replaces an existing value without moving its key; JSON decoding rejects duplicate keys.
 
 Digest input uses RFC 8785 JSON Canonicalization Scheme (JCS): no insignificant whitespace, object keys sorted by UTF-16 code units, ECMAScript string escaping, and ECMAScript finite binary64 number serialization. Negative zero canonicalizes to `0`. The implementation rejects duplicate object names, invalid UTF-8, non-finite numbers, cycles, trailing JSON values, and values outside `encoding/json`'s model. It is intended for JSON emitted by trasloco. Semantic sets, if any are introduced by an enclosing artifact, MUST be sorted by their specified stable key before JCS.
 
