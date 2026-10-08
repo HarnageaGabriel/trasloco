@@ -23,6 +23,7 @@ func TestLoadPrecedence(t *testing.T) {
 			return []string{
 				"TRASLOCO_CONVERSION__MODE=strict",
 				"TRASLOCO_OUTPUT__DIR=environment-output",
+				"TRASLOCO_OUTPUT__ENCRYPTCACHE=false",
 				"TRASLOCO_SOURCE__SELECT=one,two",
 			}
 		},

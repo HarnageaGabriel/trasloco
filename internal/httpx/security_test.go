@@ -263,6 +263,7 @@ func TestCacheOptInValidatorsCapAndFailure(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() { _ = store.Close() })
 			conditional := false
 			base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 				response := testResponse(r, 200)
@@ -303,6 +304,7 @@ func TestCacheOptInValidatorsCapAndFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = store.Close() })
 	// Make only this test-owned cache root unwritable by replacing it with a file.
 	if err := os.WriteFile(dir, []byte("blocked"), 0o600); err != nil {
 		t.Fatal(err)
