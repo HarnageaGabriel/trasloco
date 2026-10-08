@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -183,9 +184,9 @@ func (transport *cacheTransport) RoundTrip(request *http.Request) (*http.Respons
 	}
 	credential := credentialFrom(request.Context())
 	key := responsecache.Key(request, credential.ScopeID)
-	cached, found, cacheErr := transport.store.Get(key)
+	cached, found, cacheErr := transport.store.Get(request.Context(), key)
 	if cacheErr != nil {
-		transport.cacheError("cache lookup failed")
+		transport.cacheError("cache lookup failed", cacheErr)
 	}
 	found = found && int64(len(cached.Body)) <= transport.maxBody && (cached.Entry.ETag != "" || cached.Entry.Header.Get("Last-Modified") != "")
 	cloned := request.Clone(request.Context())
@@ -216,9 +217,10 @@ func (transport *cacheTransport) RoundTrip(request *http.Request) (*http.Respons
 		(response.Header.Get("ETag") != "" || response.Header.Get("Last-Modified") != "") &&
 		response.ContentLength <= transport.maxBody {
 		header := response.Header.Clone()
+		cacheContext := request.Context()
 		response.Body = &cacheBody{ReadCloser: response.Body, cap: transport.maxBody, save: func(body []byte) {
-			if _, putErr := transport.store.Put(key, response.StatusCode, header, body); putErr != nil {
-				transport.cacheError("cache write failed")
+			if _, putErr := transport.store.Put(cacheContext, key, response.StatusCode, header, body); putErr != nil {
+				transport.cacheError("cache write failed", putErr)
 			}
 		}}
 	}
@@ -286,9 +288,9 @@ func (body *cacheBody) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (transport *cacheTransport) cacheError(message string) {
+func (transport *cacheTransport) cacheError(message string, err error) {
 	if transport.onError != nil {
-		transport.onError(errors.New(message))
+		transport.onError(fmt.Errorf("%s: %w", message, err))
 	}
 }
 
