@@ -6,3 +6,4 @@
 coverage.out
 docs/assets/preview.html
 .worktrees/
+.tmp/
