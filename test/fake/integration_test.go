@@ -39,6 +39,7 @@ func TestFleetListingAndRevalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = store.Close() })
 	observer := &countingObserver{}
 	githubClient := httpx.NewClient(httpx.Options{
 		Platform: "github", Credentials: pool, TargetScope: "org", Cache: store, Clock: clock, Observer: observer,

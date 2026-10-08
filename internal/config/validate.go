@@ -217,6 +217,9 @@ func semantic(cfg *Config) []FieldError {
 			add(path+".path", "is not allowed when kind is \"env\"")
 		}
 	}
+	if cfg.Output.EncryptCache {
+		add("output.encryptCache", "is not implemented yet (ADR 0008); remove it or set it to false")
+	}
 	return p
 }
 
