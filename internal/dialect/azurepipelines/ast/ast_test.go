@@ -83,15 +83,19 @@ func TestSourceOfAndPositions(t *testing.T) {
 	source := diag.Source{Line: 4, Col: 9}
 	directive := &Directive{ExprSources: []ExprSource{{Span: span, Source: source}}}
 	expression := &Expression{ExprSources: []ExprSource{{Span: span, Source: source}}}
-	for name, got := range map[string]func(expr.Span) (diag.Source, bool){
-		"directive": directive.SourceOf, "expression": expression.SourceOf,
+	for _, test := range []struct {
+		name string
+		get  func(expr.Span) (diag.Source, bool)
+	}{
+		{name: "directive", get: directive.SourceOf},
+		{name: "expression", get: expression.SourceOf},
 	} {
-		found, ok := got(span)
+		found, ok := test.get(span)
 		if !ok || found != source {
-			t.Errorf("%s: SourceOf = %v, %v", name, found, ok)
+			t.Errorf("%s: SourceOf = %v, %v", test.name, found, ok)
 		}
-		if _, ok := got(expr.Span{Start: 9, End: 9}); ok {
-			t.Errorf("%s: unknown span was found", name)
+		if _, ok := test.get(expr.Span{Start: 9, End: 9}); ok {
+			t.Errorf("%s: unknown span was found", test.name)
 		}
 	}
 	var pos Pos

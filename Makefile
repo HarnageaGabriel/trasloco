@@ -6,7 +6,7 @@ COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || printf unknown)
 DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X $(MODULE)/internal/version.Version=$(VERSION) -X $(MODULE)/internal/version.Commit=$(COMMIT) -X $(MODULE)/internal/version.Date=$(DATE)
 
-.PHONY: build test lint vuln cover tidy fmt
+.PHONY: build test lint orderlint vuln cover tidy fmt
 
 build:
 	mkdir -p bin
@@ -17,6 +17,9 @@ test:
 
 lint:
 	golangci-lint run ./...
+
+orderlint:
+	go run ./tools/orderlint ./...
 
 vuln:
 	govulncheck ./...
