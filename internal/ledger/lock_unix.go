@@ -9,7 +9,7 @@ import (
 )
 
 func openProcessLock(path string) (*os.File, bool, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 -- fixed filename inside the output directory.
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304,G703 -- fixed filename inside the output directory.
 	if err != nil {
 		return nil, false, err
 	}
