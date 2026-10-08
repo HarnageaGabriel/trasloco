@@ -60,8 +60,10 @@ func TestValidateRejectsMalformedNodes(t *testing.T) {
 		}, "TRL-VAL-0012"},
 		"matrix empty": {func(p *Pipeline) { p.Jobs[0].Matrix = &Matrix{} }, "TRL-VAL-0007"},
 		"matrix dup": {func(p *Pipeline) {
+			var values OrderedMap[Literal]
+			values.Set("n", Literal{Type: LiteralNumber, Number: "1.x"})
 			p.Jobs[0].Matrix = &Matrix{Legs: []MatrixLeg{
-				{ID: "a", Values: map[string]Literal{"n": {Type: LiteralNumber, Number: "1.x"}}}, {ID: "a"}, {},
+				{ID: "a", Values: values}, {ID: "a"}, {},
 			}}
 		}, "TRL-VAL-0008"},
 		"need missing": {func(p *Pipeline) { p.Jobs[0].Needs = []string{"ghost"} }, "TRL-VAL-0010"},
@@ -106,6 +108,7 @@ func TestValidateRejectsMalformedNodes(t *testing.T) {
 		}, "TRL-VAL-0011"},
 		"nil pipeline": {nil, "TRL-VAL-0007"},
 	}
+	//trasloco:unordered-ok independent validation subtests have no shared ordering
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			var p *Pipeline
@@ -134,10 +137,10 @@ func TestValidateVariableAndExprShapes(t *testing.T) {
 		{Kind: StepSetOutput, Name: "o", Value: exprPtr(StringLiteral("1"))},
 	}
 	p.Jobs[0].Steps = append(p.Jobs[0].Steps, NewRunStep("use", "use", "bash", "x"))
-	p.Jobs[0].Steps[1].Env = map[string]Expr{"A": {Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "main", Job: "build", Step: "compile", Name: "o"}}}}
-	p.Jobs[0].Steps[1].Env["B"] = Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "main", Job: "build", Step: "compile", Name: "missing"}}}
-	p.Jobs[0].Steps[1].Env["C"] = Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{}}}
-	p.Jobs[0].Steps[1].Env["D"] = Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "zz", Job: "build", Step: "s", Name: "n"}}}
+	p.Jobs[0].Steps[1].Env.Set("A", Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "main", Job: "build", Step: "compile", Name: "o"}}})
+	p.Jobs[0].Steps[1].Env.Set("B", Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "main", Job: "build", Step: "compile", Name: "missing"}}})
+	p.Jobs[0].Steps[1].Env.Set("C", Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{}}})
+	p.Jobs[0].Steps[1].Env.Set("D", Expr{Kind: ExprRef, Ref: &RefExpr{Context: RefDependencyOutputs, Output: &OutputRef{Stage: "zz", Job: "build", Step: "s", Name: "n"}}})
 	got := codes(Validate(p))
 	if !got["TRL-VAL-0012"] || !got["TRL-VAL-0010"] {
 		t.Fatalf("got %v", got)

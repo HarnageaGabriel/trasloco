@@ -171,6 +171,7 @@ func writeCanonical(out *bytes.Buffer, value any) error {
 		out.WriteByte(']')
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
+		//trasloco:unordered-ok keys are sorted before canonical JSON is emitted
 		for key := range typed {
 			keys = append(keys, key)
 		}

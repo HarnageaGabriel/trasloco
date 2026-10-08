@@ -241,18 +241,17 @@ func (v *irValidator) validateJob(index int, job *Job) {
 		if len(job.Steps) > 0 {
 			v.add("TRL-VAL-0012", path, "reusable workflow call cannot contain steps")
 		}
-		for _, key := range slices.Sorted(maps.Keys(job.Uses.With)) {
-			expr := job.Uses.With[key]
+		for key, expr := range job.Uses.With.All() {
 			v.expr(path+".uses.with."+key, &expr, job.ID)
 		}
-		for _, key := range slices.Sorted(maps.Keys(job.Uses.Secrets)) {
-			if job.Uses.Secrets[key].Name == "" {
+		for key, secret := range job.Uses.Secrets.All() {
+			if secret.Name == "" {
 				v.add("TRL-VAL-0007", path+".uses.secrets."+key, "secret reference name is required")
 			}
 		}
 	}
-	for _, key := range slices.Sorted(maps.Keys(job.Permissions)) {
-		if key == "" || !oneOf(job.Permissions[key], "read", "write", "none") {
+	for key, permission := range job.Permissions.All() {
+		if key == "" || !oneOf(permission, "read", "write", "none") {
 			v.add("TRL-VAL-0012", path+".permissions."+key, "permission requires a name and read, write, or none")
 		}
 	}
@@ -264,8 +263,7 @@ func (v *irValidator) validateJob(index int, job *Job) {
 	if job.Container != nil && job.Container.Image == "" {
 		v.add("TRL-VAL-0007", path+".container.image", "container image is required")
 	}
-	for _, key := range slices.Sorted(maps.Keys(job.ContainerEnv())) {
-		expr := job.Container.Env[key]
+	for key, expr := range job.ContainerEnv().All() {
 		v.expr(path+".container.env."+key, &expr, job.ID)
 	}
 	if job.Matrix != nil {
@@ -308,7 +306,7 @@ func (v *irValidator) validateJob(index int, job *Job) {
 }
 
 // ContainerEnv avoids a nil check in the validation traversal.
-func (j *Job) ContainerEnv() map[string]Expr {
+func (j *Job) ContainerEnv() OrderedMap[Expr] {
 	if j.Container == nil {
 		return nil
 	}
@@ -335,8 +333,7 @@ func (v *irValidator) validateMatrix(path string, matrix *Matrix) {
 			v.add("TRL-VAL-0008", legPath+".id", fmt.Sprintf("duplicate matrix leg id %q", leg.ID))
 		}
 		seen[leg.ID] = true
-		for _, key := range slices.Sorted(maps.Keys(leg.Values)) {
-			literal := leg.Values[key]
+		for key, literal := range leg.Values.All() {
 			v.literal(legPath+".values."+key, &literal)
 		}
 	}
@@ -358,8 +355,7 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 	} else {
 		v.cond(path+".if", step.If, jobID)
 	}
-	for _, key := range slices.Sorted(maps.Keys(step.Env)) {
-		expr := step.Env[key]
+	for key, expr := range step.Env.All() {
 		v.expr(path+".env."+key, &expr, jobID)
 	}
 	payloads := 0
@@ -408,8 +404,7 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 		if step.Action.Provider == "" || step.Action.Name == "" || step.Action.Version == "" {
 			v.add("TRL-VAL-0007", path+".action", "action provider, name, and version are required")
 		}
-		for _, key := range slices.Sorted(maps.Keys(step.Action.With)) {
-			expr := step.Action.With[key]
+		for key, expr := range step.Action.With.All() {
 			v.expr(path+".action.with."+key, &expr, jobID)
 		}
 	}

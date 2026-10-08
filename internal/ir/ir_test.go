@@ -57,12 +57,12 @@ func TestJSONRoundTripProperty(t *testing.T) {
 		pipeline := validPipeline()
 		pipeline.Name = name
 		pipeline.Jobs[0].Steps[0].Run.Script = script
+		var values OrderedMap[Literal]
+		values.Set("value", Literal{Type: LiteralNumber, Number: strconv.FormatFloat(number, 'g', -1, 64)})
 		pipeline.Jobs[0].Matrix = &Matrix{
 			Legs: []MatrixLeg{{
-				ID: "leg",
-				Values: map[string]Literal{
-					"value": {Type: LiteralNumber, Number: strconv.FormatFloat(number, 'g', -1, 64)},
-				},
+				ID:     "leg",
+				Values: values,
 			}},
 			FailFast: failFast,
 		}
