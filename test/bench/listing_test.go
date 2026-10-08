@@ -36,6 +36,7 @@ func BenchmarkList5000Repos(benchmark *testing.B) {
 	if err != nil {
 		benchmark.Fatal(err)
 	}
+	benchmark.Cleanup(func() { _ = store.Close() })
 	observer := &benchmarkObserver{}
 	client := httpx.NewClient(httpx.Options{
 		Platform: "github", Credentials: pool, TargetScope: "org", Cache: store, Clock: clock, Observer: observer,

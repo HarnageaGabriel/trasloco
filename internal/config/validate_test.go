@@ -28,6 +28,11 @@ func TestValidateSemantic(t *testing.T) {
 			},
 			path: "secrets.from.0.path",
 		},
+		{
+			name: "encryptCache rejected",
+			edit: func(c *Config) { c.Output.EncryptCache = true },
+			path: "output.encryptCache",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
