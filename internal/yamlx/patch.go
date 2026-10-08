@@ -82,7 +82,9 @@ func (p Pair) KeyRange() (ByteRange, error) {
 	return p.Key.ByteRange()
 }
 
-// ValueRange returns the mapping value's lexical range.
+// ValueRange returns the mapping value's lexical range. For a block scalar the
+// range includes its final newline and trailing blank lines; a replacement must
+// therefore include the line ending required before the following node.
 func (p Pair) ValueRange() (ByteRange, error) {
 	return p.Value.ByteRange()
 }
