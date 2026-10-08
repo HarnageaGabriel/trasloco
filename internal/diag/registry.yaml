@@ -1239,6 +1239,36 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-APPLY-0008",
+                      "area":  "APPLY",
+                      "title":  "Unreconciled mutation intent",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Read the target state and record an outcome before retrying the mutation.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-APPLY-0009",
+                      "area":  "APPLY",
+                      "title":  "Secret detected in ledger previous value",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Remove secret-bearing fields; secrets must never be persisted for rollback.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-APPLY-0010",
+                      "area":  "APPLY",
+                      "title":  "Ledger schema mismatch",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Use a compatible trasloco version; do not edit or delete the ledger.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-SECRET-0001",
                       "area":  "SECRET",
                       "title":  "Secret value not supplied",

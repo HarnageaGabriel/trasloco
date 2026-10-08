@@ -11,6 +11,9 @@
 | [TRL-APPLY-0005](TRL-APPLY-0005.md) | error | Another run holds the lock | active |
 | [TRL-APPLY-0006](TRL-APPLY-0006.md) | warning | Run interrupted | active |
 | [TRL-APPLY-0007](TRL-APPLY-0007.md) | warning | Run finished partially | active |
+| [TRL-APPLY-0008](TRL-APPLY-0008.md) | error | Unreconciled mutation intent | active |
+| [TRL-APPLY-0009](TRL-APPLY-0009.md) | error | Secret detected in ledger previous value | active |
+| [TRL-APPLY-0010](TRL-APPLY-0010.md) | error | Ledger schema mismatch | active |
 | [TRL-AUTH-0001](TRL-AUTH-0001.md) | error | No credential configured for endpoint | active |
 | [TRL-AUTH-0002](TRL-AUTH-0002.md) | error | Credential rejected (HTTP 401) | active |
 | [TRL-AUTH-0003](TRL-AUTH-0003.md) | error | Insufficient permission (HTTP 403) | active |

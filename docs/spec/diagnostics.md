@@ -306,6 +306,9 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-APPLY-0005 | error | - | E | Another run holds the lock | Wait or pass `--break-lock` only if the other process is dead. |
 | TRL-APPLY-0006 | warning | - | - | Run interrupted | Run `resume --run <id>`. |
 | TRL-APPLY-0007 | warning | - | - | Run finished partially | See the report for failed units. |
+| TRL-APPLY-0008 | error | - | E | Unreconciled mutation intent | Read the target state and record an outcome before retrying the mutation. |
+| TRL-APPLY-0009 | error | - | E | Secret detected in ledger previous value | Remove secret-bearing fields; secrets must never be persisted for rollback. |
+| TRL-APPLY-0010 | error | - | E | Ledger schema mismatch | Use a compatible trasloco version; do not edit or delete the ledger. |
 
 ### SECRET
 
@@ -367,7 +370,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 | TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 132 codes.
+Total: 149 codes.
 
 ## 8. Test vectors
 
