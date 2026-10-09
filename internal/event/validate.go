@@ -336,6 +336,7 @@ func validateRequiredPayload(eventType Type, fields map[string]json.RawMessage) 
 	}
 	allowed["extensions"] = true
 	keys := make([]string, 0, len(fields))
+	//trasloco:unordered-ok keys are sorted before validation produces an error
 	for key := range fields {
 		keys = append(keys, key)
 	}
@@ -359,6 +360,7 @@ func validateRequiredPayload(eventType Type, fields map[string]json.RawMessage) 
 			return fmt.Errorf("counts must be an object")
 		}
 		names := make([]string, 0, len(counts))
+		//trasloco:unordered-ok names are sorted before validation produces an error
 		for name := range counts {
 			names = append(names, name)
 		}

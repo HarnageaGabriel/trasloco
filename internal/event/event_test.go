@@ -140,6 +140,29 @@ func TestValidatorPayloadAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestValidatorPayloadErrorsAreDeterministic(t *testing.T) {
+	event := started(1)
+	event.Payload = json.RawMessage(`{"command":"plan","toolVersion":"v","configDigest":"d","zeta":1,"alpha":2,"middle":3}`)
+
+	const iterations = 100
+	var want string
+	for range iterations {
+		_, _, err := readEvents(t, false, event)
+		if err == nil {
+			t.Fatal("payload with unknown fields was accepted")
+		}
+		if want == "" {
+			want = err.Error()
+		}
+		if err.Error() != want {
+			t.Fatalf("validation error = %q, want %q", err, want)
+		}
+	}
+	if !strings.Contains(want, "unknown field alpha") {
+		t.Fatalf("validation error = %q, want alphabetically first unknown field", want)
+	}
+}
+
 func TestValidatorBounds(t *testing.T) {
 	v := newValidator(false)
 	for i := 0; i < MaxTrackedChangeIDs; i++ {
