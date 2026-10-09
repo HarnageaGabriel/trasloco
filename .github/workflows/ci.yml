@@ -3,11 +3,19 @@ name: CI
 on:
   push:
     branches: [main]
+    # Tests read docs/spec and testdata Markdown: ignore only files no check reads.
+    paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'docs/adr/**', 'docs/assets/**']
   pull_request:
     branches: [main]
+    # Tests read docs/spec and testdata Markdown: ignore only files no check reads.
+    paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'docs/adr/**', 'docs/assets/**']
   schedule:
-    - cron: "17 2 * * *" # nightly, includes macOS
+    - cron: "17 2 * * 1" # weekly, includes macOS
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,27 +27,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS minutes cost 10x on private repositories: run it only on main and nightly, not on PRs.
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","windows-latest","macos-latest"]') }}
+        os: ${{ fromJSON(github.event_name == 'schedule' && '["ubuntu-latest","windows-latest","macos-latest"]' || github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable # latest patched toolchain; govulncheck checks the stdlib too
+          go-version: stable
           cache: true
       - name: Test with race detector
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: go test -race ./...
+      - name: Test with race detector and coverage
+        if: runner.os == 'Linux'
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
       - name: Test
         if: runner.os == 'Windows'
         run: go test ./...
-
-
       - name: Coverage floors (CONVENTIONS.md)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          go test -coverprofile=coverage.out ./...
           python3 - <<'PY'
           import collections
           import pathlib
@@ -75,7 +82,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable # latest patched toolchain; govulncheck checks the stdlib too
+          go-version: stable
           cache: true
       - name: Check deterministic ordering
         run: go run ./tools/orderlint ./...
@@ -83,51 +90,8 @@ jobs:
         with:
           version: v2.14.0
 
-  vuln:
-    name: Vulnerability scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: stable # latest patched toolchain; govulncheck checks the stdlib too
-          cache: true
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-
-  build:
-    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: stable # latest patched toolchain; govulncheck checks the stdlib too
-          cache: true
-      - name: Cross-compile
-        env:
-          CGO_ENABLED: "0"
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: go build -trimpath ./cmd/trasloco
-
-  min-go:
-    name: Build with minimum Go (go.mod)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-          cache: true
-      - run: go build ./... && go vet ./...
-
-  docs-drift:
-    name: Generated docs drift
+  checks:
+    name: Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -135,4 +99,21 @@ jobs:
         with:
           go-version: stable
           cache: true
-      - run: make docs-check
+      - name: Cross-compile all targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -trimpath ./cmd/trasloco || { echo "Cross-compile failed for ${target}"; exit 1; }
+          done
+      - name: Use minimum Go (go.mod)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build with minimum Go (go.mod)
+        run: go build ./... && go vet ./...
+      - name: Vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: Generated docs drift
+        run: make docs-check
