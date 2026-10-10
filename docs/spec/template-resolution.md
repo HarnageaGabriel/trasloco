@@ -1,0 +1,45 @@
+# Azure Pipelines template resolution
+
+Status: draft for approval (M1 wave 3). Normative.
+
+The resolver consumes a parsed Azure Pipelines AST and produces one AST with all compile-time template references and `${{ }}` directives expanded. Runtime `$[ ]` expressions and `$( )` macros remain unchanged. It performs no I/O directly; a caller-owned `resolve.Source` supplies bounded template bytes.
+
+## References and paths
+
+Step, job, stage, variable and `extends` templates are supported. A relative reference is resolved from the directory containing the including file; a leading `/` starts at the repository root. An `@alias` suffix selects an alias declared in `resources.repositories`; `@self` selects the root repository. These rules follow [Microsoft's templates documentation](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates#reference-template-paths). Missing files, unknown aliases, lexical escapes, and symlink escapes are errors. Remote repository fetching is outside M1.
+
+`Options.RootPath` supplies the repository-relative path of the root pipeline and is the base for its relative references. It defaults to the root AST position. Absolute paths and paths that escape the repository root are errors.
+
+## Parameters and expressions
+
+Parameters are bound in declaration order. Defaults are used when present; passed names must be declared. The supported types are `string`, `number`, `boolean`, `object`, `step`, `stepList`, `job`, `jobList`, `deployment`, `deploymentList`, `stage`, and `stageList`; `values` restricts scalar choices. These rules follow [template parameters](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/template-parameters) and the [parameter schema](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/parameters-parameter). VERIFY: when `type` is omitted, the resolver treats the parameter as `object`; Microsoft examples omit `type`, but the schema does not define the resulting type.
+
+`${{ if }}`, `${{ elseif }}`, `${{ else }}`, `${{ each }}`, `${{ insert }}`, whole-value insertion, dynamic mapping keys, and scalar interpolation use the existing compile-phase expression engine. Source order is retained, including object iteration order. An `elseif` or `else` applies only to the immediately preceding conditional chain. Runtime expressions and macros are not evaluated during template resolution. See [template expressions](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/template-expressions) and [expressions](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions).
+
+Dynamic template paths such as `template: ${{ parameters.path }}` are evaluated at compile time and must produce a string. A template reference materialized from a caller-authored `stepList` argument resolves relative to the file where that argument was written, not the callee where it is inserted (VERIFY against Azure). Boolean values converted to strings use Azure-style `True` and `False` (VERIFY against Azure); insertion into a typed boolean field preserves the native boolean. Preserving number and boolean parameter-default types through printing is a follow-up and is not part of resolution semantics.
+
+## Provenance, limits, and validation
+
+Every node loaded from a template retains its template-file position and carries `ast.Pos.Chain`, the outermost-first positions of the template references that produced it. This is compatible with `ir.Origin.Chain` and ADR 0003/0011.
+
+Cycles are diagnosed before resource limits. Resolution permits at most 100 included YAML files, 100 template nesting levels, and 20 MiB of expanded AST data, matching [Azure Pipelines template limits](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates#imposed-limits-on-template-updates): "No more than 100 levels of template nesting (templates including other templates)." The root pipeline has depth 0 and does not count as a template level; a chain of 100 template files is allowed and opening the 101st fails. Context cancellation is checked in expansion loops.
+
+The 20 MiB limit is enforced incrementally, not after the fact: every template instantiation, `${{ each }}` iteration (charged with the byte size of its body before the body is cloned), and produced insertion node charges an approximate byte cost (at least 32 bytes per node) to a budget, and expansion aborts with `TRL-TPL-0003` as soon as it is exceeded. Each stamped node also charges one unit per shared call-site-chain entry. As a defence, a resolution also stops after 1,000,000 `each` iterations or 2,000,000 produced nodes. After an abort Resolve returns a nil AST and `resolve.ErrExpansionLimit`; no partial AST reaches later passes.
+
+## Result and failure contract
+
+`Resolve` returns an AST only when expansion and its post-condition succeed. Any error-severity diagnostic returns a nil AST and a nil Go error. A budget abort returns a nil AST and `resolve.ErrExpansionLimit`; context cancellation returns a nil AST and the context error. Warning diagnostics keep the AST. This separation lets callers distinguish invalid pipeline content, bounded expansion, and cancellation without ever receiving partial output.
+
+VERIFY: Microsoft does not document combining `extends` with root `stages`, `jobs`, or `steps`. The resolver's current behavior is that explicitly supplied root fields override the corresponding fields from the base template; other base fields remain.
+
+The 20 MiB budget counts source-sized units, not heap bytes: a node costs at least 32 units plus its text, an `${{ each }}` iteration costs the byte size of its body, and a stamped node adds one unit per call-site-chain entry. For a nested-`each` pipeline that expands to about 22,800 nodes the budget reaches 15.1 million units while the measured heap growth is 15.8 million bytes (about 1.05 heap bytes per unit); other shapes (deep call-site chains, large inserted objects) may differ, so the limit bounds work in source-sized units and is not a memory guarantee.
+
+Once 1,000 error-severity diagnostics have been reported (the collector's default per-code cap) expansion stops; the result is a nil AST with a nil Go error, as for any other error. With 50,000 failing directives this cut resolution from about 3.1 s to about 0.18 s.
+
+Cycle-detection keys are the repository alias plus the repository-relative file name, lower-cased only on Windows. On macOS the default volume folds case but the key does not: `A.yml` and `a.yml` name one file yet are different keys, so a cycle that alternates spellings is not caught at the first repetition and ends at the depth limit instead (`TRL-TPL-0003`). On Windows, an NTFS junction whose target is missing makes `EvalSymlinks` fail with `ENOENT`; this is reported as a missing template, not as a symlink escape.
+
+VERIFY follow-ups, outside this scope: quoted scalars in object parameters are inferred as boolean or number because the parser does not expose a quoted flag (ADR 0009); caller-relative resolution applies only to top-level `stepList` items, so steps nested inside `jobList` or `stageList` arguments resolve relative to the callee; the parser drops `${{ if }}` inside a repository resource's `trigger:` and parses long flow sequences quadratically (parser work).
+
+`localfs` checks containment with `EvalSymlinks` and opens the file afterwards, leaving a time-of-check/time-of-use window in which a concurrent writer could swap a path component for a symlink. This is accepted for a local CLI: the input repository is trusted by the user running the tool.
+
+After expansion, stage, job, deployment and parameter names must be unique. Every `dependsOn` target must exist in its namespace, and stage/job dependency graphs must be acyclic. Diagnostics use the source node that introduced the invalid name or edge.

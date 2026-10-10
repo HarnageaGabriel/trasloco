@@ -24,6 +24,9 @@ type Node interface {
 // Pos carries the source position of a node and is embedded in every node.
 type Pos struct {
 	Source diag.Source
+	// Chain is the template-instantiation call-site chain, outermost first.
+	// It is empty for nodes written in the root file and mirrors ir.Origin.Chain.
+	Chain []diag.Source
 }
 
 // Position implements Node.

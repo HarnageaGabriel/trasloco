@@ -134,6 +134,10 @@
 | [TRL-TPL-0004](TRL-TPL-0004.md) | warning | Cross-repository template cannot be resolved | active |
 | [TRL-TPL-0005](TRL-TPL-0005.md) | error | Template parameter type mismatch | active |
 | [TRL-TPL-0006](TRL-TPL-0006.md) | warning | Template path is dynamic | active |
+| [TRL-TPL-0007](TRL-TPL-0007.md) | error | Template repository alias is unknown | active |
+| [TRL-TPL-0008](TRL-TPL-0008.md) | error | Template parameter is unknown or missing | active |
+| [TRL-TPL-0009](TRL-TPL-0009.md) | error | Template does not define the requested content | active |
+| [TRL-TPL-0010](TRL-TPL-0010.md) | warning | Duplicate mapping key produced by template expansion | active |
 | [TRL-VAL-0001](TRL-VAL-0001.md) | error | Linter finding in emitted workflow | active |
 | [TRL-VAL-0002](TRL-VAL-0002.md) | error | Emitted file fails the workflow schema | active |
 | [TRL-VAL-0003](TRL-VAL-0003.md) | warning | Required secret has no value source | active |

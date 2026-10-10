@@ -636,6 +636,46 @@
                       "fidelity":  "needs-manual"
                   },
                   {
+                      "code":  "TRL-TPL-0007",
+                      "area":  "TPL",
+                      "title":  "Template repository alias is unknown",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Declare the alias under resources.repositories and map it to a source root.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-TPL-0008",
+                      "area":  "TPL",
+                      "title":  "Template parameter is unknown or missing",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Pass only declared parameters and supply every parameter that has no default.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-TPL-0009",
+                      "area":  "TPL",
+                      "title":  "Template does not define the requested content",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Reference a template whose top-level key matches the place it is used (steps, jobs, stages or variables).",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
+                      "code":  "TRL-TPL-0010",
+                      "area":  "TPL",
+                      "title":  "Duplicate mapping key produced by template expansion",
+                      "severity":  "warning",
+                      "exitClass":  "none",
+                      "remediation":  "Remove the duplicate; the last value wins in the resolved output.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-VAR-0001",
                       "area":  "VAR",
                       "title":  "Unresolved binding: no consumer can be determined",

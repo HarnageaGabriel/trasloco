@@ -28,6 +28,10 @@ func TestSpecVectors(t *testing.T) {
 			t.Fatalf("duplicate %s", v.id)
 		}
 		seen[v.id] = true
+		if resolverVector(v) {
+			// The resolver package runs these vectors against expanded YAML.
+			continue
+		}
 		t.Run(v.id, func(t *testing.T) { runVector(t, v) })
 	}
 }
@@ -142,9 +146,6 @@ func materialize(v vector) vector {
 
 func runVector(t *testing.T, v vector) {
 	t.Helper()
-	if resolverVector(v) {
-		t.Skip("template resolver integration contract; retained verbatim outside expression engine")
-	}
 	v = materialize(v)
 	value, err := DecodeJSON([]byte(v.context))
 	if err != nil {

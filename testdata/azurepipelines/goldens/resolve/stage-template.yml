@@ -1,0 +1,19 @@
+trigger:
+  - main
+stages:
+  - stage: deploy_dev
+    jobs:
+      - job: deploy
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo deploying to dev
+          - script: echo smoke tests
+  - stage: deploy_prod
+    dependsOn: deploy_dev
+    jobs:
+      - job: deploy
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo deploying to prod
