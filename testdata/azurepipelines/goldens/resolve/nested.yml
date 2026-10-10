@@ -1,0 +1,11 @@
+trigger:
+  - main
+jobs:
+  - job: level1
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo level1 top
+      - script: echo level2 top-l2
+      - bash: echo "level3 top-l2-l3"
+        displayName: Leaf template

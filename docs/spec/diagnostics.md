@@ -208,6 +208,10 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-TPL-0004 | warning | nm | B | Cross-repository template cannot be resolved | Grant read access or provide the repo via `--template-repo`; pipeline is blocked. |
 | TRL-TPL-0005 | error | - | E | Template parameter type mismatch | Fix the value passed to the parameter. |
 | TRL-TPL-0006 | warning | nm | B | Template path is dynamic | Make the path static or convert manually. |
+| TRL-TPL-0007 | error | - | E | Template repository alias is unknown | Declare the alias under resources.repositories and map it to a source root. |
+| TRL-TPL-0008 | error | - | E | Template parameter is unknown or missing | Pass only declared parameters and supply every parameter that has no default. |
+| TRL-TPL-0009 | error | - | E | Template does not define the requested content | Reference a template whose top-level key matches the place it is used (steps, jobs, stages or variables). |
+| TRL-TPL-0010 | warning | - | - | Duplicate mapping key produced by template expansion | Remove the duplicate; the last value wins in the resolved output. |
 
 ### VAR
 
@@ -370,7 +374,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 | TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 149 codes.
+Total: 153 codes.
 
 ## 8. Test vectors
 

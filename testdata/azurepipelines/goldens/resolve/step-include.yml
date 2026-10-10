@@ -1,0 +1,19 @@
+trigger:
+  branches:
+    include:
+      - main
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: build
+      projects: src/app/app.csproj
+      arguments: --configuration Release
+    displayName: Build src/app/app.csproj
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: build
+      projects: '**/*.csproj'
+      arguments: --configuration Release
+    displayName: Build **/*.csproj

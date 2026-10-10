@@ -1,0 +1,20 @@
+trigger:
+  - main
+resources:
+  repositories:
+    - repository: common
+      name: contoso/templates-common
+      ref: refs/heads/main
+      type: git
+    - repository: scans
+      name: contoso/security-scans
+      ref: refs/tags/v1
+      type: git
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - task: NuGetAuthenticate@1
+  - script: dotnet restore --source internal
+    displayName: Restore from internal
+  - script: echo running static analysis
+    displayName: SAST scan

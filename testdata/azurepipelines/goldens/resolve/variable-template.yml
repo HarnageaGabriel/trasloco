@@ -1,0 +1,13 @@
+variables:
+  - name: buildConfiguration
+    value: Release
+  - name: dotnetVersion
+    value: 8.x
+  - name: region
+    value: northeurope
+  - name: local
+    value: custom
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: echo $(buildConfiguration) $(region) $(local)

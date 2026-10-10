@@ -1,0 +1,11 @@
+stages:
+  - stage: ci
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - job: lint
+        steps:
+          - script: echo lint
+      - job: test
+        steps:
+          - script: echo test

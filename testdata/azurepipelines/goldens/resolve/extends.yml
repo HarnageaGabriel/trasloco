@@ -1,0 +1,12 @@
+trigger:
+  - main
+stages:
+  - stage: build
+    jobs:
+      - job: run
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo compliance preamble
+          - script: npm ci
+          - script: npm test

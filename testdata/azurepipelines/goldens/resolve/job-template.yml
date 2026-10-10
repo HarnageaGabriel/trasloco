@@ -1,0 +1,19 @@
+trigger:
+  - main
+jobs:
+  - job: build_linux
+    displayName: Build on linux
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: echo one
+        displayName: Run echo one
+      - script: echo two
+        displayName: Run echo two
+  - job: build_windows
+    displayName: Build on windows
+    pool:
+      vmImage: windows-latest
+    steps:
+      - script: echo win
+        displayName: Run echo win

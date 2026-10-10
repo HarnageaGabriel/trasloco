@@ -1,0 +1,25 @@
+trigger: none
+parameters:
+  - name: environment
+    type: string
+    default: dev
+    values:
+      - dev
+      - test
+      - prod
+  - name: retries
+    type: number
+    default: "3"
+  - name: verbose
+    type: boolean
+    default: "false"
+  - name: regions
+    type: object
+    default:
+      - eastus
+      - westus
+pool:
+  vmImage: ubuntu-latest
+steps:
+  - script: echo deploy dev to eastus retries=3
+  - script: echo deploy dev to westus retries=3
