@@ -142,6 +142,10 @@ func (v *irValidator) validateStages() {
 	if len(v.pipeline.Stages) == 0 && len(v.pipeline.Jobs) > 0 {
 		v.add("TRL-VAL-0011", "stages", "non-empty jobs require a stage partition")
 	}
+	stageIDs := make(map[string]struct{}, len(v.pipeline.Stages))
+	for index := range v.pipeline.Stages {
+		stageIDs[v.pipeline.Stages[index].ID] = struct{}{}
+	}
 	for index := range v.pipeline.Stages {
 		path := fmt.Sprintf("stages[%d]", index)
 		stage := &v.pipeline.Stages[index]
@@ -151,13 +155,7 @@ func (v *irValidator) validateStages() {
 		}
 		v.validateVariables(path+".variables", stage.Variables)
 		for i, dependency := range stage.DependsOn {
-			found := false
-			for previous := range v.pipeline.Stages {
-				if v.pipeline.Stages[previous].ID == dependency {
-					found = true
-				}
-			}
-			if !found {
+			if _, found := stageIDs[dependency]; !found {
 				v.add("TRL-VAL-0010", fmt.Sprintf("%s.dependsOn[%d]", path, i), "stage dependency must reference an existing stage")
 			}
 		}

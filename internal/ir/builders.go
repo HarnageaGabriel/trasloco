@@ -40,7 +40,7 @@ func NewRunStep(id, name, shell, script string) Step {
 		Name:     name,
 		Kind:     StepRun,
 		If:       SuccessCondition(PhaseRuntime),
-		Run:      &RunStep{Shell: shell, Script: script},
+		Run:      &RunStep{Shell: Shell(shell), Script: script},
 	}
 }
 

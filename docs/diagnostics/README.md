@@ -40,6 +40,9 @@
 | [TRL-CONV-0005](TRL-CONV-0005.md) | warning | Trigger/event has no target equivalent | active |
 | [TRL-CONV-0006](TRL-CONV-0006.md) | warning | Schedule time zone converted | active |
 | [TRL-CONV-0007](TRL-CONV-0007.md) | warning | Runner/image mapped to a pinned label | active |
+| [TRL-CONV-0008](TRL-CONV-0008.md) | warning | Source property has no IR field and is preserved in a provider extension | active |
+| [TRL-CONV-0009](TRL-CONV-0009.md) | info | Azure Pipelines macro or runtime expression kept as literal text | active |
+| [TRL-CONV-0010](TRL-CONV-0010.md) | error | Template construct reached normalization unresolved | active |
 | [TRL-CUTOVER-0001](TRL-CUTOVER-0001.md) | error | Cutover phase out of order | active |
 | [TRL-CUTOVER-0002](TRL-CUTOVER-0002.md) | error | Ref verification mismatch after sync | active |
 | [TRL-CUTOVER-0003](TRL-CUTOVER-0003.md) | error | Source freeze failed | active |

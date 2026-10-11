@@ -78,3 +78,21 @@ func FuzzRegisteredSecretNeverAppears(f *testing.F) {
 		}
 	})
 }
+
+func TestRedactURLUserinfoPassword(t *testing.T) {
+	r := New()
+	cases := map[string]string{
+		"postgres://postgres:ci-only-password@localhost:5432/app": "postgres://REDACTED@localhost:5432/app",
+		"see https://user:p%40ss@example.com/x and ftp://a:b@h":   "see https://REDACTED@example.com/x and ftp://REDACTED@h",
+	}
+	for input, want := range cases {
+		if got := r.Redact(input); got != want {
+			t.Fatalf("Redact(%q) = %q, want %q", input, got, want)
+		}
+	}
+	for _, keep := range []string{"https://example.com:8080/path", "git@github.com:org/repo", "https://user@example.com/x", "http://host:80/a@b"} {
+		if got := r.Redact(keep); got != keep {
+			t.Fatalf("Redact(%q) changed to %q", keep, got)
+		}
+	}
+}
