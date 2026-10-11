@@ -17,7 +17,7 @@ The `Signed-off-by` line certifies the contribution under the
 
 ## Development
 
-Install Go 1.25+, `golangci-lint`, and `govulncheck`, then run:
+Install Go 1.26+, `golangci-lint`, and `govulncheck`, then run:
 
 ```sh
 make tidy

@@ -1,6 +1,9 @@
 name: OpenSSF Scorecard
 
 on:
+  # push to main keeps the published score (and the README badge) current.
+  push:
+    branches: [main]
   schedule:
     - cron: "23 4 * * 1"
 

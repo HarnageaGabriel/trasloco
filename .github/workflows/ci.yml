@@ -7,8 +7,8 @@ on:
     paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'docs/adr/**', 'docs/assets/**']
   pull_request:
     branches: [main]
-    # Tests read docs/spec and testdata Markdown: ignore only files no check reads.
-    paths-ignore: ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'docs/adr/**', 'docs/assets/**']
+    # No paths-ignore on PRs: the required status checks must report on every
+    # PR, including docs-only ones, or branch protection blocks the merge.
   schedule:
     - cron: "17 2 * * 1" # weekly, includes macOS
   workflow_dispatch:
