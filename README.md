@@ -143,7 +143,7 @@ prevents it.
 | Foundations: CLI skeleton, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache | ✅ done | M0 |
 | Azure Pipelines YAML parser with source positions | ✅ done | M1 |
 | Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | ✅ done | M1 |
-| Azure Pipelines template resolver | ✅ done (a follow-up fix is in review) | M1 |
+| Azure Pipelines template resolver | ✅ done | M1 |
 | Azure Pipelines variable evaluator | 🔍 in review | M1 |
 | Azure Pipelines -> IR normalization | 🔍 in review | M1 |
 | Task retirement catalog (73 task versions) and in-box task catalog | ✅ done | M2 |
