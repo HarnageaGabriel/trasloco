@@ -54,8 +54,9 @@ stay free.
 
 > [!WARNING]
 > **Pre-alpha: no migration command works yet.** What exists today is the
-> foundation and most of the Azure Pipelines reader (YAML parser, expressions,
-> templates, variables); see [Status](#status). Interfaces will change. To
+> foundation and the complete Azure Pipelines reader (YAML parser, expressions,
+> templates, variables, packing into the trasloco format); see
+> [Status](#status). Interfaces will change. To
 > migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
 > Star the repository and watch releases to follow progress.
@@ -137,7 +138,7 @@ exists today.
 | Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | Done | M1 |
 | Azure Pipelines template expansion | Done | M1 |
 | Azure Pipelines variables | Done | M1 |
-| Azure Pipelines -> trasloco format | In review | M1 |
+| Azure Pipelines -> trasloco format | Done | M1 |
 | Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
 | Curated task -> action mappings | Planned | M2 |
 | GitHub Actions output, `convert`, `modernize` | Planned | M2 |
@@ -146,8 +147,7 @@ exists today.
 | GitHub -> Azure DevOps | Planned | M6 |
 | GitLab CI, Bitbucket Pipelines (both ways); Jenkins, Bamboo (as sources) | Planned | after 1.0 |
 
-"In review" means the code is in an open pull request, not yet on `main`. In
-the CLI only `version`, `completion` and help work today; every other command
+In the CLI only `version`, `completion` and help work today; every other command
 exits with a "not implemented" error.
 
 ## trasloco and GitHub Actions Importer
@@ -172,9 +172,8 @@ trasloco's planned scope is complementary:
 
 ## How it works
 
-A pipeline goes through five steps. Steps 1 and
-2 exist today for Azure Pipelines, step 3 is in review, and steps 4 and 5 are
-planned.
+A pipeline goes through five steps. Steps 1 to 3 exist today for Azure
+Pipelines; steps 4 and 5 are planned.
 
 1. **Read** the source YAML, keeping the exact position of every value.
 2. **Expand** templates and compile-time expressions.
@@ -248,8 +247,8 @@ make docs-check  # generated diagnostics docs are up to date
 | Milestone | Scope |
 |---|---|
 | M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
-| M1 (in progress) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
-| M2 | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
+| M1 (done) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
+| M2 (next) | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
 | M3 | Platform connections and `audit` |
 | M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
 | M5 | Hard cases: OIDC and workload identity federation, classic pipelines, deployment jobs, matrices |
