@@ -88,8 +88,8 @@ pipelines that still use them fail
 ([official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement)).
 trasloco ships that list as data,
 [`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
-with the recommended replacements. Two commands find the candidates in any
-checked-out repository, with nothing to install:
+with the recommended replacements. Three lines of shell find the candidates in
+any checked-out repository, with nothing to install:
 
 <p align="center">
   <img src="docs/assets/readme-retired-check.svg" width="880"

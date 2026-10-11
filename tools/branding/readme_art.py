@@ -162,7 +162,7 @@ def terminal():
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TW} {th}" width="{TW}" height="{th}" '
          f'role="img" aria-label="Terminal: download the retired task list and grep a repository; '
          f'three retired tasks are found">',
-         '<title>Find retired Azure Pipelines tasks with two commands</title>',
+         '<title>Find retired Azure Pipelines tasks from the shell</title>',
          f'<rect width="{TW}" height="{th}" rx="12" fill="#0D1117" stroke="#3D444D"/>',
          f'<rect width="{TW}" height="36" rx="12" fill="#161B22"/><rect y="24" width="{TW}" height="12" fill="#161B22"/>',
          '<circle cx="22" cy="18" r="6" fill="#FF5F57"/><circle cx="42" cy="18" r="6" fill="#FEBC2E"/>'
