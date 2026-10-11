@@ -181,13 +181,15 @@ The diagrams show the planned architecture; the [status table](#status) shows
 what is implemented today.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph sources["Source dialects"]
+    direction LR
     ado_in["Azure Pipelines"]
     gha_in["GitHub Actions"]
     more_in["GitLab CI, Bitbucket,<br/>Jenkins, Bamboo"]
   end
   subgraph compiler["Deterministic compiler"]
+    direction LR
     parse["parse"] --> resolve["resolve<br/>templates, expressions"]
     resolve --> normalize["normalize"]
     normalize --> ir[("provider-neutral IR")]
@@ -195,6 +197,7 @@ flowchart LR
     check --> emit["emit"]
   end
   subgraph targets["Target dialects"]
+    direction LR
     gha_out["GitHub Actions"]
     ado_out["Azure Pipelines"]
     more_out["GitLab CI, Bitbucket"]
