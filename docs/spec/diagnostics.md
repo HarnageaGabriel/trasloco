@@ -225,6 +225,16 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-VAR-0006 | warning | nm | B | Variable group name not statically resolvable | Provide the possible values via `variables.groupNameHints` or bind manually. |
 | TRL-VAR-0007 | error | - | E | Unresolvable semantic collision | A reference cannot be rewritten; rename one variable in the source. |
 | TRL-VAR-0008 | warning | ap | - | Queue-time or runtime-only variable cannot be migrated as a static value | Supply the value at run time (workflow input) or define it explicitly. |
+| TRL-VAR-0009 | error | - | E | Variable name is invalid | Use only letters, digits, periods, and underscores in variable names, and a literal name for a variable group. |
+| TRL-VAR-0010 | error | - | E | Queue-time variable rejected | Declare the variable in the pipeline UI and mark it settable at queue time, or remove the assignment. |
+| TRL-VAR-0011 | error | - | E | Variable group is not authorized | Authorize the pipeline to use the variable group. |
+| TRL-VAR-0012 | warning | ex | - | Logging-command variable mutation is not permitted | Add the variable to target.settableVariables or remove the logging command. |
+| TRL-VAR-0013 | warning | ex | - | Read-only variable mutation ignored | Remove the mutation or use a different variable name. |
+| TRL-VAR-0014 | error | - | E | Unexpanded template construct reached the variable evaluator | Expand template references and conditional insertions before evaluating variables. |
+| TRL-VAR-0015 | warning | ap | - | Deployment output key depends on a resource that is not statically known | Use a literal environment resource name so the Deploy_<resource> or <hook>_<resource> output key can be derived. |
+| TRL-VAR-0016 | warning | ap | - | Logging command is not provably emitted; variable recorded as unknown | Emit the setvariable command from a top-level echo line, or supply the observed value at run time. |
+| TRL-VAR-0017 | warning | ap | - | Macro expansion exceeded the output bound | Shorten the variable values or the text; the expansion was cut at the bound. |
+| TRL-VAR-0018 | warning | ap | - | Variable name contains a hyphen | Microsoft restricts variable names to letters, numbers, periods and underscores, but its own variable-group example uses hyphenated names; the name is accepted, so verify it on a live run or rename it. |
 
 ### NAME
 
@@ -374,7 +384,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 | TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 153 codes.
+Total: 163 codes.
 
 ## 8. Test vectors
 
