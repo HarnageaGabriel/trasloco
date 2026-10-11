@@ -54,8 +54,8 @@ stay free.
 
 > [!WARNING]
 > **Pre-alpha: no migration command works yet.** What exists today is the
-> foundation and the Azure Pipelines reader up to template expansion (YAML
-> parser, expressions, templates); see [Status](#status). Interfaces will change. To
+> foundation and most of the Azure Pipelines reader (YAML parser, expressions,
+> templates, variables); see [Status](#status). Interfaces will change. To
 > migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
 > Star the repository and watch releases to follow progress.
@@ -136,7 +136,7 @@ exists today.
 | Azure Pipelines YAML parser, with exact source positions | Done | M1 |
 | Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | Done | M1 |
 | Azure Pipelines template expansion | Done | M1 |
-| Azure Pipelines variables | In review | M1 |
+| Azure Pipelines variables | Done | M1 |
 | Azure Pipelines -> trasloco format | In review | M1 |
 | Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
 | Curated task -> action mappings | Planned | M2 |
