@@ -158,3 +158,13 @@
 | [TRL-VAR-0006](TRL-VAR-0006.md) | warning | Variable group name not statically resolvable | active |
 | [TRL-VAR-0007](TRL-VAR-0007.md) | error | Unresolvable semantic collision | active |
 | [TRL-VAR-0008](TRL-VAR-0008.md) | warning | Queue-time or runtime-only variable cannot be migrated as a static value | active |
+| [TRL-VAR-0009](TRL-VAR-0009.md) | error | Variable name is invalid | active |
+| [TRL-VAR-0010](TRL-VAR-0010.md) | error | Queue-time variable rejected | active |
+| [TRL-VAR-0011](TRL-VAR-0011.md) | error | Variable group is not authorized | active |
+| [TRL-VAR-0012](TRL-VAR-0012.md) | warning | Logging-command variable mutation is not permitted | active |
+| [TRL-VAR-0013](TRL-VAR-0013.md) | warning | Read-only variable mutation ignored | active |
+| [TRL-VAR-0014](TRL-VAR-0014.md) | error | Unexpanded template construct reached the variable evaluator | active |
+| [TRL-VAR-0015](TRL-VAR-0015.md) | warning | Deployment output key depends on a resource that is not statically known | active |
+| [TRL-VAR-0016](TRL-VAR-0016.md) | warning | Logging command is not provably emitted; variable recorded as unknown | active |
+| [TRL-VAR-0017](TRL-VAR-0017.md) | warning | Macro expansion exceeded the output bound | active |
+| [TRL-VAR-0018](TRL-VAR-0018.md) | warning | Variable name contains a hyphen | active |
