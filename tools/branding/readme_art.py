@@ -21,9 +21,9 @@ MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',m
 TAPE = "#F0A83A"
 
 THEMES = {
-    "light": dict(ink="#1B2433", muted="#59636E", faint="#66707A", box="#F6F8FA",
+    "light": dict(logo="trasloco-logo.svg", ink="#1B2433", muted="#59636E", faint="#66707A", box="#F6F8FA",
                   line="#D0D7DE", panel="#FFFFFF", planned="#F6F8FA"),
-    "dark": dict(ink="#E6EDF3", muted="#9198A1", faint="#8B949E", box="#161B22",
+    "dark": dict(logo="trasloco-logo-dark.svg", ink="#E6EDF3", muted="#9198A1", faint="#8B949E", box="#161B22",
                  line="#3D444D", panel="#0D1117", planned="#0D1117"),
 }
 
@@ -68,9 +68,9 @@ def route(sy, ty):
 
 def hero(t):
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-         f'role="img" aria-label="trasloco reads pipelines from any source platform into one common, '
-         f'platform-neutral model and writes them out for any target platform">',
-         f'<title>Any platform to any platform through one common model</title>',
+         f'role="img" aria-label="trasloco packs pipelines from any source platform into its own '
+         f'platform-neutral format and unpacks them for any target platform">',
+         f'<title>Any platform to any platform through the trasloco format</title>',
          f'<g font-family="{SANS}">']
     for x, label in ((SRC_X, "SOURCE"), (DST_X, "TARGET")):
         p.append(f'<text x="{x + BOX_W / 2}" y="70" text-anchor="middle" font-size="12" '
@@ -118,12 +118,14 @@ def hero(t):
              f'<animate attributeName="r" values="58;84" dur="3s" repeatCount="indefinite"/>'
              f'<animate attributeName="opacity" values="0.55;0" dur="3s" repeatCount="indefinite"/></circle>')
     p.append(f'<circle cx="{CX}" cy="{CY}" r="58" fill="{t["panel"]}" stroke="{TAPE}" stroke-width="3"/>')
-    p.append(f'<text x="{CX}" y="{CY - 4}" text-anchor="middle" font-size="17" font-weight="700" '
-             f'fill="{t["ink"]}">common</text>')
-    p.append(f'<text x="{CX}" y="{CY + 16}" text-anchor="middle" font-size="17" font-weight="700" '
-             f'fill="{t["ink"]}">model</text>')
+    # the trasloco box (logo mark without the wordmark) carries every pipeline
+    logo = open(os.path.join(OUT, t["logo"]), encoding="utf-8").read()
+    mark = logo[logo.index("<defs>"):logo.index("<text")].replace('id="ml', 'id="hero-ml').replace("url(#ml", "url(#hero-ml")
+    p.append(f'<g transform="translate({CX - 64 * 0.62:.1f},{CY - 60 * 0.62 - 6:.1f}) scale(0.62)">{mark}</g>')
+    p.append(f'<text x="{CX}" y="{CY + 40}" text-anchor="middle" font-size="10.5" fill="{t["muted"]}">'
+             f'trasloco format</text>')
     p.append(f'<text x="{CX}" y="{CY + 92}" text-anchor="middle" font-size="12.5" fill="{t["muted"]}">'
-             f'read › expand templates › translate › check › write</text>')
+             f'read › expand templates › pack › check › unpack</text>')
 
     for i, (label, sub, planned) in enumerate(sources):
         p.append(box(SRC_X, ROWS[i], label, sub, t, planned, src_anim[i]))

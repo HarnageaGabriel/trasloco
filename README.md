@@ -37,15 +37,16 @@ between Azure DevOps, GitHub and more. Predictable and reviewable by design.</h3
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme-hero-dark.svg">
     <img src="docs/assets/readme-hero-light.svg" width="880"
-      alt="Pipelines from any source platform are read into one common model and written out for any target platform">
+      alt="Pipelines from any source platform are packed into the trasloco format and unpacked for any target platform">
   </picture>
 </p>
 
 **trasloco** (Italian for "house move") moves CI/CD pipelines, and the DevOps
-resources around them, from one platform to another. It reads a pipeline,
-turns it into one common, platform-neutral description, and writes that
-description out for the target platform. Each new platform therefore works
-with all the others: **any platform to any platform**.
+resources around them, from one platform to another. Like a house move, it
+packs each pipeline into one box that belongs to no platform, the **trasloco
+format**, and unpacks it on the target platform. Think Pandoc, but for CI/CD
+pipelines: every new platform works with all the others, **any platform to any
+platform**.
 
 The first pair is **Azure DevOps <-> GitHub**, plus `modernize` to upgrade
 Azure Pipelines in place. trasloco is free software under Apache-2.0 and will
@@ -107,8 +108,8 @@ parser and template expansion and rewrite supported tasks for you.
 What trasloco is being built to do; the [status table](#status) shows what
 exists today.
 
-- **Any platform to any platform.** Every pipeline is translated into one
-  common model and written out from it, so adding a platform means teaching
+- **Any platform to any platform.** Every pipeline is packed into the
+  trasloco format and unpacked from it, so adding a platform means teaching
   trasloco one format, not writing a converter for every pair.
 - **Predictable.** The same pipeline, catalog version and configuration
   always give the same result. Anything that cannot be converted is listed
@@ -118,7 +119,7 @@ exists today.
   `rollback` lifecycle recorded in a local SQLite file, like Terraform.
 - **`modernize` in place.** Upgrade Azure Pipelines without changing platform:
   replace retired tasks, actions and runner images.
-- **Secrets stay secret.** The common model stores references to secrets,
+- **Secrets stay secret.** The trasloco format stores references to secrets,
   never their values, and every log, event and diagnostic goes through
   redaction.
 - **Built for fleets.** Rate limiting, bounded retries and credential
@@ -136,7 +137,7 @@ exists today.
 | Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | Done | M1 |
 | Azure Pipelines template expansion | Done | M1 |
 | Azure Pipelines variables | In review | M1 |
-| Azure Pipelines -> common model | In review | M1 |
+| Azure Pipelines -> trasloco format | In review | M1 |
 | Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
 | Curated task -> action mappings | Planned | M2 |
 | GitHub Actions output, `convert`, `modernize` | Planned | M2 |
@@ -171,15 +172,15 @@ trasloco's planned scope is complementary:
 
 ## How it works
 
-A pipeline goes through five steps, like code through a compiler. Steps 1 and
+A pipeline goes through five steps. Steps 1 and
 2 exist today for Azure Pipelines, step 3 is in review, and steps 4 and 5 are
 planned.
 
 1. **Read** the source YAML, keeping the exact position of every value.
 2. **Expand** templates and compile-time expressions.
-3. **Translate** the result into the common model.
-4. **Check** the model and list everything that cannot be converted.
-5. **Write** the pipeline for the target platform.
+3. **Pack** the result into the trasloco format.
+4. **Check** it and list everything that cannot be converted.
+5. **Unpack** it: write the pipeline for the target platform.
 
 Changes to the platforms themselves will follow a reviewable lifecycle, with
 every step recorded in a local ledger so an interrupted run can resume:
@@ -247,7 +248,7 @@ make docs-check  # generated diagnostics docs are up to date
 | Milestone | Scope |
 |---|---|
 | M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
-| M1 (in progress) | Read Azure Pipelines: parser, expressions, templates, variables, translation into the common model |
+| M1 (in progress) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
 | M2 | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
 | M3 | Platform connections and `audit` |
 | M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
@@ -301,15 +302,16 @@ scheduled.
 <summary><b>Why Azure DevOps and GitHub first?</b></summary>
 
 Many organizations run both side by side and move work between them, and the
-Azure Pipelines task retirement makes `modernize` urgent. The common model is
-designed so that more platforms follow.
+Azure Pipelines task retirement makes `modernize` urgent. The trasloco format
+is designed so that more platforms follow.
 </details>
 
 <details>
-<summary><b>What is the "common model"?</b></summary>
+<summary><b>What is the "trasloco format"?</b></summary>
 
-A platform-neutral description of a pipeline: stages, jobs, steps, variables,
-conditions, secrets as references. Compiler people call it an intermediate
+trasloco's own description of a pipeline, independent of any platform:
+stages, jobs, steps, variables, conditions, and secrets as references. Pandoc
+does the same for documents. In compiler terms it is an intermediate
 representation (IR); its specification is [docs/spec/ir.md](docs/spec/ir.md).
 </details>
 
@@ -317,7 +319,7 @@ representation (IR); its specification is [docs/spec/ir.md](docs/spec/ir.md).
 
 | Where | What |
 |---|---|
-| [docs/spec](docs/spec/README.md) | Specifications (common model, expressions, YAML structure, variables, naming, events, exit codes, ...) |
+| [docs/spec](docs/spec/README.md) | Specifications (trasloco format, expressions, YAML structure, variables, naming, events, exit codes, ...) |
 | [docs/adr](docs/adr/README.md) | Architecture decision records |
 | [docs/diagnostics](docs/diagnostics/README.md) | Every `TRL-*` diagnostic code |
 | [catalog](catalog) | Generated task, action and retirement catalogs |
