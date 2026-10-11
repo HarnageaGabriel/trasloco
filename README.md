@@ -5,8 +5,8 @@
   </picture>
 </p>
 
-<h3 align="center">Move CI/CD pipelines between any DevOps platforms.<br>
-Deterministic, auditable, open source.</h3>
+<h3 align="center">Building an open-source, any-to-any CI/CD migration engine.<br>
+Provider-neutral, deterministic and auditable by design.</h3>
 
 <p align="center">
   <a href="https://github.com/HarnageaGabriel/trasloco/actions/workflows/ci.yml">
@@ -34,11 +34,12 @@ Deterministic, auditable, open source.</h3>
   <a href="#get-involved">Get involved</a>
 </p>
 
-**trasloco** (Italian for "house move") is an open-source Go CLI for migrating
-CI/CD pipelines and the DevOps resources around them from one platform to
-another. Every source dialect is compiled into one provider-neutral
-intermediate representation (IR), and every target is emitted from it, so each
-new platform plugs into all the others: **any to any**.
+**trasloco** (Italian for "house move") is an open-source Go CLI being built
+to migrate CI/CD pipelines and the DevOps resources around them between
+platforms. Its architecture is built around a provider-neutral intermediate
+representation (IR): source dialects compile into the IR and target emitters
+consume it, so each new platform connects to all the others without pairwise
+converters: **any to any**.
 
 The first pair is **Azure DevOps <-> GitHub**, plus `modernize` to upgrade
 Azure Pipelines in place. GitLab CI, Bitbucket Pipelines, Jenkins and Bamboo
@@ -46,12 +47,13 @@ follow on the same IR. trasloco is free software under Apache-2.0 and will
 stay free.
 
 > [!WARNING]
-> **Pre-alpha: no migration command works yet.** Every command except
-> `version` exits with a "not implemented" error. What exists today is the
-> foundation (configuration, diagnostics, ledger, HTTP and rate-limiting
-> libraries) and most of the Azure Pipelines front end (YAML parser,
-> expression engine, template resolver). Interfaces will change. If you need
-> to migrate to GitHub today, see
+> **Pre-alpha: no migration command works yet.** Only `version` and help are
+> functional; every migration and management command exits with a
+> "not implemented" error. What exists today is the foundation
+> (configuration, diagnostics, ledger, HTTP and rate-limiting libraries) and
+> most of the Azure Pipelines front end (YAML parser, expression engine,
+> template resolver). Interfaces will change. If you need to migrate to GitHub
+> today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
 > To follow progress, star the repository and watch releases.
 
@@ -64,9 +66,10 @@ pipelines that still reference them fail
 
 trasloco already ships that list in machine-readable form,
 [`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
-generated from the announcement with the recommended replacement for each task.
-You can use it right now, without installing anything, to find affected YAML
-pipelines in a checked-out repository:
+generated from the announcement. Built-in task replacements are listed
+directly; cases that need an external replacement are marked `external`.
+You can use it right now, without installing anything, to find candidate
+references to retired tasks in the YAML files of a checked-out repository:
 
 ```sh
 # bash (Linux, macOS, Git Bash, WSL)
@@ -79,20 +82,24 @@ grep -rniwF -f retired-tasks.txt --include='*.yml' --include='*.yaml' .
 # PowerShell
 $url = 'https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml'
 $retired = (Invoke-RestMethod $url) -split "`n" |
-  Select-String '^\s*- task: (\S+)' | ForEach-Object { $_.Matches[0].Groups[1].Value }
-Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -SimpleMatch -Pattern $retired
+  Select-String '^\s*- task: (\S+)' |
+  ForEach-Object { $_.Matches[0].Groups[1].Value }
+$names = ($retired | ForEach-Object { [regex]::Escape($_) }) -join '|'
+$pattern = '(?<![A-Za-z0-9_])(?:' + $names + ')(?![A-Za-z0-9_])'
+Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -Pattern $pattern
 ```
 
-This is a plain text search: it does not see classic (UI-defined) pipelines or
-task names built from template parameters. The planned `modernize` command
-will do this properly, through the full parser and template resolver, and
-rewrite the tasks for you.
+This is a plain-text candidate search: it can report matches in comments or
+unrelated values, and it does not see classic (UI-defined) pipelines or task
+names built from template parameters. The planned `modernize` command is
+designed to analyze pipelines through the parser and template resolver and
+rewrite supported tasks for you.
 
 ## Why trasloco
 
 Moving pipelines between platforms is usually a manual rewrite: templates,
 variables, expressions and secrets are translated by hand, one repository at a
-time, and afterwards nobody can say exactly what changed. trasloco treats a
+time, which makes the result hard to audit consistently. trasloco treats a
 migration like a compiler plus an infrastructure tool. These are the design
 goals the code is being built to:
 
@@ -109,9 +116,9 @@ goals the code is being built to:
 - **Built for fleets.** The HTTP layer already implements rate limiting,
   bounded retries and credential selection, as the foundation for migrating
   organizations with many repositories.
-- **Secrets by reference.** The IR represents secrets as references, and the
-  logging, event and diagnostic layers redact registered secret values. The
-  tool moves references and tells you what must be re-created.
+- **Secrets by reference.** The IR types store secret references, not secret
+  values, and the logging, event and diagnostic layers redact registered
+  values. End-to-end secret migration is not implemented yet.
 - **No AI required, no telemetry.** Conversion is rule-based and reproducible,
   and trasloco sends nothing anywhere except to the platforms you configure.
 
@@ -123,8 +130,11 @@ goals the code is being built to:
 | GitHub Actions | 🗓️ planned (M6) | 🗓️ planned (M2) |
 | GitLab CI | 🗓️ after 1.0 | 🗓️ after 1.0 |
 | Bitbucket Pipelines | 🗓️ after 1.0 | 🗓️ after 1.0 |
-| Jenkins (declarative) | 🗓️ after 1.0 | — |
-| Bamboo | 🗓️ after 1.0 | — |
+| Jenkins (declarative) | 🗓️ after 1.0 | not planned |
+| Bamboo | 🗓️ after 1.0 | not planned |
+
+Migrating *to* Jenkins or Bamboo is not on the roadmap, but nothing in the IR
+prevents it.
 
 ## Status
 
@@ -148,12 +158,14 @@ goals the code is being built to:
 ## trasloco and GitHub Actions Importer
 
 [GitHub Actions Importer](https://docs.github.com/en/actions/tutorials/migrate-to-github-actions/automated-migrations/use-github-actions-importer)
-is GitHub's official tool for converting Azure DevOps, Bamboo, Bitbucket,
-CircleCI, GitLab, Jenkins and Travis CI pipelines to GitHub Actions. It runs
-as a GitHub CLI extension with Docker. **If you need to move to GitHub
-Actions today, use it**: trasloco cannot convert anything yet.
+is GitHub's official tool for planning and automating migrations **to GitHub
+Actions** from Azure DevOps, Bamboo, Bitbucket, CircleCI, GitLab, Jenkins and
+Travis CI, with `audit`, `forecast`, `dry-run` and `migrate` commands and
+custom transformers. It runs as a GitHub CLI extension with Docker. **If you
+need to move to GitHub Actions today, use it**: trasloco cannot convert
+anything yet.
 
-trasloco aims at what a one-way converter does not cover:
+trasloco's planned scope is complementary:
 
 - **Both directions and any pair**, including GitHub -> Azure DevOps.
 - **`modernize`**: upgrade Azure Pipelines in place, without changing platform.
@@ -220,9 +232,9 @@ Migration tools fail on the edge cases, so trasloco is tested against them:
   [`testdata/azurepipelines/corpus`](testdata/azurepipelines/corpus): 230 valid
   pipelines, 44 template fragments and 45 invalid pipelines with their expected
   diagnostics.
-- **500+ expression vectors and ~300 YAML structure vectors** written as
-  tables in the [normative specifications](docs/spec/README.md); the tests load
-  them directly from the Markdown.
+- **446 expression vectors and 296 YAML structure vectors** written as tables
+  in the [normative specifications](docs/spec/README.md); the tests load them
+  directly from the Markdown.
 - **Every semantic rule cites its source**: the Microsoft or GitHub
   documentation page, or a captured behaviour.
 - **Fuzzing** of parsers and decoders, race-detector runs and coverage floors
@@ -244,7 +256,7 @@ make build                # or: go build -o bin/trasloco ./cmd/trasloco
 ./bin/trasloco --help     # the planned command surface
 ```
 
-Only `version` and `--help` are functional today. Developer commands:
+Only `version` and help are functional today. Developer commands:
 
 ```sh
 make test        # go test -race ./...
