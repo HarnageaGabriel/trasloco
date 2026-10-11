@@ -1,0 +1,3957 @@
+[
+  {
+    "id": "VARV-001",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"a\":\"pipeline yaml\"},\"stages\":[{\"stage\":\"one\",\"variables\":[{\"name\":\"a\",\"value\":\"stage yaml\"}],\"jobs\":[{\"job\":\"A\",\"variables\":[{\"name\":\"a\",\"value\":\"job yaml\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}`",
+    "consumer": "`one/A/step0 $(a)`",
+    "expected": "`\"job yaml\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"This will be 'job yaml'\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "one",
+          "job": "A",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "job yaml"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"pipeline yaml\"},\"stages\":[{\"stage\":\"one\",\"variables\":[{\"name\":\"a\",\"value\":\"stage yaml\"}],\"jobs\":[{\"job\":\"A\",\"variables\":[{\"name\":\"a\",\"value\":\"job yaml\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-002",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"a\":\"root\"},\"stages\":[{\"stage\":\"S\",\"variables\":{\"a\":\"stage\"},\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}`",
+    "consumer": "`S/J/step0 $(a)`",
+    "expected": "`\"stage\"`",
+    "confidence": "docs",
+    "source": "vars#variable-scopes \"Variables at the stage level override variables at the root level\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "S",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "stage"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"root\"},\"stages\":[{\"stage\":\"S\",\"variables\":{\"a\":\"stage\"},\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-003",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"a\":\"root\"},\"stages\":[{\"stage\":\"S1\",\"variables\":{\"a\":\"stage1\"},\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]},{\"stage\":\"S2\",\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}`",
+    "consumer": "`S2/J/step0 $(a)`",
+    "expected": "`\"root\"`",
+    "confidence": "docs",
+    "source": "vars#variable-scopes \"At the stage level, to make it available only to a specific stage\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "S2",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "root"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"root\"},\"stages\":[{\"stage\":\"S1\",\"variables\":{\"a\":\"stage1\"},\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]},{\"stage\":\"S2\",\"jobs\":[{\"job\":\"J\",\"steps\":[{\"bash\":\"echo $(a)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-004",
+    "phase": "macro",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"job1\",\"variables\":{\"job_variable1\":\"value1\"},\"steps\":[{\"bash\":\"echo hi\"}]},{\"job\":\"job2\",\"steps\":[{\"bash\":\"echo $(job_variable1)\"}]}]}`",
+    "consumer": "`job2/step0 $(job_variable1)`",
+    "expected": "`literal` (job-scoped variable not visible in job2)",
+    "confidence": "docs",
+    "source": "vars#variable-scopes \"this is only available in job1\"; vars#macro-syntax-variables",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "job2",
+          "step": 0
+        },
+        "text": "$(job_variable1)",
+        "want": "$(job_variable1)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"job1\",\"variables\":{\"job_variable1\":\"value1\"},\"steps\":[{\"bash\":\"echo hi\"}]},{\"job\":\"job2\",\"steps\":[{\"bash\":\"echo $(job_variable1)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-005",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"a\":\"yaml\"},\"steps\":[{\"bash\":\"echo $(a)\"}]}` ctx:`{\"ui\":{\"a\":{\"value\":\"ui\"}}}`",
+    "consumer": "`step0 $(a)`",
+    "expected": "`\"yaml\"`",
+    "confidence": "docs",
+    "source": "vars#define-variables \"root level overrides a variable set in the Pipeline settings UI\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "yaml"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"yaml\"},\"steps\":[{\"bash\":\"echo $(a)\"}]}",
+      "ctx": {
+        "ui": {
+          "a": {
+            "value": "ui"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-006",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(a)\"}]}` ctx:`{\"ui\":{\"a\":{\"value\":\"ui\"}}}`",
+    "consumer": "`step0 $(a)`",
+    "expected": "`\"ui\"`",
+    "confidence": "docs",
+    "source": "vars#set-variables-in-pipeline \"define variables in the pipeline settings UI ... reference them in your YAML\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "ui"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(a)\"}]}",
+      "ctx": {
+        "ui": {
+          "a": {
+            "value": "ui"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-007",
+    "phase": "macro",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"job\"},\"steps\":[{\"bash\":\"echo $(a)\"}]}]}` ctx:`{\"ui\":{\"a\":{\"value\":\"ui\"}}}`",
+    "consumer": "`J/step0 $(a)`",
+    "expected": "`\"job\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables (precedence list: job YAML first, Pipeline settings UI last)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"job\"},\"steps\":[{\"bash\":\"echo $(a)\"}]}]}",
+      "ctx": {
+        "ui": {
+          "a": {
+            "value": "ui"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-008",
+    "phase": "macro",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"one\",\"variables\":[{\"name\":\"a\",\"value\":\"alpha\"},{\"name\":\"a\",\"value\":\"beta\"}],\"jobs\":[{\"job\":\"I\",\"steps\":[{\"script\":\"echo $(a)\"}]}]}]}`",
+    "consumer": "`one/I/step0 $(a)`",
+    "expected": "`\"beta\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"the last set value takes precedence\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "one",
+          "job": "I",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "beta"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"one\",\"variables\":[{\"name\":\"a\",\"value\":\"alpha\"},{\"name\":\"a\",\"value\":\"beta\"}],\"jobs\":[{\"job\":\"I\",\"steps\":[{\"script\":\"echo $(a)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-009",
+    "phase": "macro",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"one\",\"jobs\":[{\"job\":\"I\",\"variables\":[{\"name\":\"b\",\"value\":\"uno\"},{\"name\":\"b\",\"value\":\"dos\"}],\"steps\":[{\"script\":\"echo $(b)\"}]}]}]}`",
+    "consumer": "`one/I/step0 $(b)`",
+    "expected": "`\"dos\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"#outputs dos\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "one",
+          "job": "I",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "dos"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"one\",\"jobs\":[{\"job\":\"I\",\"variables\":[{\"name\":\"b\",\"value\":\"uno\"},{\"name\":\"b\",\"value\":\"dos\"}],\"steps\":[{\"script\":\"echo $(b)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-010",
+    "phase": "compile",
+    "input": "yaml-text:`variables:\\n  a: one\\n  a: two\\nsteps:\\n- bash: echo $(a)`",
+    "consumer": "`run`",
+    "expected": "`reject:schema` (duplicate mapping key). VERIFY: ADO may instead accept and keep the last key (`\"two\"`).",
+    "confidence": "uncertain",
+    "source": "ys-vars#remarks (mapping form; duplicate keys not addressed)",
+    "checks": [
+      {
+        "kind": "finding",
+        "scope": {
+          "level": "",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "code": "TRL-PARSE-0003"
+      }
+    ],
+    "fixture": {
+      "yaml": "variables:\n  a: one\n  a: two\nsteps:\n- bash: echo $(a)",
+      "yamlText": true
+    }
+  },
+  {
+    "id": "VARV-011",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"group\":\"G\"},\"steps\":[{\"bash\":\"echo $(group)\"}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`step0 $(group)`",
+    "expected": "`\"G\"` (mapping key `group` is a plain variable; group G is not imported)",
+    "confidence": "docs",
+    "source": "ys-vars#remarks \"In mapping syntax, all keys are variable names\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(group)",
+        "want": "G"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"group\":\"G\"},\"steps\":[{\"bash\":\"echo $(group)\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-012",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"},{\"name\":\"x\",\"value\":\"direct\"}],\"steps\":[{\"bash\":\"echo $(g1) $(x)\"}]}` ctx:`{\"groups\":{\"G\":{\"g1\":{\"value\":\"one\"}}}}`",
+    "consumer": "`step0 $(g1) $(x)`",
+    "expected": "`\"one direct\"`",
+    "confidence": "docs",
+    "source": "ys-vars#remarks \"you can combine name, group, and template when using list syntax\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(g1) $(x)",
+        "want": "one direct"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"},{\"name\":\"x\",\"value\":\"direct\"}],\"steps\":[{\"bash\":\"echo $(g1) $(x)\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "g1": {
+              "value": "one"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-013",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"name\":\"a\",\"value\":\"1\"},{\"template\":\"v.yml\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}` ctx:`{\"files\":{\"v.yml\":{\"variables\":[{\"name\":\"a\",\"value\":\"2\"}]}}}`",
+    "consumer": "`step0 $(a)`",
+    "expected": "`\"2\"` (template members take the template's list position; later wins)",
+    "confidence": "inferred",
+    "source": "tmpl#variable-reuse + vars#expansion-of-variables",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "2"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"a\",\"value\":\"1\"},{\"template\":\"v.yml\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}",
+      "ctx": {
+        "files": {
+          "v.yml": {
+            "variables": [
+              {
+                "name": "a",
+                "value": "2"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-014",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"template\":\"v.yml\"},{\"name\":\"a\",\"value\":\"1\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}` ctx:`{\"files\":{\"v.yml\":{\"variables\":[{\"name\":\"a\",\"value\":\"2\"}]}}}`",
+    "consumer": "`step0 $(a)`",
+    "expected": "`\"1\"`",
+    "confidence": "inferred",
+    "source": "tmpl#variable-reuse + vars#expansion-of-variables",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "1"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"template\":\"v.yml\"},{\"name\":\"a\",\"value\":\"1\"}],\"steps\":[{\"bash\":\"echo $(a)\"}]}",
+      "ctx": {
+        "files": {
+          "v.yml": {
+            "variables": [
+              {
+                "name": "a",
+                "value": "2"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-015",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"A\":\"1\"},\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"2\"},\"steps\":[{\"bash\":\"echo $(A)\"}]}]}`",
+    "consumer": "`J/step0 $(A)`",
+    "expected": "`\"2\"` (names compare case-insensitively, so job `a` shadows root `A`)",
+    "confidence": "inferred",
+    "source": "predef#systemdebug (`system.debug` sets `System.Debug`); vars#configure-settable-variables-for-steps (`Sauce` allowed by `sauce`)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(A)",
+        "want": "2"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"A\":\"1\"},\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"2\"},\"steps\":[{\"bash\":\"echo $(A)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-016",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"my-variable-group\"}],\"steps\":[{\"script\":\"echo $(myhello)\"}]}` ctx:`{\"groups\":{\"my-variable-group\":{\"myhello\":{\"value\":\"hello\"}}}}`",
+    "consumer": "`step0 $(myhello)`",
+    "expected": "`\"hello\"`",
+    "confidence": "docs",
+    "source": "vg#use-variables-in-a-linked-variable-group",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(myhello)",
+        "want": "hello"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"my-variable-group\"}],\"steps\":[{\"script\":\"echo $(myhello)\"}]}",
+      "ctx": {
+        "groups": {
+          "my-variable-group": {
+            "myhello": {
+              "value": "hello"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-017",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G1\"},{\"group\":\"G2\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"groups\":{\"G1\":{\"x\":{\"value\":\"one\"}},\"G2\":{\"x\":{\"value\":\"two\"}}}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"two\"`. VERIFY: same page also says such collisions \"may be unpredictable\".",
+    "confidence": "uncertain",
+    "source": "vg#link-a-variable-group-to-a-pipeline \"the last variable group that uses the variable\"; vg (variable-collision note)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "two"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G1\"},{\"group\":\"G2\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "groups": {
+          "G1": {
+            "x": {
+              "value": "one"
+            }
+          },
+          "G2": {
+            "x": {
+              "value": "two"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-018",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"},{\"name\":\"x\",\"value\":\"direct\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"direct\"`",
+    "confidence": "inferred",
+    "source": "vars#expansion-of-variables (same scope, last wins); vg Classic list \"Variable set in the pipeline\" above group",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "direct"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"},{\"name\":\"x\",\"value\":\"direct\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-019",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"name\":\"x\",\"value\":\"direct\"},{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"g\"` by same-scope last-wins. VERIFY: Classic rule ranks pipeline variables above group variables; YAML order effect undocumented.",
+    "confidence": "uncertain",
+    "source": "vars#expansion-of-variables; vg#use-variable-groups-in-pipelines (Classic precedence list)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "g"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"x\",\"value\":\"direct\"},{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-020",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"jobs\":[{\"job\":\"J\",\"variables\":{\"x\":\"job\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`J/step0 $(x)`",
+    "expected": "`\"job\"`",
+    "confidence": "docs",
+    "source": "vars#define-variables \"the most locally scoped variable takes precedence\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"jobs\":[{\"job\":\"J\",\"variables\":{\"x\":\"job\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-021",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"x\":\"root\"},\"jobs\":[{\"job\":\"J\",\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`J/step0 $(x)`",
+    "expected": "`\"g\"` (job-scope group shadows root direct)",
+    "confidence": "inferred",
+    "source": "vars#define-variables (local scope wins) + vg#link-a-variable-group-to-a-pipeline",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "g"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"x\":\"root\"},\"jobs\":[{\"job\":\"J\",\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-022",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"ui\":{\"x\":{\"value\":\"ui\"}},\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"g\"` (YAML root import above UI). VERIFY: UI-vs-group precedence is not stated for YAML.",
+    "confidence": "uncertain",
+    "source": "vars#define-variables (root over UI); vg Classic list (pipeline over group)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "g"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "ui": {
+          "x": {
+            "value": "ui"
+          }
+        },
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-023",
+    "phase": "macro",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"MyStage\",\"variables\":[{\"template\":\"variables.yml\"}],\"jobs\":[{\"job\":\"Test\",\"steps\":[{\"script\":\"echo $(myhello)\"}]}]}]}` ctx:`{\"files\":{\"variables.yml\":{\"variables\":[{\"group\":\"my-variable-group\"}]}},\"groups\":{\"my-variable-group\":{\"myhello\":{\"value\":\"hello\"}}}}`",
+    "consumer": "`MyStage/Test/step0 $(myhello)`",
+    "expected": "`\"hello\"`",
+    "confidence": "docs",
+    "source": "vg#link-a-variable-group-to-a-pipeline \"You can also reference a variable group in a template\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "MyStage",
+          "job": "Test",
+          "step": 0
+        },
+        "text": "$(myhello)",
+        "want": "hello"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"MyStage\",\"variables\":[{\"template\":\"variables.yml\"}],\"jobs\":[{\"job\":\"Test\",\"steps\":[{\"script\":\"echo $(myhello)\"}]}]}]}",
+      "ctx": {
+        "files": {
+          "variables.yml": {
+            "variables": [
+              {
+                "group": "my-variable-group"
+              }
+            ]
+          }
+        },
+        "groups": {
+          "my-variable-group": {
+            "myhello": {
+              "value": "hello"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-024",
+    "phase": "queue",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"},\"authorized\":false}}}`",
+    "consumer": "`run`",
+    "expected": "`reject:auth` (resource authorization error)",
+    "confidence": "docs",
+    "source": "vg#use-variable-groups-in-pipelines \"You see a resource authorization error\"",
+    "checks": [
+      {
+        "kind": "reject",
+        "code": "TRL-VAR-0011"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            },
+            "authorized": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-025",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":[{\"group\":\"my-variable-group\"},{\"name\":\"my-passed-variable\",\"value\":\"$[variables.myhello]\"}],\"steps\":[{\"script\":\"echo $(my-passed-variable)\"}]}` ctx:`{\"groups\":{\"my-variable-group\":{\"myhello\":{\"value\":\"hello\"}}}}`",
+    "consumer": "`$[variables.myhello]`",
+    "expected": "`\"hello\"`",
+    "confidence": "docs",
+    "source": "vg#use-variables-in-a-linked-variable-group \"To use a runtime expression\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(my-passed-variable)",
+        "want": "hello"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"my-variable-group\"},{\"name\":\"my-passed-variable\",\"value\":\"$[variables.myhello]\"}],\"steps\":[{\"script\":\"echo $(my-passed-variable)\"}]}",
+      "ctx": {
+        "groups": {
+          "my-variable-group": {
+            "myhello": {
+              "value": "hello"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-026",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo [${{ variables.x }}]\"}]}` ctx:`{\"groups\":{\"G\":{\"x\":{\"value\":\"g\"}}}}`",
+    "consumer": "`${{ variables.x }}`",
+    "expected": "`empty` (group values not in the compile-time context). VERIFY: docs say only \"statically defined variables\" are visible.",
+    "confidence": "inferred",
+    "source": "expr#expressions \"access to parameters and statically defined variables\"; texpr#context",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "x",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"bash\":\"echo [${{ variables.x }}]\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "x": {
+              "value": "g"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-027",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:USER\"}]}` ctx:`{\"groups\":{\"G\":{\"user\":{\"value\":\"u1\"}}}}`",
+    "consumer": "`step0 env USER`",
+    "expected": "`\"u1\"`",
+    "confidence": "docs",
+    "source": "vars#reference-secret-variables-in-variable-groups \"$env:USER is a normal variable in the variable group\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "USER",
+        "want": "u1"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:USER\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "user": {
+              "value": "u1"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-028",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:TOKEN\"}]}` ctx:`{\"groups\":{\"G\":{\"token\":{\"value\":\"t\",\"secret\":true}}}}`",
+    "consumer": "`step0 env TOKEN`",
+    "expected": "`env-absent`",
+    "confidence": "docs",
+    "source": "vg#use-variables-in-a-linked-variable-group \"You can't access secret variables ... directly in scripts\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "TOKEN"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:TOKEN\"}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "token": {
+              "value": "t",
+              "secret": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-029",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:MY_MAPPED_TOKEN\",\"env\":{\"MY_MAPPED_TOKEN\":\"$(token)\"}}]}` ctx:`{\"groups\":{\"G\":{\"token\":{\"value\":\"t\",\"secret\":true}}}}`",
+    "consumer": "`step0 env MY_MAPPED_TOKEN`",
+    "expected": "`masked` (value `t`)",
+    "confidence": "docs",
+    "source": "vars#reference-secret-variables-in-variable-groups \"Maps the secret variable $(token)\"",
+    "checks": [
+      {
+        "kind": "envMasked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "MY_MAPPED_TOKEN"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"group\":\"G\"}],\"steps\":[{\"pwsh\":\"echo $env:MY_MAPPED_TOKEN\",\"env\":{\"MY_MAPPED_TOKEN\":\"$(token)\"}}]}",
+      "ctx": {
+        "groups": {
+          "G": {
+            "token": {
+              "value": "t",
+              "secret": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-030",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"template\":\"insert-vars.yml\"}],\"steps\":[{\"script\":\"echo My favorite vegetable is ${{ variables.favoriteVeggie }}.\"}]}` ctx:`{\"files\":{\"insert-vars.yml\":{\"variables\":{\"favoriteVeggie\":\"brussels sprouts\"}}}}`",
+    "consumer": "`${{ variables.favoriteVeggie }}`",
+    "expected": "`\"brussels sprouts\"`",
+    "confidence": "docs",
+    "source": "tmpl#variable-reuse",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "favoriteVeggie",
+        "phase": "compile",
+        "want": "brussels sprouts"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"template\":\"insert-vars.yml\"}],\"steps\":[{\"script\":\"echo My favorite vegetable is ${{ variables.favoriteVeggie }}.\"}]}",
+      "ctx": {
+        "files": {
+          "insert-vars.yml": {
+            "variables": {
+              "favoriteVeggie": "brussels sprouts"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-031",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"template\":\"t.yml\",\"parameters\":{\"DIRECTORY\":\"azure/checker\"}}],\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo $(RELEASE_COMMAND)\"}]}]}` ctx:`{\"files\":{\"t.yml\":{\"parameters\":[{\"name\":\"DIRECTORY\",\"type\":\"string\",\"default\":\".\"}],\"variables\":[{\"name\":\"RELEASE_COMMAND\",\"value\":\"grep version ${{ parameters.DIRECTORY }}/package.json\"}]}}}`",
+    "consumer": "`A/step0 $(RELEASE_COMMAND)`",
+    "expected": "`\"grep version azure/checker/package.json\"`",
+    "confidence": "docs",
+    "source": "tmpl#variable-templates-with-parameters",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 0
+        },
+        "text": "$(RELEASE_COMMAND)",
+        "want": "grep version azure/checker/package.json"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"template\":\"t.yml\",\"parameters\":{\"DIRECTORY\":\"azure/checker\"}}],\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo $(RELEASE_COMMAND)\"}]}]}",
+      "ctx": {
+        "files": {
+          "t.yml": {
+            "parameters": [
+              {
+                "name": "DIRECTORY",
+                "type": "string",
+                "default": "."
+              }
+            ],
+            "variables": [
+              {
+                "name": "RELEASE_COMMAND",
+                "value": "grep version ${{ parameters.DIRECTORY }}/package.json"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-032",
+    "phase": "macro",
+    "input": "as VARV-031 plus stage `{\"stage\":\"S\",\"variables\":[{\"template\":\"t.yml\",\"parameters\":{\"DIRECTORY\":\"azure/todo-list\"}}],\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo $(RELEASE_COMMAND)\"}]}]}`",
+    "consumer": "`S/A/step0 $(RELEASE_COMMAND)`",
+    "expected": "`\"grep version azure/todo-list/package.json\"`",
+    "confidence": "inferred",
+    "source": "tmpl#variable-templates-with-parameters (example, output not stated) + vars#variable-scopes",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "S",
+          "job": "A",
+          "step": 0
+        },
+        "text": "$(RELEASE_COMMAND)",
+        "want": "grep version azure/todo-list/package.json"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"S\",\"variables\":[{\"template\":\"t.yml\",\"parameters\":{\"DIRECTORY\":\"azure/todo-list\"}}],\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo $(RELEASE_COMMAND)\"}]}]}]}",
+      "ctx": {
+        "files": {
+          "t.yml": {
+            "parameters": [
+              {
+                "name": "DIRECTORY",
+                "type": "string",
+                "default": "."
+              }
+            ],
+            "variables": [
+              {
+                "name": "RELEASE_COMMAND",
+                "value": "grep version ${{ parameters.DIRECTORY }}/package.json"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-033",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"template\":\"v.yml\"}],\"steps\":[{\"bash\":\"echo hi\"}]}` ctx:`{\"files\":{\"v.yml\":{\"variables\":{\"a\":\"1\"},\"steps\":[{\"bash\":\"echo injected\"}]}}}`",
+    "consumer": "`run`",
+    "expected": "`reject:template-content`",
+    "confidence": "docs",
+    "source": "tmpl#variable-reuse \"the included template can only be used to define variables\"",
+    "notApplicable": "template-content validation (a step inside a variables template) is performed by the template resolver, not the variable evaluator"
+  },
+  {
+    "id": "VARV-034",
+    "phase": "compile",
+    "input": "yaml:`{\"jobs\":[{\"template\":\"jobs/build.yml\",\"parameters\":{\"additionalVariables\":{\"TEST_SUITE\":\"L0,L1\"}}}]}` ctx:`{\"files\":{\"jobs/build.yml\":{\"parameters\":[{\"name\":\"additionalVariables\",\"type\":\"object\",\"default\":{}}],\"jobs\":[{\"job\":\"build\",\"variables\":{\"configuration\":\"debug\",\"arch\":\"x86\",\"${{ insert }}\":\"${{ parameters.additionalVariables }}\"},\"steps\":[{\"bash\":\"echo $(TEST_SUITE)\"}]}]}}}`",
+    "consumer": "`build/step0 $(TEST_SUITE)`",
+    "expected": "`\"L0,L1\"`",
+    "confidence": "docs",
+    "source": "texpr#insertion",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "build",
+          "step": 0
+        },
+        "text": "$(TEST_SUITE)",
+        "want": "L0,L1"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"template\":\"jobs/build.yml\",\"parameters\":{\"additionalVariables\":{\"TEST_SUITE\":\"L0,L1\"}}}]}",
+      "ctx": {
+        "files": {
+          "jobs/build.yml": {
+            "parameters": [
+              {
+                "name": "additionalVariables",
+                "type": "object",
+                "default": {}
+              }
+            ],
+            "jobs": [
+              {
+                "job": "build",
+                "variables": {
+                  "configuration": "debug",
+                  "arch": "x86",
+                  "${{ insert }}": "${{ parameters.additionalVariables }}"
+                },
+                "steps": [
+                  {
+                    "bash": "echo $(TEST_SUITE)"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-035",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"name\":\"myVar\",\"value\":\"baz\"},{\"name\":\"conditionalVar\",\"${{ if eq(variables['myVar'], 'foo') }}\":{\"value\":\"bar\"},\"${{ elseif eq(variables['myVar'], 'baz') }}\":{\"value\":\"qux\"},\"${{ else }}\":{\"value\":\"default\"}}],\"steps\":[{\"script\":\"echo $(conditionalVar)\"}]}`",
+    "consumer": "`step0 $(conditionalVar)`",
+    "expected": "`\"qux\"`",
+    "confidence": "docs",
+    "source": "texpr#conditional-insertion",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(conditionalVar)",
+        "want": "qux"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"myVar\",\"value\":\"baz\"},{\"name\":\"conditionalVar\",\"${{ if eq(variables['myVar'], 'foo') }}\":{\"value\":\"bar\"},\"${{ elseif eq(variables['myVar'], 'baz') }}\":{\"value\":\"qux\"},\"${{ else }}\":{\"value\":\"default\"}}],\"steps\":[{\"script\":\"echo $(conditionalVar)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-036",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"${{ if eq(variables['Build.SourceBranchName'], 'main') }}\":{\"stageName\":\"prod\"}},\"steps\":[{\"script\":\"echo ${{variables.stageName}}\"}]}` ctx:`{\"run\":{\"Build.SourceBranchName\":\"main\"}}`",
+    "consumer": "`${{variables.stageName}}`",
+    "expected": "`\"prod\"`",
+    "confidence": "docs",
+    "source": "expr#conditionally-assign-a-variable",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "stageName",
+        "phase": "compile",
+        "want": "prod"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"${{ if eq(variables['Build.SourceBranchName'], 'main') }}\":{\"stageName\":\"prod\"}},\"steps\":[{\"script\":\"echo ${{variables.stageName}}\"}]}",
+      "ctx": {
+        "run": {
+          "Build.SourceBranchName": "main"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-037",
+    "phase": "compile",
+    "input": "as VARV-036, ctx:`{\"run\":{\"Build.SourceBranchName\":\"feature\"}}`",
+    "consumer": "`${{variables.stageName}}`",
+    "expected": "`empty`",
+    "confidence": "docs",
+    "source": "vars#template-expression-syntax \"silently coalesce to empty strings\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "stageName",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"${{ if eq(variables['Build.SourceBranchName'], 'main') }}\":{\"stageName\":\"prod\"}},\"steps\":[{\"script\":\"echo ${{variables.stageName}}\"}]}",
+      "ctx": {
+        "run": {
+          "Build.SourceBranchName": "feature"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-038",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"name\":\"k\",\"value\":\"MYKEY\"},{\"name\":\"v\",\"value\":\"val\"}],\"jobs\":[{\"job\":\"J\",\"variables\":{\"${{ variables.k }}\":\"${{ variables.v }}\"},\"steps\":[{\"bash\":\"echo $(MYKEY)\"}]}]}`",
+    "consumer": "`J/step0 $(MYKEY)`",
+    "expected": "`\"val\"` (template expressions allowed in key position)",
+    "confidence": "docs",
+    "source": "vars#template-expression-syntax \"can appear as either keys (left side) or values\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(MYKEY)",
+        "want": "val"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"k\",\"value\":\"MYKEY\"},{\"name\":\"v\",\"value\":\"val\"}],\"jobs\":[{\"job\":\"J\",\"variables\":{\"${{ variables.k }}\":\"${{ variables.v }}\"},\"steps\":[{\"bash\":\"echo $(MYKEY)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-039",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"staticVar\":\"my value\",\"compileVar\":\"${{ variables.staticVar }}\"},\"steps\":[{\"script\":\"echo $(compileVar)\"}]}`",
+    "consumer": "`step0 $(compileVar)`",
+    "expected": "`\"my value\"`",
+    "confidence": "docs",
+    "source": "expr#expressions \"outputs my value\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(compileVar)",
+        "want": "my value"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"staticVar\":\"my value\",\"compileVar\":\"${{ variables.staticVar }}\"},\"steps\":[{\"script\":\"echo $(compileVar)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-040",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"a\":\"${{ variables.b }}\",\"b\":\"x\"},\"steps\":[{\"bash\":\"echo [$(a)]\"}]}`",
+    "consumer": "`step0 $(a)`",
+    "expected": "`empty` (b not yet defined at a's position). VERIFY: forward reference within one block undocumented.",
+    "confidence": "uncertain",
+    "source": "expr#variables \"place the variables in the order they should be processed\" (stated for UI/runtime case)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": ""
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"${{ variables.b }}\",\"b\":\"x\"},\"steps\":[{\"bash\":\"echo [$(a)]\"}]}"
+    }
+  },
+  {
+    "id": "VARV-041",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"a\":\"root\"},\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"job\"},\"steps\":[{\"bash\":\"echo ${{ variables.a }}\"}]}]}`",
+    "consumer": "`${{ variables.a }}` in J",
+    "expected": "`\"job\"`. VERIFY: whether the compile-time `variables` context is scope-sensitive is undocumented.",
+    "confidence": "uncertain",
+    "source": "texpr#context \"all the variables specified in the YAML file\"",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "name": "a",
+        "phase": "compile",
+        "want": "job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"root\"},\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"job\"},\"steps\":[{\"bash\":\"echo ${{ variables.a }}\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-042",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":[{\"name\":\"one\",\"value\":\"initialValue\"}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=one]secondValue'\"},{\"script\":\"echo ${{ variables.one }}\"}]}`",
+    "consumer": "`step1 ${{ variables.one }}`",
+    "expected": "`\"initialValue\"`",
+    "confidence": "docs",
+    "source": "vars#understand-variable-syntax \"# outputs initialValue\"",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "name": "one",
+        "phase": "compile",
+        "want": "initialValue"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"one\",\"value\":\"initialValue\"}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=one]secondValue'\"},{\"script\":\"echo ${{ variables.one }}\"}]}"
+    }
+  },
+  {
+    "id": "VARV-043",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo [${{ variables.u }}]\"}]}` ctx:`{\"ui\":{\"u\":{\"value\":\"ui\"}}}`",
+    "consumer": "`${{ variables.u }}`",
+    "expected": "`empty`",
+    "confidence": "docs",
+    "source": "texpr#context \"doesn't have runtime variables such as those stored on the pipeline\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "u",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo [${{ variables.u }}]\"}]}",
+      "ctx": {
+        "ui": {
+          "u": {
+            "value": "ui"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-044",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo [${{ variables.q }}]\"}]}` ctx:`{\"ui\":{\"q\":{\"value\":\"d\",\"settable\":true}},\"queue\":{\"q\":\"queued\"}}`",
+    "consumer": "`${{ variables.q }}`",
+    "expected": "`empty`",
+    "confidence": "docs",
+    "source": "texpr#context \"or given when you start a run\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "q",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo [${{ variables.q }}]\"}]}",
+      "ctx": {
+        "ui": {
+          "q": {
+            "value": "d",
+            "settable": true
+          }
+        },
+        "queue": {
+          "q": "queued"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-045",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo [${{ variables.s }}]\"}]}` ctx:`{\"ui\":{\"s\":{\"value\":\"p\",\"secret\":true}}}`",
+    "consumer": "`${{ variables.s }}`",
+    "expected": "`empty` (UI secret never enters compile-time context)",
+    "confidence": "docs",
+    "source": "texpr#context; vars#what-syntax-should-i-use \"don't leverage template syntax for sensitive values\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "s",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo [${{ variables.s }}]\"}]}",
+      "ctx": {
+        "ui": {
+          "s": {
+            "value": "p",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-046",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}\":[{\"script\":\"echo main\"}]}]}` ctx:`{\"run\":{\"Build.SourceBranch\":\"refs/heads/main\"}}`",
+    "consumer": "`${{ variables['Build.SourceBranch'] }}`",
+    "expected": "`\"refs/heads/main\"` (step inserted)",
+    "confidence": "docs",
+    "source": "tmpl#how-can-i-use-variables-inside-of-templates",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "Build.SourceBranch",
+        "phase": "compile",
+        "want": "refs/heads/main"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}\":[{\"script\":\"echo main\"}]}]}",
+      "ctx": {
+        "run": {
+          "Build.SourceBranch": "refs/heads/main"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-047",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo [${{ variables['Build.BuildId'] }}]\"}]}` ctx:`{\"run\":{\"Build.BuildId\":\"42\"}}`",
+    "consumer": "`${{ variables['Build.BuildId'] }}`",
+    "expected": "`empty` (Available in templates: No)",
+    "confidence": "docs",
+    "source": "predef#build-variables-devops-services \"the variable doesn't render\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "Build.BuildId",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo [${{ variables['Build.BuildId'] }}]\"}]}",
+      "ctx": {
+        "run": {
+          "Build.BuildId": "42"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-048",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"a\":\"x\",\"b\":\"$[ variables.a ]\"},\"steps\":[{\"bash\":\"echo ${{ variables.b }}\"}]}`",
+    "consumer": "`${{ variables.b }}`",
+    "expected": "`\"$[ variables.a ]\"` (unevaluated text). VERIFY.",
+    "confidence": "uncertain",
+    "source": "expr#expressions (a: compile, b: runtime; interaction unstated)",
+    "checks": [
+      {
+        "kind": "value",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "b",
+        "phase": "compile",
+        "want": "$[ variables.a ]"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"x\",\"b\":\"$[ variables.a ]\"},\"steps\":[{\"bash\":\"echo ${{ variables.b }}\"}]}"
+    }
+  },
+  {
+    "id": "VARV-049",
+    "phase": "compile",
+    "input": "yaml:`{\"jobs\":[{\"deployment\":\"D\",\"environment\":\"smarthotel-dev\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo [${{ variables['Environment.Name'] }}]\"}]}}}}]}`",
+    "consumer": "`${{ variables['Environment.Name'] }}`",
+    "expected": "`empty` (deployment variables resolve at job execution)",
+    "confidence": "inferred",
+    "source": "predef#deployment-job-variables \"resolved only at job execution time\"",
+    "checks": [
+      {
+        "kind": "absent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "D",
+          "step": 0
+        },
+        "name": "Environment.Name",
+        "phase": "compile"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"deployment\":\"D\",\"environment\":\"smarthotel-dev\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo [${{ variables['Environment.Name'] }}]\"}]}}}}]}"
+    }
+  },
+  {
+    "id": "VARV-050",
+    "phase": "compile",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"image\",\"type\":\"string\",\"default\":\"ubuntu-latest\",\"values\":[\"windows-latest\",\"ubuntu-latest\",\"macOS-latest\"]}],\"jobs\":[{\"job\":\"build\",\"pool\":{\"vmImage\":\"${{ parameters.image }}\"},\"steps\":[{\"script\":\"echo ${{ parameters.image }}\"}]}]}`",
+    "consumer": "`${{ parameters.image }}`",
+    "expected": "`\"ubuntu-latest\"`",
+    "confidence": "docs",
+    "source": "rtp#use-parameters-in-pipelines \"the default option ubuntu-latest is used\"",
+    "notApplicable": "parameter default resolution belongs to the template resolver; the variable evaluator has no parameters context"
+  },
+  {
+    "id": "VARV-051",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"task\":\"MSBuild@1\",\"inputs\":{\"configuration\":\"$(nosuch)\"}}]}`",
+    "consumer": "`step0 input configuration`",
+    "expected": "`literal` (`$(nosuch)`)",
+    "confidence": "docs",
+    "source": "vars#macro-syntax-variables \"if $(var) can't be replaced, it remains as $(var)\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(nosuch)",
+        "want": "$(nosuch)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"task\":\"MSBuild@1\",\"inputs\":{\"configuration\":\"$(nosuch)\"}}]}"
+    }
+  },
+  {
+    "id": "VARV-052",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"e\":\"\"},\"steps\":[{\"task\":\"T@1\",\"inputs\":{\"x\":\"a$(e)b\"}}]}`",
+    "consumer": "`step0 input x`",
+    "expected": "`\"ab\"`. VERIFY: docs say macros \"remain unchanged when they have no value\"; a defined-but-empty value may stay `a$(e)b`.",
+    "confidence": "uncertain",
+    "source": "vars#macro-syntax-variables",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "a$(e)b",
+        "want": "ab"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"e\":\"\"},\"steps\":[{\"task\":\"T@1\",\"inputs\":{\"x\":\"a$(e)b\"}}]}"
+    }
+  },
+  {
+    "id": "VARV-053",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"k\":\"realKey\"},\"steps\":[{\"bash\":\"env\",\"env\":{\"$(k)\":\"v\"}}]}`",
+    "consumer": "`step0 env realKey`",
+    "expected": "`env-absent` (macro not expanded in key position; key stays `$(k)`)",
+    "confidence": "docs",
+    "source": "vars#macro-syntax-variables \"The following isn't valid: $(key): value\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "realKey"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"k\":\"realKey\"},\"steps\":[{\"bash\":\"env\",\"env\":{\"$(k)\":\"v\"}}]}"
+    }
+  },
+  {
+    "id": "VARV-054",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"ref\":\"main\"},\"steps\":[{\"checkout\":\"git://MyProject/MyRepo@$(ref)\"}]}`",
+    "consumer": "`checkout repository ref`",
+    "expected": "`literal` (not expanded; checkout fails to resolve)",
+    "confidence": "docs",
+    "source": "vars#macro-syntax-variables \"checkout: git://MyProject/MyRepo@$(var) doesn't work\"",
+    "notApplicable": "checkout repository is a non-variable consumer position; whether macros are expanded there is decided by the step consumer, not by variable binding"
+  },
+  {
+    "id": "VARV-055",
+    "phase": "compile",
+    "input": "yaml:`{\"variables\":{\"br\":\"main\"},\"trigger\":[\"$(br)\"],\"steps\":[{\"bash\":\"echo hi\"}]}`",
+    "consumer": "`trigger branch filter`",
+    "expected": "`literal` (filter is the text `$(br)`)",
+    "confidence": "docs",
+    "source": "vars#macro-syntax-variables \"doesn't expand them in pipeline keywords ... such as resources, trigger\"",
+    "notApplicable": "trigger filters are a non-variable consumer position; expansion rules are owned by the trigger consumer"
+  },
+  {
+    "id": "VARV-056",
+    "phase": "compile",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"variables\":{\"a\":\"10\"},\"strategy\":{\"matrix\":{\"x\":{\"some_variable\":\"$(a)\"}}},\"steps\":[{\"bash\":\"echo $(some_variable)\"}]}]}`",
+    "consumer": "`A x/step0 $(some_variable)`",
+    "expected": "`literal` (job variables unavailable when the matrix is expanded)",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"# This does not work\"",
+    "notApplicable": "matrix expansion time precedes job variable binding; owned by upstream strategy expansion"
+  },
+  {
+    "id": "VARV-057",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"myInner\":\"someValue\",\"myOuter\":\"$(myInner)\"},\"steps\":[{\"script\":\"echo $(myOuter)\"}]}`",
+    "consumer": "`step0 $(myOuter)`",
+    "expected": "`\"someValue\"`",
+    "confidence": "docs",
+    "source": "vars#recursive-expansion \"recursively expanded\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(myOuter)",
+        "want": "someValue"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"myInner\":\"someValue\",\"myOuter\":\"$(myInner)\"},\"steps\":[{\"script\":\"echo $(myOuter)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-058",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"myInner\":\"someValue\",\"myOuter\":\"$(myInner)\"},\"steps\":[{\"script\":\"echo x\",\"displayName\":\"Variable is $(myOuter)\"}]}`",
+    "consumer": "`step0 displayName`",
+    "expected": "`\"Variable is someValue\"`",
+    "confidence": "docs",
+    "source": "vars#recursive-expansion \"display name is \"Variable is someValue\"\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "Variable is $(myOuter)",
+        "want": "Variable is someValue"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"myInner\":\"someValue\",\"myOuter\":\"$(myInner)\"},\"steps\":[{\"script\":\"echo x\",\"displayName\":\"Variable is $(myOuter)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-059",
+    "phase": "macro",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"variables\":{\"a\":\"10\"},\"steps\":[{\"bash\":\"echo $(a)\\necho '##vso[task.setvariable variable=a]20'\\necho $(a)\"}]}]}`",
+    "consumer": "`A/step0` second `$(a)`",
+    "expected": "`\"10\"` (expansion happens before the step)",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"This will also be 10\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 0
+        },
+        "text": "$(a)",
+        "want": "10"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"variables\":{\"a\":\"10\"},\"steps\":[{\"bash\":\"echo $(a)\\necho '##vso[task.setvariable variable=a]20'\\necho $(a)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-060",
+    "phase": "logging",
+    "input": "yaml: VARV-059 plus second step `{\"bash\":\"echo $(a)\"}`",
+    "consumer": "`A/step1 $(a)`",
+    "expected": "`\"20\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables \"This will be 20\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 1
+        },
+        "text": "$(a)",
+        "want": "20"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"variables\":{\"a\":\"10\"},\"steps\":[{\"bash\":\"echo $(a)\\necho '##vso[task.setvariable variable=a]20'\\necho $(a)\"},{\"bash\":\"echo $(a)\"}]}]}"
+    },
+    "disagreement": "the script line `echo $(a)` holds a macro, so emission analysis ends provability before the setvariable marker; the step-level mutation is Unknown (TRL-VAR-0016) and the runtime value `20` of the later step is not derived.",
+    "disagreementCode": "TRL-VAR-0016",
+    "disagreementObserved": "\"$(a)\"",
+    "reason": "static analysis does not expand macros in scripts; the documented runtime value cannot be proven statically"
+  },
+  {
+    "id": "VARV-061",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"sauce\":\"red\"},\"steps\":[{\"bash\":\"echo $(SAUCE)\"}]}`",
+    "consumer": "`step0 $(SAUCE)`",
+    "expected": "`\"red\"` (lookup case-insensitive)",
+    "confidence": "inferred",
+    "source": "vars#configure-settable-variables-for-steps (sets `Sauce`, reads `$(sauce)`); predef#systemdebug",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(SAUCE)",
+        "want": "red"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"sauce\":\"red\"},\"steps\":[{\"bash\":\"echo $(SAUCE)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-062",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"system.debug\":\"true\"},\"steps\":[{\"bash\":\"echo $(System.Debug)\"}]}`",
+    "consumer": "`step0 $(System.Debug)`",
+    "expected": "`\"true\"` (YAML may set System.Debug)",
+    "confidence": "docs",
+    "source": "predef#systemdebug \"You can also set System.Debug to true as a variable\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(System.Debug)",
+        "want": "true"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"system.debug\":\"true\"},\"steps\":[{\"bash\":\"echo $(System.Debug)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-063",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"VMS_PASS\":\"$(vmsAdminPass)\"},\"steps\":[{\"task\":\"AzureFileCopy@6\",\"inputs\":{\"vmsAdminPassword\":\"$(VMS_PASS)\"}}]}` ctx:`{\"ui\":{\"vmsAdminPass\":{\"value\":\"pw\",\"secret\":true}}}`",
+    "consumer": "`step0 input vmsAdminPassword`",
+    "expected": "`masked` (value `pw` reaches the input)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"map secret variables to tasks by using the variables definition\"",
+    "checks": [
+      {
+        "kind": "masked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(VMS_PASS)",
+        "want": ""
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"VMS_PASS\":\"$(vmsAdminPass)\"},\"steps\":[{\"task\":\"AzureFileCopy@6\",\"inputs\":{\"vmsAdminPassword\":\"$(VMS_PASS)\"}}]}",
+      "ctx": {
+        "ui": {
+          "vmsAdminPass": {
+            "value": "pw",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-064",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"ml\":\"line1\\nline2\"},\"steps\":[{\"bash\":\"echo \\\"$(ml)\\\"\"}]}`",
+    "consumer": "`step0 $(ml)`",
+    "expected": "`\"line1\\nline2\"` byte-for-byte (no normalization)",
+    "confidence": "docs",
+    "source": "vars#user-defined-multi-line-variables \"Azure DevOps never alters variable values\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(ml)",
+        "want": "line1\nline2"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"ml\":\"line1\\nline2\"},\"steps\":[{\"bash\":\"echo \\\"$(ml)\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-065",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"simpleVar\":\"hello\",\"b\":\"$[ variables.simpleVar ]\"},\"steps\":[{\"bash\":\"echo $(b)\"}]}`",
+    "consumer": "`$[ variables.simpleVar ]`",
+    "expected": "`\"hello\"`",
+    "confidence": "docs",
+    "source": "vars#runtime-expression-syntax",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "hello"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"simpleVar\":\"hello\",\"b\":\"$[ variables.simpleVar ]\"},\"steps\":[{\"bash\":\"echo $(b)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-066",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"isMain\":\"$[eq(variables['Build.SourceBranch'], 'refs/heads/main')]\"},\"steps\":[{\"script\":\"echo $(isMain)\"}]}` ctx:`{\"run\":{\"Build.SourceBranch\":\"refs/heads/main\"}}`",
+    "consumer": "`step0 $(isMain)`",
+    "expected": "`\"True\"`",
+    "confidence": "docs",
+    "source": "expr#expressions \"# outputs True\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(isMain)",
+        "want": "True"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"isMain\":\"$[eq(variables['Build.SourceBranch'], 'refs/heads/main')]\"},\"steps\":[{\"script\":\"echo $(isMain)\"}]}",
+      "ctx": {
+        "run": {
+          "Build.SourceBranch": "refs/heads/main"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-067",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"b\":\"$[ variables.Build.SourceBranch ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}` ctx:`{\"run\":{\"Build.SourceBranch\":\"refs/heads/main\"}}`",
+    "consumer": "`$[ variables.Build.SourceBranch ]`",
+    "expected": "`empty` (dotted name needs index syntax)",
+    "confidence": "inferred",
+    "source": "vars#runtime-expression-syntax \"not $[ variables.Build.SourceBranch ]\" + \"silently coalesce to empty strings\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"b\":\"$[ variables.Build.SourceBranch ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}",
+      "ctx": {
+        "run": {
+          "Build.SourceBranch": "refs/heads/main"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-068",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"b\":\"$[ variables.nosuch ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}`",
+    "consumer": "`$[ variables.nosuch ]`",
+    "expected": "`empty`",
+    "confidence": "docs",
+    "source": "vars#runtime-expression-syntax \"silently coalesce to empty strings\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"b\":\"$[ variables.nosuch ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}"
+    }
+  },
+  {
+    "id": "VARV-069",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"a\":\"1\",\"b\":\"$[variables.a] foo\"},\"steps\":[{\"bash\":\"echo $(b)\"}]}`",
+    "consumer": "`step0 $(b)`",
+    "expected": "`literal` (`$[variables.a] foo`). VERIFY: docs only say \"isn't valid\" (could be a compile error).",
+    "confidence": "uncertain",
+    "source": "vars#runtime-expression-syntax \"key: $[variables.value] foo isn't\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "$[variables.a] foo"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"a\":\"1\",\"b\":\"$[variables.a] foo\"},\"steps\":[{\"bash\":\"echo $(b)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-070",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"simpleVar\":\"hello\"},\"steps\":[{\"bash\":\"echo $[ variables.simpleVar ]\"}]}`",
+    "consumer": "`step0 script body`",
+    "expected": "VERIFY: vars example implies `hello`; expr# limits runtime expressions to variables and conditions, so `literal` is likely.",
+    "confidence": "uncertain",
+    "source": "vars#runtime-expression-syntax (example); expr#expressions \"use runtime expressions in variables and conditions\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$[ variables.simpleVar ]",
+        "want": "$[ variables.simpleVar ]"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"simpleVar\":\"hello\"},\"steps\":[{\"bash\":\"echo $[ variables.simpleVar ]\"}]}"
+    }
+  },
+  {
+    "id": "VARV-071",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":[{\"name\":\"a\",\"value\":\"$[ format('{0}-x', 'v') ]\"},{\"name\":\"b\",\"value\":\"$[ variables.a ]\"}],\"steps\":[{\"bash\":\"echo $(b)\"}]}`",
+    "consumer": "`step0 $(b)`",
+    "expected": "`\"v-x\"` (YAML runtime variables evaluated in declaration order)",
+    "confidence": "docs",
+    "source": "expr#variables \"place the variables in the order they should be processed\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "v-x"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"a\",\"value\":\"$[ format('{0}-x', 'v') ]\"},{\"name\":\"b\",\"value\":\"$[ variables.a ]\"}],\"steps\":[{\"bash\":\"echo $(b)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-072",
+    "phase": "runtime",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(b)\"}]}` ctx:`{\"ui\":{\"a\":{\"value\":\"$[ format('{0}-x','v') ]\"},\"b\":{\"value\":\"$[ variables.a ]\"}}}`",
+    "consumer": "`step0 $(b)`",
+    "expected": "not guaranteed (`\"v-x\"` or stale); evaluator must flag order dependence",
+    "confidence": "docs",
+    "source": "expr#variables \"the order of processing variables isn't guaranteed\"",
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(b)\"}]}",
+      "ctx": {
+        "ui": {
+          "a": {
+            "value": "$[ format('{0}-x','v') ]"
+          },
+          "b": {
+            "value": "$[ variables.a ]"
+          }
+        }
+      }
+    },
+    "checks": [
+      {
+        "kind": "orderDependent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "code": "TRL-VAR-0004",
+        "want": "$(b)"
+      }
+    ]
+  },
+  {
+    "id": "VARV-073",
+    "phase": "runtime",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"x\",\"type\":\"string\",\"default\":\"1\"}],\"variables\":{\"b\":\"$[ parameters.x ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}`",
+    "consumer": "`$[ parameters.x ]`",
+    "expected": "`unavailable` (no parameters context at runtime). VERIFY: whether this is an error or `empty`.",
+    "confidence": "docs",
+    "source": "expr#expressions \"you have access to more variables but no parameters\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(b)",
+        "want": "",
+        "fails": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"parameters\":[{\"name\":\"x\",\"type\":\"string\",\"default\":\"1\"}],\"variables\":{\"b\":\"$[ parameters.x ]\"},\"steps\":[{\"bash\":\"echo [$(b)]\"}]}"
+    }
+  },
+  {
+    "id": "VARV-074",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"J\",\"variables\":{\"a\":\"$[counter(format('{0:yyyyMMdd}', pipeline.startTime), 100)]\"},\"steps\":[{\"bash\":\"echo $(a)\"}]}]}` (first run of the day)",
+    "consumer": "`J/step0 $(a)`",
+    "expected": "`\"100\"`",
+    "confidence": "docs",
+    "source": "vars#set-variables-by-using-expressions \"starts at 100\"",
+    "notApplicable": "counter() needs a persisted counter store across runs (live run history)"
+  },
+  {
+    "id": "VARV-075",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"k\":\"key\",\"$[variables.k]\":\"value\"},\"steps\":[{\"bash\":\"echo $(key)\"}]}`",
+    "consumer": "`step0 $(key)`",
+    "expected": "`literal` (runtime expression not evaluated in key position)",
+    "confidence": "docs",
+    "source": "vars#runtime-expression-syntax \"The following isn't valid: $[variables.key]: value\"",
+    "fixture": {
+      "yaml": "{\"variables\":{\"k\":\"key\",\"$[variables.k]\":\"value\"},\"steps\":[{\"bash\":\"echo $(key)\"}]}"
+    },
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(key)",
+        "want": "$(key)"
+      }
+    ],
+    "disagreement": "the evaluator rejects the pipeline with TRL-VAR-0009 because \"$[variables.k]\" is not a valid variable name (vars#runtime-expression-syntax calls this key \"not valid\"), so no table exists to leave $(key) literal; the vector expects an accepted pipeline with a literal reference. Contradicts VARV-143 if both are docs-true.", "disagreementCode": "TRL-VAR-0009", "reason": "the evaluator rejects the key as an invalid variable name, so no table exists to leave the reference literal"
+  },
+  {
+    "id": "VARV-076",
+    "phase": "logging",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myJobVar]this is the same job'\"},{\"bash\":\"echo $(myJobVar)\"}]}]}`",
+    "consumer": "`A/step1 $(myJobVar)`",
+    "expected": "`\"this is the same job\"`",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-the-same-job",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 1
+        },
+        "text": "$(myJobVar)",
+        "want": "this is the same job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myJobVar]this is the same job'\"},{\"bash\":\"echo $(myJobVar)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-077",
+    "phase": "logging",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputJobVar;isOutput=true]this is the same job too'\",\"name\":\"setOutput\"},{\"bash\":\"echo $(setOutput.myOutputJobVar)\"}]}]}`",
+    "consumer": "`A/step1 $(setOutput.myOutputJobVar)`",
+    "expected": "`\"this is the same job too\"`",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-the-same-job",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 1
+        },
+        "text": "$(setOutput.myOutputJobVar)",
+        "want": "this is the same job too"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputJobVar;isOutput=true]this is the same job too'\",\"name\":\"setOutput\"},{\"bash\":\"echo $(setOutput.myOutputJobVar)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-078",
+    "phase": "logging",
+    "input": "yaml: VARV-077 with step1 `{\"bash\":\"echo $(myOutputJobVar)\"}`",
+    "consumer": "`A/step1 $(myOutputJobVar)`",
+    "expected": "VERIFY: `literal` (only the step-qualified name exists) vs value.",
+    "confidence": "uncertain",
+    "source": "setvar#set-an-output-variable-for-use-in-the-same-job \"you need to reference the variable with the task name\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "A",
+          "step": 1
+        },
+        "text": "$(myOutputJobVar)",
+        "want": "$(myOutputJobVar)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputJobVar;isOutput=true]this is the same job too'\",\"name\":\"setOutput\"},{\"bash\":\"echo $(myOutputJobVar)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-079",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"pwsh\":\"Write-Host '##vso[task.setvariable variable=outputSauce;isOutput=true]canned goods'\",\"name\":\"SetVars\"},{\"pwsh\":\"Write-Host $env:SETVARS_OUTPUTSAUCE\"}]}`",
+    "consumer": "`step1 env SETVARS_OUTPUTSAUCE`",
+    "expected": "`\"canned goods\"`",
+    "confidence": "docs",
+    "source": "log#setvariable-initialize-or-modify-the-value-of-a-variable \"$env:SETVARS_OUTPUTSAUCE\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "name": "SETVARS_OUTPUTSAUCE",
+        "want": "canned goods"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"pwsh\":\"Write-Host '##vso[task.setvariable variable=outputSauce;isOutput=true]canned goods'\",\"name\":\"SetVars\"},{\"pwsh\":\"Write-Host $env:SETVARS_OUTPUTSAUCE\"}]}"
+    }
+  },
+  {
+    "id": "VARV-080",
+    "phase": "logging",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myJobVar]v'\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"steps\":[{\"bash\":\"echo $(myJobVar)\"}]}]}`",
+    "consumer": "`B/step0 $(myJobVar)`",
+    "expected": "`literal` (non-output variable stays in job A)",
+    "confidence": "docs",
+    "source": "setvar#about-tasksetvariable \"only available to tasks in the same job by default\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(myJobVar)",
+        "want": "$(myJobVar)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myJobVar]v'\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"steps\":[{\"bash\":\"echo $(myJobVar)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-081",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]this is from job A'\",\"name\":\"passOutput\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"myVarFromJobA\":\"$[ dependencies.A.outputs['passOutput.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(myVarFromJobA)\"}]}]}`",
+    "consumer": "`B/step0 $(myVarFromJobA)`",
+    "expected": "`\"this is from job A\"`",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-future-jobs",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(myVarFromJobA)",
+        "want": "this is from job A"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]this is from job A'\",\"name\":\"passOutput\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"myVarFromJobA\":\"$[ dependencies.A.outputs['passOutput.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(myVarFromJobA)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-082",
+    "phase": "runtime",
+    "input": "yaml: VARV-081 without `\"dependsOn\":\"A\"` on B",
+    "consumer": "`$[ dependencies.A.outputs['passOutput.myOutputVar'] ]`",
+    "expected": "`unavailable` → `empty` (A is not a dependency; jobs run in parallel)",
+    "confidence": "inferred",
+    "source": "setvar#levels-of-output-variables \"only access output variables if they depend on\"; expr#succeeded \"Jobs run in parallel\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(myVarFromJobA)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]this is from job A'\",\"name\":\"passOutput\"}]},{\"job\":\"B\",\"variables\":{\"myVarFromJobA\":\"$[ dependencies.A.outputs['passOutput.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(myVarFromJobA)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-083",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v'\",\"name\":\"s\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"steps\":[{\"bash\":\"echo b\"}]},{\"job\":\"C\",\"dependsOn\":\"B\",\"variables\":{\"x\":\"$[ dependencies.A.outputs['s.o'] ]\"},\"steps\":[{\"bash\":\"echo [$(x)]\"}]}]}`",
+    "consumer": "`C $[ dependencies.A.outputs['s.o'] ]`",
+    "expected": "`unavailable` → `empty` (not transitive)",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-future-jobs \"only available in the next downstream job\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "C",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v'\",\"name\":\"s\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"steps\":[{\"bash\":\"echo b\"}]},{\"job\":\"C\",\"dependsOn\":\"B\",\"variables\":{\"x\":\"$[ dependencies.A.outputs['s.o'] ]\"},\"steps\":[{\"bash\":\"echo [$(x)]\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-084",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"condition\":\"and(succeeded(), eq(dependencies.A.outputs['printvar.shouldrun'], 'true'))\",\"steps\":[{\"script\":\"echo hello from B\"}]}]}`",
+    "consumer": "`B condition`",
+    "expected": "`runs`",
+    "confidence": "docs",
+    "source": "expr#job-to-job-dependencies-within-one-stage",
+    "checks": [
+      {
+        "kind": "condition",
+        "scope": {
+          "level": "job",
+          "stage": "",
+          "job": "B",
+          "step": -1
+        },
+        "text": "and(succeeded(), eq(dependencies.A.outputs['printvar.shouldrun'], 'true'))",
+        "want": "runs"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"condition\":\"and(succeeded(), eq(dependencies.A.outputs['printvar.shouldrun'], 'true'))\",\"steps\":[{\"script\":\"echo hello from B\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-085",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"strategy\":{\"matrix\":{\"debugJob\":{\"configuration\":\"debug\"},\"releaseJob\":{\"configuration\":\"release\"}}},\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the $(configuration) value'\",\"name\":\"setvarStep\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['debugJob.setvarStep.myOutputVar'] ]\"},\"steps\":[{\"script\":\"echo $(v)\"}]}]}`",
+    "consumer": "`B/step0 $(v)`",
+    "expected": "`\"this is the debug value\"`",
+    "confidence": "docs",
+    "source": "vars#set-a-multi-job-output-variable (matrix example)",
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"strategy\":{\"matrix\":{\"debugJob\":{\"configuration\":\"debug\"},\"releaseJob\":{\"configuration\":\"release\"}}},\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the $(configuration) value'\",\"name\":\"setvarStep\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['debugJob.setvarStep.myOutputVar'] ]\"},\"steps\":[{\"script\":\"echo $(v)\"}]}]}"
+    },
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(v)",
+        "want": "this is the debug value"
+      }
+    ],
+    "disagreement": "the marker value holds the macro `$(configuration)`; emission analysis never expands macros, so the output variable is Unknown (TRL-VAR-0016) instead of `this is the debug value`.",
+    "disagreementCode": "TRL-VAR-0016",
+    "disagreementObserved": "\"\"",
+    "reason": "static analysis does not expand macros in scripts; the documented runtime value cannot be proven statically"
+  },
+  {
+    "id": "VARV-086",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"A\",\"pool\":{\"vmImage\":\"ubuntu-latest\",\"parallel\":2},\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]slice $(system.jobPositionInPhase)'\",\"name\":\"setvarStep\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['setvarStep.myOutputVar'] ]\"},\"steps\":[{\"script\":\"echo $(v)\"}]}]}`",
+    "consumer": "`B/step0 $(v)`",
+    "expected": "VERIFY: docs comment says \"first slice\" (`\"slice 1\"`) but also say slices need a job-name prefix.",
+    "confidence": "uncertain",
+    "source": "vars#set-a-multi-job-output-variable (slicing example)",
+    "checks": [
+      {
+        "kind": "observe"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"A\",\"pool\":{\"vmImage\":\"ubuntu-latest\",\"parallel\":2},\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]slice $(system.jobPositionInPhase)'\",\"name\":\"setvarStep\"}]},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['setvarStep.myOutputVar'] ]\"},\"steps\":[{\"script\":\"echo $(v)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-087",
+    "phase": "runtime",
+    "input": "yaml:`{\"jobs\":[{\"deployment\":\"A\",\"environment\":\"staging\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]dv'\",\"name\":\"setvarStep\"}]}}}},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['A.setvarStep.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(v)\"}]}]}`",
+    "consumer": "`B/step0 $(v)`",
+    "expected": "`\"dv\"`",
+    "confidence": "docs",
+    "source": "vars#set-a-multi-job-output-variable \"prefix the job name to the output variables of a deployment job\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(v)",
+        "want": "dv"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"deployment\":\"A\",\"environment\":\"staging\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]dv'\",\"name\":\"setvarStep\"}]}}}},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['A.setvarStep.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(v)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-088",
+    "phase": "runtime",
+    "input": "yaml: VARV-087 with B mapping `$[ dependencies.A.outputs['setvarStep.myOutputVar'] ]`",
+    "consumer": "`B/step0 $(v)`",
+    "expected": "`empty` (key lacks deployment-job prefix)",
+    "confidence": "inferred",
+    "source": "deploy#support-for-output-variables (runOnce key `<job-name>.<step-name>.<variable-name>`)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(v)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"deployment\":\"A\",\"environment\":\"staging\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]dv'\",\"name\":\"setvarStep\"}]}}}},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['setvarStep.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(v)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-089",
+    "phase": "runtime",
+    "input": "yaml: deployment A with `strategy.canary.increments:[10,20]`, step `setvarStep` sets `myOutputVar` (isOutput) in `deploy`; job B `dependsOn: A`, `v: $[ dependencies.A.outputs['deploy_10.setvarStep.myOutputVar'] ]`",
+    "consumer": "`B $(v)`",
+    "expected": "value set in increment 10",
+    "confidence": "docs",
+    "source": "deploy#support-for-output-variables \"<lifecycle-hookname>_<increment-value>.<step-name>.<variable-name>\"",
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"deployment\":\"A\",\"environment\":\"staging\",\"strategy\":{\"canary\":{\"increments\":[10,20],\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myOutputVar;isOutput=true]dv'\",\"name\":\"setvarStep\"}]}}}},{\"job\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"v\":\"$[ dependencies.A.outputs['deploy_10.setvarStep.myOutputVar'] ]\"},\"steps\":[{\"bash\":\"echo $(v)\"}]}]}"
+    },
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "B",
+          "step": 0
+        },
+        "text": "$(v)",
+        "want": "dv",
+        "prose": true
+      }
+    ]
+  },
+  {
+    "id": "VARV-090",
+    "phase": "runtime",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageVal;isOutput=true]this is a stage output variable'\",\"name\":\"MyOutputVar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B1\",\"variables\":{\"myStageAVar\":\"$[stageDependencies.A.A1.outputs['MyOutputVar.myStageVal']]\"},\"steps\":[{\"bash\":\"echo $(myStageAVar)\"}]}]}]}`",
+    "consumer": "`B/B1/step0 $(myStageAVar)`",
+    "expected": "`\"this is a stage output variable\"`",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-future-stages",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "B",
+          "job": "B1",
+          "step": 0
+        },
+        "text": "$(myStageAVar)",
+        "want": "this is a stage output variable"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageVal;isOutput=true]this is a stage output variable'\",\"name\":\"MyOutputVar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B1\",\"variables\":{\"myStageAVar\":\"$[stageDependencies.A.A1.outputs['MyOutputVar.myStageVal']]\"},\"steps\":[{\"bash\":\"echo $(myStageAVar)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-091",
+    "phase": "runtime",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageOutputVar;isOutput=true]this is a stage output var'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"myVarfromStageA\":\"$[ stageDependencies.A.A1.outputs['printvar.myStageOutputVar'] ]\"},\"jobs\":[{\"job\":\"B1\",\"steps\":[{\"script\":\"echo $(myVarfromStageA)\"}]}]}]}`",
+    "consumer": "`B/B1/step0 $(myVarfromStageA)` (stage-scope mapping)",
+    "expected": "`\"this is a stage output var\"`",
+    "confidence": "docs",
+    "source": "vars#set-a-multi-job-output-variable \"use stageDependencies\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "B",
+          "job": "B1",
+          "step": 0
+        },
+        "text": "$(myVarfromStageA)",
+        "want": "this is a stage output var"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageOutputVar;isOutput=true]this is a stage output var'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"variables\":{\"myVarfromStageA\":\"$[ stageDependencies.A.A1.outputs['printvar.myStageOutputVar'] ]\"},\"jobs\":[{\"job\":\"B1\",\"steps\":[{\"script\":\"echo $(myVarfromStageA)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-092",
+    "phase": "runtime",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"condition\":\"and(succeeded(), eq(dependencies.A.outputs['A1.printvar.shouldrun'], 'true'))\",\"jobs\":[{\"job\":\"B1\",\"steps\":[{\"script\":\"echo hi\"}]}]}]}`",
+    "consumer": "`B condition` (stage level uses `dependencies.<stage>.outputs['<job>.<step>.<var>']`)",
+    "expected": "`runs`",
+    "confidence": "docs",
+    "source": "expr#stage-to-stage-dependencies",
+    "checks": [
+      {
+        "kind": "condition",
+        "scope": {
+          "level": "stage",
+          "stage": "B",
+          "job": "",
+          "step": -1
+        },
+        "text": "and(succeeded(), eq(dependencies.A.outputs['A1.printvar.shouldrun'], 'true'))",
+        "want": "runs"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"condition\":\"and(succeeded(), eq(dependencies.A.outputs['A1.printvar.shouldrun'], 'true'))\",\"jobs\":[{\"job\":\"B1\",\"steps\":[{\"script\":\"echo hi\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-093",
+    "phase": "runtime",
+    "input": "yaml: VARV-090 with stage B's `dependsOn` removed (B directly follows A)",
+    "consumer": "`B/B1/step0 $(myStageAVar)`",
+    "expected": "`\"this is a stage output variable\"` (implicit dependency on previous stage)",
+    "confidence": "docs",
+    "source": "vars#set-a-multi-job-output-variable \"each stage in a pipeline depends on the one just before it\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "B",
+          "job": "B1",
+          "step": 0
+        },
+        "text": "$(myStageAVar)",
+        "want": "this is a stage output variable"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageVal;isOutput=true]this is a stage output variable'\",\"name\":\"MyOutputVar\"}]}]},{\"stage\":\"B\",\"jobs\":[{\"job\":\"B1\",\"variables\":{\"myStageAVar\":\"$[stageDependencies.A.A1.outputs['MyOutputVar.myStageVal']]\"},\"steps\":[{\"bash\":\"echo $(myStageAVar)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-094",
+    "phase": "runtime",
+    "input": "yaml: stages One (job A sets `ProduceVar.MyVar` isOutput), Two (`dependsOn:[One]`), Three (no dependsOn; maps `$[ stageDependencies.One.A.outputs['ProduceVar.MyVar'] ]`)",
+    "consumer": "`Three $[ stageDependencies.One.A.outputs[...] ]`",
+    "expected": "`unavailable` → `empty`",
+    "confidence": "docs",
+    "source": "vars#use-outputs-in-a-different-stage \"only available in the next downstream stage\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "Three",
+          "job": "C",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"One\",\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=MyVar;isOutput=true]mv'\",\"name\":\"ProduceVar\"}]}]},{\"stage\":\"Two\",\"dependsOn\":[\"One\"],\"jobs\":[{\"job\":\"B\",\"steps\":[{\"bash\":\"echo two\"}]}]},{\"stage\":\"Three\",\"variables\":{\"x\":\"$[ stageDependencies.One.A.outputs['ProduceVar.MyVar'] ]\"},\"jobs\":[{\"job\":\"C\",\"steps\":[{\"bash\":\"echo $(x)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-095",
+    "phase": "runtime",
+    "input": "yaml: as VARV-094 but Three `dependsOn:[One, Two]`",
+    "consumer": "`Three $[ stageDependencies.One.A.outputs['ProduceVar.MyVar'] ]`",
+    "expected": "value of MyVar",
+    "confidence": "docs",
+    "source": "vars#use-outputs-in-a-different-stage (stage Three example)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "Three",
+          "job": "C",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "mv",
+        "prose": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"One\",\"jobs\":[{\"job\":\"A\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=MyVar;isOutput=true]mv'\",\"name\":\"ProduceVar\"}]}]},{\"stage\":\"Two\",\"dependsOn\":[\"One\"],\"jobs\":[{\"job\":\"B\",\"steps\":[{\"bash\":\"echo two\"}]}]},{\"stage\":\"Three\",\"dependsOn\":[\"One\",\"Two\"],\"variables\":{\"x\":\"$[ stageDependencies.One.A.outputs['ProduceVar.MyVar'] ]\"},\"jobs\":[{\"job\":\"C\",\"steps\":[{\"bash\":\"echo $(x)\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-096",
+    "phase": "runtime",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B2\",\"condition\":\"eq(stageDependencies.A.A1.outputs['printvar.shouldrun'], 'true')\",\"steps\":[{\"script\":\"echo hi\"}]}]}]}`",
+    "consumer": "`B/B2 condition`",
+    "expected": "`runs` per expr# example. VERIFY: vars# says stageDependencies usable in conditions \"At the stage level, but not the job level\".",
+    "confidence": "uncertain",
+    "source": "expr#job-to-job-dependencies-across-stages; vars#use-outputs-in-a-different-stage",
+    "checks": [
+      {
+        "kind": "condition",
+        "scope": {
+          "level": "job",
+          "stage": "B",
+          "job": "B2",
+          "step": -1
+        },
+        "text": "eq(stageDependencies.A.A1.outputs['printvar.shouldrun'], 'true')",
+        "want": "runs"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=shouldrun;isOutput=true]true'\",\"name\":\"printvar\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B2\",\"condition\":\"eq(stageDependencies.A.A1.outputs['printvar.shouldrun'], 'true')\",\"steps\":[{\"script\":\"echo hi\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-097",
+    "phase": "runtime",
+    "input": "yaml:`{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v'\",\"name\":\"s\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B1\",\"variables\":{\"x\":\"$[ dependencies.A1.outputs['s.o'] ]\"},\"steps\":[{\"bash\":\"echo [$(x)]\"}]}]}]}`",
+    "consumer": "`B/B1 $[ dependencies.A1.outputs['s.o'] ]`",
+    "expected": "`unavailable` → `empty` (job-to-job `dependencies` is same-stage only)",
+    "confidence": "docs",
+    "source": "vars#set-a-multi-job-output-variable \"Multi-job output variables only work for jobs in the same stage\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "B",
+          "job": "B1",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"A\",\"jobs\":[{\"job\":\"A1\",\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v'\",\"name\":\"s\"}]}]},{\"stage\":\"B\",\"dependsOn\":\"A\",\"jobs\":[{\"job\":\"B1\",\"variables\":{\"x\":\"$[ dependencies.A1.outputs['s.o'] ]\"},\"steps\":[{\"bash\":\"echo [$(x)]\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-098",
+    "phase": "runtime",
+    "input": "yaml: stage `build` with deployment `build_job` (runOnce) step `setRunTests` sets `runTests=true` isOutput; stage `test` `dependsOn: build`, job `run_tests` `condition: eq(stageDependencies.build.build_job.outputs['build_job.setRunTests.runTests'], 'true')`",
+    "consumer": "`test/run_tests condition`",
+    "expected": "`runs`",
+    "confidence": "docs",
+    "source": "expr#job-to-job-dependencies-across-stages (deployment example)",
+    "checks": [
+      {
+        "kind": "condition",
+        "scope": {
+          "level": "job",
+          "stage": "test",
+          "job": "run_tests",
+          "step": -1
+        },
+        "text": "eq(stageDependencies.build.build_job.outputs['build_job.setRunTests.runTests'], 'true')",
+        "want": "runs"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"build\",\"jobs\":[{\"deployment\":\"build_job\",\"environment\":\"e\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=runTests;isOutput=true]true'\",\"name\":\"setRunTests\"}]}}}}]},{\"stage\":\"test\",\"dependsOn\":\"build\",\"jobs\":[{\"job\":\"run_tests\",\"condition\":\"eq(stageDependencies.build.build_job.outputs['build_job.setRunTests.runTests'], 'true')\",\"steps\":[{\"bash\":\"echo t\"}]}]}]}"
+    }
+  },
+  {
+    "id": "VARV-099",
+    "phase": "runtime",
+    "input": "yaml: as VARV-098 but stage `test` `condition: eq(dependencies.build.outputs['build_job.build_job.setRunTests.runTests'], 'true')`",
+    "consumer": "`test condition`",
+    "expected": "`runs`",
+    "confidence": "docs",
+    "source": "expr#deployment-job-output-variables \"build_job appears twice\"",
+    "checks": [
+      {
+        "kind": "condition",
+        "scope": {
+          "level": "stage",
+          "stage": "test",
+          "job": "",
+          "step": -1
+        },
+        "text": "eq(dependencies.build.outputs['build_job.build_job.setRunTests.runTests'], 'true')",
+        "want": "runs"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"stages\":[{\"stage\":\"build\",\"jobs\":[{\"deployment\":\"build_job\",\"environment\":\"e\",\"strategy\":{\"runOnce\":{\"deploy\":{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=runTests;isOutput=true]true'\",\"name\":\"setRunTests\"}]}}}}]},{\"stage\":\"test\",\"dependsOn\":\"build\",\"jobs\":[{\"job\":\"run_tests\",\"steps\":[{\"bash\":\"echo t\"}]}],\"condition\":\"eq(dependencies.build.outputs['build_job.build_job.setRunTests.runTests'], 'true')\"}]}"
+    }
+  },
+  {
+    "id": "VARV-100",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageVal;isOutput=true]foo%0Abar'\",\"name\":\"MyOutputVar\"},{\"bash\":\"echo \\\"$(MyOutputVar.myStageVal)\\\"\"}]}`",
+    "consumer": "`step1 $(MyOutputVar.myStageVal)`",
+    "expected": "`\"foo\\nbar\"` (agent unescapes `%0A`)",
+    "confidence": "docs",
+    "source": "setvar#set-an-output-variable-for-use-in-future-stages \"the agent automatically unescapes it\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(MyOutputVar.myStageVal)",
+        "want": "foo\nbar"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myStageVal;isOutput=true]foo%0Abar'\",\"name\":\"MyOutputVar\"},{\"bash\":\"echo \\\"$(MyOutputVar.myStageVal)\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-101",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=sauce]crushed tomatoes'\\necho \\\"$SAUCE\\\"\"}]}`",
+    "consumer": "`step0 env SAUCE` (same step)",
+    "expected": "`env-absent`",
+    "confidence": "docs",
+    "source": "vars#set-a-job-scoped-variable-from-a-script \"does not update the environment of the current script\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "SAUCE"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=sauce]crushed tomatoes'\\necho \\\"$SAUCE\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-102",
+    "phase": "logging",
+    "input": "yaml: VARV-101 plus `{\"bash\":\"echo \\\"my environment variable is $SAUCE\\\"\"}`",
+    "consumer": "`step1 env SAUCE`",
+    "expected": "`\"crushed tomatoes\"`",
+    "confidence": "docs",
+    "source": "vars#set-a-job-scoped-variable-from-a-script \"my environment variable is crushed tomatoes\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "name": "SAUCE",
+        "want": "crushed tomatoes"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=sauce]crushed tomatoes'\\necho \\\"$SAUCE\\\"\"},{\"bash\":\"echo \\\"my environment variable is $SAUCE\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-103",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=mySecretVal;issecret=true]secretvalue'\"},{\"bash\":\"echo $(mySecretVal)\"}]}`",
+    "consumer": "`step1 $(mySecretVal)` / `log`",
+    "expected": "`masked`",
+    "confidence": "docs",
+    "source": "setvar#set-a-variable-as-secret \"masked out from logs\"",
+    "checks": [
+      {
+        "kind": "masked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(mySecretVal)",
+        "want": ""
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=mySecretVal;issecret=true]secretvalue'\"},{\"bash\":\"echo $(mySecretVal)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-104",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secretSauce;isSecret=true]garlic'\"},{\"bash\":\"echo \\\"$SECRETSAUCE\\\"\"}]}`",
+    "consumer": "`step1 env SECRETSAUCE`",
+    "expected": "`env-absent`",
+    "confidence": "docs",
+    "source": "log#setvariable-initialize-or-modify-the-value-of-a-variable \"Secrets are not automatically mapped in\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "name": "SECRETSAUCE"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secretSauce;isSecret=true]garlic'\"},{\"bash\":\"echo \\\"$SECRETSAUCE\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-105",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=ro;isreadonly=true]first'\"},{\"bash\":\"echo '##vso[task.setvariable variable=ro]second'\"},{\"bash\":\"echo $(ro)\"}]}`",
+    "consumer": "`step2 $(ro)`",
+    "expected": "`unchanged:\"first\"`. VERIFY: whether the overwrite attempt warns or fails the step.",
+    "confidence": "docs",
+    "source": "setvar#set-variable-properties \"downstream tasks can't overwrite it\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 2
+        },
+        "text": "$(ro)",
+        "want": "first"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=ro;isreadonly=true]first'\"},{\"bash\":\"echo '##vso[task.setvariable variable=ro]second'\"},{\"bash\":\"echo $(ro)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-106",
+    "phase": "logging",
+    "input": "yaml:`{\"variables\":[{\"name\":\"myReadOnlyVar\",\"value\":\"myValue\",\"readonly\":true}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myReadOnlyVar]changed'\"},{\"bash\":\"echo $(myReadOnlyVar)\"}]}`",
+    "consumer": "`step1 $(myReadOnlyVar)`",
+    "expected": "`unchanged:\"myValue\"`",
+    "confidence": "docs",
+    "source": "secin#variables \"specify a read-only variable by using the specific readonly key\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(myReadOnlyVar)",
+        "want": "myValue"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"myReadOnlyVar\",\"value\":\"myValue\",\"readonly\":true}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=myReadOnlyVar]changed'\"},{\"bash\":\"echo $(myReadOnlyVar)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-107",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"name\":\"x\",\"value\":\"root\",\"readonly\":true}],\"jobs\":[{\"job\":\"J\",\"variables\":[{\"name\":\"x\",\"value\":\"job\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}]}`",
+    "consumer": "`J/step0 $(x)`",
+    "expected": "VERIFY: `\"job\"` (scope shadowing is not a mutation) vs `\"root\"` or compile error.",
+    "confidence": "uncertain",
+    "source": "ys-name (\"Whether a YAML variable is read-only\"); scope interaction undocumented",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"x\",\"value\":\"root\",\"readonly\":true}],\"jobs\":[{\"job\":\"J\",\"variables\":[{\"name\":\"x\",\"value\":\"job\"}],\"steps\":[{\"bash\":\"echo $(x)\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-108",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=Build.SourcesDirectory]/tmp/evil'\"},{\"bash\":\"echo $(Build.SourcesDirectory)\"}]}` ctx:`{\"run\":{\"Build.SourcesDirectory\":\"/home/vsts/work/1/s\"}}`",
+    "consumer": "`step1 $(Build.SourcesDirectory)`",
+    "expected": "`unchanged:\"/home/vsts/work/1/s\"`",
+    "confidence": "docs",
+    "source": "secin#variables \"System variables like Build.SourcesDirectory and task output variables are always read-only\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(Build.SourcesDirectory)",
+        "want": "/home/vsts/work/1/s"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=Build.SourcesDirectory]/tmp/evil'\"},{\"bash\":\"echo $(Build.SourcesDirectory)\"}]}",
+      "ctx": {
+        "run": {
+          "Build.SourcesDirectory": "/home/vsts/work/1/s"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-109",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v1'\",\"name\":\"p\"},{\"bash\":\"echo '##vso[task.setvariable variable=p.o]v2'\"},{\"bash\":\"echo $(p.o)\"}]}`",
+    "consumer": "`step2 $(p.o)`",
+    "expected": "`unchanged:\"v1\"`",
+    "confidence": "docs",
+    "source": "secin#variables \"task output variables are always read-only\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 2
+        },
+        "text": "$(p.o)",
+        "want": "v1"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=o;isOutput=true]v1'\",\"name\":\"p\"},{\"bash\":\"echo '##vso[task.setvariable variable=p.o]v2'\"},{\"bash\":\"echo $(p.o)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-110",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"script\":\"echo '##vso[task.setvariable variable=x]v'\",\"target\":{\"settableVariables\":\"none\"}},{\"bash\":\"echo $(x)\"}]}`",
+    "consumer": "`step1 $(x)`",
+    "expected": "`literal` (set attempt ignored)",
+    "confidence": "docs",
+    "source": "vars#configure-settable-variables-for-steps \"the script can't set a variable\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(x)",
+        "want": "$(x)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"script\":\"echo '##vso[task.setvariable variable=x]v'\",\"target\":{\"settableVariables\":\"none\"}},{\"bash\":\"echo $(x)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-111",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=Sauce;]crushed tomatoes'\",\"target\":{\"settableVariables\":[\"sauce\"]},\"name\":\"SetVars\"},{\"bash\":\"echo $(sauce)\"}]}`",
+    "consumer": "`step1 $(sauce)`",
+    "expected": "`\"crushed tomatoes\"`",
+    "confidence": "docs",
+    "source": "vars#configure-settable-variables-for-steps \"the script can set the variable sauce\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(sauce)",
+        "want": "crushed tomatoes"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=Sauce;]crushed tomatoes'\",\"target\":{\"settableVariables\":[\"sauce\"]},\"name\":\"SetVars\"},{\"bash\":\"echo $(sauce)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-112",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secretSauce;]garlic'\",\"target\":{\"settableVariables\":[\"sauce\"]}},{\"bash\":\"echo $(secretSauce)\"}]}`",
+    "consumer": "`step1 $(secretSauce)` + run page",
+    "expected": "`literal`, plus a warning on the run",
+    "confidence": "docs",
+    "source": "vars#configure-settable-variables-for-steps \"You see a warning on the pipeline run page\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(secretSauce)",
+        "want": "$(secretSauce)",
+        "finding": "TRL-VAR-0012"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secretSauce;]garlic'\",\"target\":{\"settableVariables\":[\"sauce\"]}},{\"bash\":\"echo $(secretSauce)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-113",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo \\\"pre $NEWSECRET\\\"\\necho \\\"##vso[task.setsecret]$NEWSECRET\\\"\\necho \\\"post $NEWSECRET\\\"\",\"env\":{\"NEWSECRET\":\"abc\"}}]}`",
+    "consumer": "`log` lines `pre`/`post`",
+    "expected": "`pre abc` unmasked; `post ***`",
+    "confidence": "docs",
+    "source": "log#setsecret-register-a-value-as-a-secret \"Previous occurrences of the secret value won't be masked\"",
+    "notApplicable": "setsecret log chronology (pre/post masking of an echoed value) is performed by agent log redaction; the evaluator holds no log stream"
+  },
+  {
+    "id": "VARV-114",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo abc\"}]}` ctx:`{\"ui\":{\"s\":{\"value\":\"abc123\",\"secret\":true}}}`",
+    "consumer": "`log`",
+    "expected": "`\"abc\"` (substring of a secret not masked)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"We never mask substrings of secrets\"",
+    "notApplicable": "log masking of secret substrings is a property of the log redactor, which sees values; the evaluator holds only references"
+  },
+  {
+    "id": "VARV-115",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo \\\"Using an input-macro works: $(mySecret)\\\"\"}]}` ctx:`{\"ui\":{\"mySecret\":{\"value\":\"foo\",\"secret\":true}}}`",
+    "consumer": "`step0 $(mySecret)`",
+    "expected": "`masked` (log `Using an input-macro works: ***`)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables",
+    "checks": [
+      {
+        "kind": "masked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "Using an input-macro works: $(mySecret)",
+        "want": "Using an input-macro works: ***"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo \\\"Using an input-macro works: $(mySecret)\\\"\"}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-116",
+    "phase": "macro",
+    "input": "same ctx, yaml:`{\"steps\":[{\"bash\":\"echo \\\"$MYSECRET\\\"\"}]}`",
+    "consumer": "`step0 env MYSECRET`",
+    "expected": "`env-absent`",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"there's no environment variable called MYSECRET\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "MYSECRET"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo \\\"$MYSECRET\\\"\"}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-117",
+    "phase": "macro",
+    "input": "same ctx, yaml:`{\"steps\":[{\"bash\":\"echo \\\"$MY_MAPPED_ENV_VAR\\\"\",\"env\":{\"MY_MAPPED_ENV_VAR\":\"$(mySecret)\"}}]}`",
+    "consumer": "`step0 env MY_MAPPED_ENV_VAR`",
+    "expected": "`masked` (value `foo`)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"the recommended way to map to an env variable\"",
+    "checks": [
+      {
+        "kind": "envMasked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "MY_MAPPED_ENV_VAR"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo \\\"$MY_MAPPED_ENV_VAR\\\"\",\"env\":{\"MY_MAPPED_ENV_VAR\":\"$(mySecret)\"}}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-118",
+    "phase": "macro",
+    "input": "same ctx, yaml:`{\"variables\":{\"GLOBAL_MYSECRET\":\"$(mySecret)\"},\"steps\":[{\"bash\":\"echo \\\"[$GLOBAL_MYSECRET]\\\"\"}]}`",
+    "consumer": "`step0 env GLOBAL_MYSECRET`",
+    "expected": "`empty` (log `[]`)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"this will not work because the secret variable needs to be mapped\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "GLOBAL_MYSECRET",
+        "want": ""
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"GLOBAL_MYSECRET\":\"$(mySecret)\"},\"steps\":[{\"bash\":\"echo \\\"[$GLOBAL_MYSECRET]\\\"\"}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-119",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"GLOBAL_MY_MAPPED_ENV_VAR\":\"$(nonSecretVariable)\"},\"steps\":[{\"bash\":\"echo $GLOBAL_MY_MAPPED_ENV_VAR\"}]}` ctx:`{\"ui\":{\"nonSecretVariable\":{\"value\":\"foo\"}}}`",
+    "consumer": "`step0 env GLOBAL_MY_MAPPED_ENV_VAR`",
+    "expected": "`\"foo\"`",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"this works because it's not a secret\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "GLOBAL_MY_MAPPED_ENV_VAR",
+        "want": "foo"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"GLOBAL_MY_MAPPED_ENV_VAR\":\"$(nonSecretVariable)\"},\"steps\":[{\"bash\":\"echo $GLOBAL_MY_MAPPED_ENV_VAR\"}]}",
+      "ctx": {
+        "ui": {
+          "nonSecretVariable": {
+            "value": "foo"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-120",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(mySecret)\"}]}` ctx:`{\"ui\":{\"mySecret\":{\"value\":\"foo\",\"secret\":true}},\"fork\":true}`",
+    "consumer": "`step0 $(mySecret)`",
+    "expected": "`unavailable` (fork PR builds get no pipeline secrets by default)",
+    "confidence": "docs",
+    "source": "vars#set-secret-variables \"pull request builds of forks can't access secret variables\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(mySecret)",
+        "want": "$(mySecret)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(mySecret)\"}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        },
+        "fork": true
+      }
+    }
+  },
+  {
+    "id": "VARV-121",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo \\\"[$SYSTEM_ACCESSTOKEN]\\\"\"}]}`",
+    "consumer": "`step0 env SYSTEM_ACCESSTOKEN`",
+    "expected": "`env-absent` (must be mapped explicitly)",
+    "confidence": "docs",
+    "source": "predef#systemaccesstoken \"you must explicitly map System.AccessToken into the pipeline\"",
+    "checks": [
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "SYSTEM_ACCESSTOKEN"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo \\\"[$SYSTEM_ACCESSTOKEN]\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-122",
+    "phase": "runtime",
+    "input": "yaml:`{\"variables\":{\"copy\":\"$[ variables.mySecret ]\"},\"steps\":[{\"bash\":\"echo $(copy)\"}]}` ctx:`{\"ui\":{\"mySecret\":{\"value\":\"foo\",\"secret\":true}}}`",
+    "consumer": "`step0 $(copy)`",
+    "expected": "VERIFY: value `foo` masked vs `empty`; secrecy propagation through `$[ ]` undocumented.",
+    "confidence": "uncertain",
+    "source": "vars#runtime-expression-syntax (silent on secrets)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(copy)",
+        "want": "",
+        "null": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"copy\":\"$[ variables.mySecret ]\"},\"steps\":[{\"bash\":\"echo $(copy)\"}]}",
+      "ctx": {
+        "ui": {
+          "mySecret": {
+            "value": "foo",
+            "secret": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-123",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"ui\":{\"x\":{\"value\":\"d\",\"settable\":true}},\"queue\":{\"x\":\"q\"}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"q\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables (queue time ranked above Pipeline settings UI)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "q"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "ui": {
+          "x": {
+            "value": "d",
+            "settable": true
+          }
+        },
+        "queue": {
+          "x": "q"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-124",
+    "phase": "queue",
+    "input": "yaml:`{\"variables\":{\"x\":\"yaml\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"ui\":{\"x\":{\"value\":\"d\",\"settable\":true}},\"queue\":{\"x\":\"q\"}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "`\"yaml\"` (queue value silently loses)",
+    "confidence": "docs",
+    "source": "vars#allow-at-queue-time \"the value in the YAML has priority\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "yaml"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"x\":\"yaml\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "ui": {
+          "x": {
+            "value": "d",
+            "settable": true
+          }
+        },
+        "queue": {
+          "x": "q"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-125",
+    "phase": "queue",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"J\",\"variables\":{\"x\":\"job\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}]}` ctx:`{\"ui\":{\"x\":{\"value\":\"d\",\"settable\":true}},\"queue\":{\"x\":\"q\"}}`",
+    "consumer": "`J/step0 $(x)`",
+    "expected": "`\"job\"`",
+    "confidence": "docs",
+    "source": "vars#expansion-of-variables (job YAML above queue time)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "J",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "job"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"J\",\"variables\":{\"x\":\"job\"},\"steps\":[{\"bash\":\"echo $(x)\"}]}]}",
+      "ctx": {
+        "ui": {
+          "x": {
+            "value": "d",
+            "settable": true
+          }
+        },
+        "queue": {
+          "x": "q"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-126",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(BuildConfiguration)\"}]}` ctx:`{\"ui\":{\"BuildConfiguration\":{\"value\":\"Release\",\"settable\":false}},\"settings\":{\"limitQueueTimeVariables\":true},\"queue\":{\"BuildConfiguration\":\"Debug\"}}` (Runs API)",
+    "consumer": "`run`",
+    "expected": "`reject:queue-var` (\"You can't set the following variables (BuildConfiguration)\")",
+    "confidence": "docs",
+    "source": "secin#limit-variables-that-can-be-set-at-queue-time",
+    "checks": [
+      {
+        "kind": "reject",
+        "code": "TRL-VAR-0010"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(BuildConfiguration)\"}]}",
+      "ctx": {
+        "ui": {
+          "BuildConfiguration": {
+            "value": "Release",
+            "settable": false
+          }
+        },
+        "settings": {
+          "limitQueueTimeVariables": true
+        },
+        "queue": {
+          "BuildConfiguration": "Debug"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-127",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(newVar)\"}]}` ctx:`{\"settings\":{\"limitQueueTimeVariables\":true},\"queue\":{\"newVar\":\"v\"}}`",
+    "consumer": "`run`",
+    "expected": "`reject:queue-var` (undeclared variable cannot be added)",
+    "confidence": "docs",
+    "source": "secin#limit-variables-that-can-be-set-at-queue-time \"users can set only variables that are explicitly marked\"",
+    "checks": [
+      {
+        "kind": "reject",
+        "code": "TRL-VAR-0010"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(newVar)\"}]}",
+      "ctx": {
+        "settings": {
+          "limitQueueTimeVariables": true
+        },
+        "queue": {
+          "newVar": "v"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-128",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(newVar)\"}]}` ctx:`{\"settings\":{\"limitQueueTimeVariables\":false},\"queue\":{\"newVar\":\"v\"}}`",
+    "consumer": "`step0 $(newVar)`",
+    "expected": "`\"v\"`",
+    "confidence": "docs",
+    "source": "secin#limit-variables-that-can-be-set-at-queue-time \"create variables that the pipeline author didn't define\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(newVar)",
+        "want": "v"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(newVar)\"}]}",
+      "ctx": {
+        "settings": {
+          "limitQueueTimeVariables": false
+        },
+        "queue": {
+          "newVar": "v"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-129",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(Build.SourceBranchName)\"}]}` ctx:`{\"settings\":{\"limitQueueTimeVariables\":false},\"queue\":{\"Build.SourceBranchName\":\"x\"},\"run\":{\"Build.SourceBranchName\":\"main\"}}`",
+    "consumer": "`step0 $(Build.SourceBranchName)`",
+    "expected": "VERIFY: secin says queue time can \"override system variables\"; vars says system variables are read-only. Effective value unknown.",
+    "confidence": "uncertain",
+    "source": "secin#limit-variables-that-can-be-set-at-queue-time; vars#system-variables",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(Build.SourceBranchName)",
+        "want": "main",
+        "prose": true
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(Build.SourceBranchName)\"}]}",
+      "ctx": {
+        "settings": {
+          "limitQueueTimeVariables": false
+        },
+        "queue": {
+          "Build.SourceBranchName": "x"
+        },
+        "run": {
+          "Build.SourceBranchName": "main"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-130",
+    "phase": "queue",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $(x)\"}]}` ctx:`{\"ui\":{\"x\":{\"value\":\"d\",\"settable\":false}},\"settings\":{\"limitQueueTimeVariables\":false},\"queue\":{\"x\":\"q\"}}`",
+    "consumer": "`step0 $(x)`",
+    "expected": "VERIFY: `\"q\"` (unrestricted org allows setting existing variables) vs reject.",
+    "confidence": "uncertain",
+    "source": "secin#limit-variables-that-can-be-set-at-queue-time \"set values for existing variables at queue time\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(x)",
+        "want": "q"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $(x)\"}]}",
+      "ctx": {
+        "ui": {
+          "x": {
+            "value": "d",
+            "settable": false
+          }
+        },
+        "settings": {
+          "limitQueueTimeVariables": false
+        },
+        "queue": {
+          "x": "q"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-131",
+    "phase": "queue",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"image\",\"type\":\"string\",\"default\":\"ubuntu-latest\",\"values\":[\"windows-latest\",\"ubuntu-latest\"]}],\"steps\":[{\"bash\":\"echo ${{ parameters.image }}\"}]}` ctx:`{\"params\":{\"image\":\"centos\"}}`",
+    "consumer": "`run`",
+    "expected": "`reject:param-value`",
+    "confidence": "docs",
+    "source": "rtp#runtime-parameters \"they can be restricted to a subset of values\"",
+    "notApplicable": "queue-time parameter value validation against the allowed values list belongs to the template resolver / UI, not the variable evaluator"
+  },
+  {
+    "id": "VARV-132",
+    "phase": "queue",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"image\",\"displayName\":\"Pool Image\",\"values\":[\"windows-latest\",\"ubuntu-latest\",\"macOS-latest\"]}],\"steps\":[{\"bash\":\"echo ${{ parameters.image }}\"}]}`",
+    "consumer": "`${{ parameters.image }}`",
+    "expected": "`\"windows-latest\"` (no default: first value)",
+    "confidence": "docs",
+    "source": "rtp#runtime-parameters \"the first available value is used\"",
+    "notApplicable": "parameter default resolution (first allowed value) belongs to the template resolver / UI, not the variable evaluator"
+  },
+  {
+    "id": "VARV-133",
+    "phase": "logging",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"image\",\"type\":\"string\",\"default\":\"ubuntu-latest\"}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=image]changed'\"},{\"bash\":\"echo ${{ parameters.image }} $(image)\"}]}`",
+    "consumer": "`step1`",
+    "expected": "`\"ubuntu-latest changed\"` (parameter immutable; variable namespace separate)",
+    "confidence": "docs",
+    "source": "rtp#what-is-the-difference-between-parameters-and-variables \"Immutable after queue\"",
+    "fixture": {
+      "yaml": "{\"parameters\":[{\"name\":\"image\",\"type\":\"string\",\"default\":\"ubuntu-latest\"}],\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=image]changed'\"},{\"bash\":\"echo ${{ parameters.image }} $(image)\"}]}"
+    },
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "ubuntu-latest $(image)",
+        "want": "ubuntu-latest changed"
+      }
+    ]
+  },
+  {
+    "id": "VARV-134",
+    "phase": "queue",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"customVersion\",\"type\":\"string\",\"default\":\"\"}],\"steps\":[{\"script\":\"echo ${{ parameters.customVersion }}\"}]}` (queued from the Run Pipeline pane)",
+    "consumer": "`run`",
+    "expected": "Run pane requires a non-empty value; editor-run keeps `empty`",
+    "confidence": "docs",
+    "source": "texpr#coalesce \"Azure DevOps requires you to provide a non-empty value\"",
+    "notApplicable": "Run Pipeline pane behaviour (UI-only) belongs to the template resolver / UI, not the variable evaluator"
+  },
+  {
+    "id": "VARV-135",
+    "phase": "compile",
+    "input": "yaml:`{\"steps\":[{\"template\":\"t.yml\"}]}` ctx:`{\"files\":{\"t.yml\":{\"parameters\":[{\"name\":\"r\",\"type\":\"stringList\",\"values\":[\"WUS\"],\"default\":[\"WUS\"]}],\"steps\":[{\"bash\":\"echo hi\"}]}}}`",
+    "consumer": "`run`",
+    "expected": "`reject:schema` (stringList not allowed in templates)",
+    "confidence": "docs",
+    "source": "rtp#parameter-data-types \"The stringList data type isn't available in templates\"",
+    "notApplicable": "parameter type schema validation (stringList in templates) belongs to the template resolver / UI, not the variable evaluator"
+  },
+  {
+    "id": "VARV-136",
+    "phase": "compile",
+    "input": "yaml:`{\"parameters\":[{\"name\":\"pw\",\"type\":\"string\",\"default\":\"hunter2\"}],\"steps\":[{\"bash\":\"echo ${{ parameters.pw }}\"}]}`",
+    "consumer": "`log`",
+    "expected": "`\"hunter2\"` unmasked (parameters cannot be secret)",
+    "confidence": "docs",
+    "source": "rtp#what-is-the-difference-between-parameters-and-variables \"No support for secret values\"",
+    "notApplicable": "parameter expression substitution and parameter masking belongs to the template resolver / UI, not the variable evaluator"
+  },
+  {
+    "id": "VARV-137",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"any.variable\":\"v\"},\"steps\":[{\"bash\":\"echo $ANY_VARIABLE\"}]}`",
+    "consumer": "`step0 env ANY_VARIABLE`",
+    "expected": "`\"v\"`",
+    "confidence": "docs",
+    "source": "vars#environment-variables \"any.variable becomes the variable name $ANY_VARIABLE\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "ANY_VARIABLE",
+        "want": "v"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"any.variable\":\"v\"},\"steps\":[{\"bash\":\"echo $ANY_VARIABLE\"}]}"
+    }
+  },
+  {
+    "id": "VARV-138",
+    "phase": "macro",
+    "input": "yaml:`{\"jobs\":[{\"job\":\"job1\",\"variables\":{\"job_variable1\":\"value1\"},\"steps\":[{\"bash\":\"echo $JOB_VARIABLE1\"}]}]}`",
+    "consumer": "`job1/step0 env JOB_VARIABLE1`",
+    "expected": "`\"value1\"`",
+    "confidence": "docs",
+    "source": "vars#variable-scopes \"variables are available in the script environment too\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "job1",
+          "step": 0
+        },
+        "name": "JOB_VARIABLE1",
+        "want": "value1"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"jobs\":[{\"job\":\"job1\",\"variables\":{\"job_variable1\":\"value1\"},\"steps\":[{\"bash\":\"echo $JOB_VARIABLE1\"}]}]}"
+    }
+  },
+  {
+    "id": "VARV-139",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $BUILD_ARTIFACTSTAGINGDIRECTORY\"}]}` ctx:`{\"run\":{\"Build.ArtifactStagingDirectory\":\"/a\"}}`",
+    "consumer": "`step0 env BUILD_ARTIFACTSTAGINGDIRECTORY`",
+    "expected": "`\"/a\"`",
+    "confidence": "docs",
+    "source": "predef#use-predefined-variables \"becomes the variable BUILD_ARTIFACTSTAGINGDIRECTORY\"",
+    "checks": [
+      {
+        "kind": "env",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "BUILD_ARTIFACTSTAGINGDIRECTORY",
+        "want": "/a"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo $BUILD_ARTIFACTSTAGINGDIRECTORY\"}]}",
+      "ctx": {
+        "run": {
+          "Build.ArtifactStagingDirectory": "/a"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-140",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"endpointUrl\":\"https://x\"},\"steps\":[{\"bash\":\"echo $(endpointUrl) $ENDPOINTURL\"}]}`",
+    "consumer": "`step0 $(endpointUrl)` and `env ENDPOINTURL`",
+    "expected": "`unavailable` (reserved prefix `endpoint`). VERIFY (suspect wording): prefix match on any name, not only `endpoint.`.",
+    "confidence": "docs",
+    "source": "vars#variable-naming-restrictions \"won't be available to your tasks and scripts\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(endpointUrl)",
+        "want": "$(endpointUrl)"
+      },
+      {
+        "kind": "envAbsent",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "name": "ENDPOINTURL"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"endpointUrl\":\"https://x\"},\"steps\":[{\"bash\":\"echo $(endpointUrl) $ENDPOINTURL\"}]}"
+    }
+  },
+  {
+    "id": "VARV-141",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"PATHROOT\":\"/r\"},\"steps\":[{\"bash\":\"echo $(PATHROOT)\"}]}`",
+    "consumer": "`step0 $(PATHROOT)`",
+    "expected": "`unavailable` (prefix check ignores case). VERIFY (same as VARV-140).",
+    "confidence": "docs",
+    "source": "vars#variable-naming-restrictions \"(regardless of capitalization)\"; naming#azure-pipelines",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(PATHROOT)",
+        "want": "$(PATHROOT)"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"PATHROOT\":\"/r\"},\"steps\":[{\"bash\":\"echo $(PATHROOT)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-142",
+    "phase": "logging",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secret.Sauce;issecret=true]garlic'\"},{\"bash\":\"echo \\\"$(secret.Sauce)\\\"\"}]}`",
+    "consumer": "`step1 $(secret.Sauce)`",
+    "expected": "VERIFY: vars example shows `masked` value, contradicting the `secret` reserved-prefix rule (`unavailable`).",
+    "confidence": "uncertain",
+    "source": "vars#set-a-job-scoped-variable-from-a-script (secret.Sauce example) vs vars#variable-naming-restrictions",
+    "checks": [
+      {
+        "kind": "masked",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 1
+        },
+        "text": "$(secret.Sauce)",
+        "want": ""
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"steps\":[{\"bash\":\"echo '##vso[task.setvariable variable=secret.Sauce;issecret=true]garlic'\"},{\"bash\":\"echo \\\"$(secret.Sauce)\\\"\"}]}"
+    }
+  },
+  {
+    "id": "VARV-143",
+    "phase": "compile",
+    "input": "yaml-text:`variables:\\n  my var: x\\nsteps:\\n- bash: echo hi`",
+    "consumer": "`run`",
+    "expected": "naming-rule violation (`reject:schema` expected; VERIFY the platform's actual reaction)",
+    "confidence": "docs",
+    "source": "vars#variable-naming-restrictions \"Don't use spaces in variables\"",
+    "checks": [
+      {
+        "kind": "reject",
+        "code": "TRL-VAR-0009"
+      }
+    ],
+    "fixture": {
+      "yaml": "variables:\n  my var: x\nsteps:\n- bash: echo hi",
+      "yamlText": true
+    }
+  },
+  {
+    "id": "VARV-144",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":[{\"name\":\"my-standalone-variable\",\"value\":\"v\"}],\"steps\":[{\"bash\":\"echo $(my-standalone-variable)\"}]}`",
+    "consumer": "`step0 $(my-standalone-variable)`",
+    "expected": "VERIFY: naming rule allows only letters, digits, `.`, `_`, but vg examples use hyphenated names (likely `\"v\"`).",
+    "confidence": "uncertain",
+    "source": "naming#azure-pipelines; vg#use-variables-in-a-linked-variable-group (hyphenated examples)",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(my-standalone-variable)",
+        "want": "v"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":[{\"name\":\"my-standalone-variable\",\"value\":\"v\"}],\"steps\":[{\"bash\":\"echo $(my-standalone-variable)\"}]}"
+    }
+  },
+  {
+    "id": "VARV-145",
+    "phase": "macro",
+    "input": "yaml:`{\"variables\":{\"Build.BuildId\":\"5\"},\"steps\":[{\"bash\":\"echo $(Build.BuildId)\"}]}` ctx:`{\"run\":{\"Build.BuildId\":\"42\"}}`",
+    "consumer": "`step0 $(Build.BuildId)`",
+    "expected": "VERIFY: `\"42\"` (read-only) vs `\"5\"` vs reject. Docs say both \"read-only\" and \"you can change the value of a system variable before the pipeline runs\".",
+    "confidence": "uncertain",
+    "source": "vars#system-variables; predef#use-predefined-variables \"automatically set by the system and read-only\"",
+    "checks": [
+      {
+        "kind": "macro",
+        "scope": {
+          "level": "step",
+          "stage": "",
+          "job": "",
+          "step": 0
+        },
+        "text": "$(Build.BuildId)",
+        "want": "42"
+      }
+    ],
+    "fixture": {
+      "yaml": "{\"variables\":{\"Build.BuildId\":\"5\"},\"steps\":[{\"bash\":\"echo $(Build.BuildId)\"}]}",
+      "ctx": {
+        "run": {
+          "Build.BuildId": "42"
+        }
+      }
+    }
+  },
+  {
+    "id": "VARV-146",
+    "phase": "macro",
+    "input": "yaml:`{\"steps\":[{\"bash\":\"echo $AGENT_JOBSTATUS\"}]}`",
+    "consumer": "`step0 env AGENT_JOBSTATUS`",
+    "expected": "current job status, e.g. `\"Succeeded\"`",
+    "confidence": "docs",
+    "source": "predef#agent-variables-devops-services \"should be referenced as AGENT_JOBSTATUS\"",
+    "notApplicable": "Agent.JobStatus is supplied only by a running agent (no live agent in the evaluator)"
+  }
+]
