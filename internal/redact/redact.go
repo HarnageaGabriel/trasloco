@@ -31,6 +31,8 @@ var builtinPatterns = []struct {
 	// Bot token prefix: https://docs.slack.dev/authentication/tokens
 	{regexp.MustCompile(`\bxoxb-[A-Za-z0-9-]+\b`), replacement},
 	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b`), replacement},
+	// URL userinfo password (scheme://user:password@host): the whole userinfo is masked.
+	{regexp.MustCompile(`(?i)(\b[a-z][a-z0-9+.\-]*://)[^\s/:@"'<>]*:[^\s/@"'<>]+@`), `${1}REDACTED@`},
 	{regexp.MustCompile(`(?i)(authorization["']?\s*[:=]\s*["']?)(?:basic|bearer)?\s*[A-Za-z0-9._~+/=-]+`), `${1}` + replacement},
 	{regexp.MustCompile(`(?i)(cookie|set-cookie)(["']?\s*[:=]\s*["']?)[^\s,"'}]+`), `${1}${2}` + replacement},
 }

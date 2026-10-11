@@ -31,3 +31,7 @@ Basic and Bearer credential detection requires an Authorization header context;
 ordinary prose such as “basic setup” is preserved. `event.ErrRedaction()` returns
 a fresh `*diag.Error` with `TRL-SECRET-0004`; callers identify it with `errors.As`
 and the finding code.
+
+URL userinfo credentials (`scheme://user:password@host`) are replaced by `REDACTED` (no brackets, so the URL still parses); the
+scheme and host are preserved. A user name without a password is not
+treated as a secret.

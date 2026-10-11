@@ -343,10 +343,13 @@ type Step struct {
 	Raw             *Raw                 `json:"raw,omitempty"`
 }
 
+// Shell is the structural selector for a run step's command interpreter.
+type Shell string
+
 // RunStep executes a script under an explicit shell.
 type RunStep struct {
 	Script           string              `json:"script"`
-	Shell            string              `json:"shell"`
+	Shell            Shell               `json:"shell"`
 	WorkingDirectory string              `json:"workingDirectory,omitempty"`
 	Operations       []ProtocolOperation `json:"operations,omitempty"`
 }

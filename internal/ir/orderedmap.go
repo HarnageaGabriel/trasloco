@@ -33,6 +33,8 @@ func (m OrderedMap[V]) Get(key string) (V, bool) {
 }
 
 // Set associates value with key while preserving the key's first position.
+//
+// Set is linear in the map size; use OrderedMapBuilder to build large maps.
 func (m *OrderedMap[V]) Set(key string, value V) {
 	for index := range *m {
 		if (*m)[index].Key == key {

@@ -259,6 +259,9 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-CONV-0005 | warning | un | - | Trigger/event has no target equivalent | Add the trigger manually or accept loss. |
 | TRL-CONV-0006 | warning | ap | - | Schedule time zone converted | Review cron in UTC; DST behavior differs. |
 | TRL-CONV-0007 | warning | ap | - | Runner/image mapped to a pinned label | Review the dated mapping (`*-latest` aliases diverge across platforms). |
+| TRL-CONV-0008 | warning | ap | - | Source property has no IR field and is preserved in a provider extension | Review `params.construct`; the value is kept under the `x-azure-pipelines` extension and ignored by cross-dialect emitters. |
+| TRL-CONV-0009 | info | ap | - | Azure Pipelines macro or runtime expression kept as literal text | Evaluate with the variable-precedence pass before emitting; the text is preserved verbatim. |
+| TRL-CONV-0010 | error | - | E | Template construct reached normalization unresolved | Run the template resolver first; normalization requires a fully expanded pipeline. |
 
 ### CAT
 
@@ -384,7 +387,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 | TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 163 codes.
+Total: 166 codes.
 
 ## 8. Test vectors
 

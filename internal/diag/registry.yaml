@@ -1029,6 +1029,38 @@
                       "fidelity":  "approximated"
                   },
                   {
+                      "code":  "TRL-CONV-0008",
+                      "area":  "CONV",
+                      "title":  "Source property has no IR field and is preserved in a provider extension",
+                      "severity":  "warning",
+                      "exitClass":  "none",
+                      "remediation":  "Review `params.construct`; the value is kept under the `x-azure-pipelines` extension and ignored by cross-dialect emitters.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "fidelity":  "approximated"
+                  },
+                  {
+                      "code":  "TRL-CONV-0009",
+                      "area":  "CONV",
+                      "title":  "Azure Pipelines macro or runtime expression kept as literal text",
+                      "severity":  "info",
+                      "exitClass":  "none",
+                      "remediation":  "Evaluate with the variable-precedence pass before emitting; the text is preserved verbatim.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "fidelity":  "exact"
+                  },
+                  {
+                      "code":  "TRL-CONV-0010",
+                      "area":  "CONV",
+                      "title":  "Template construct reached normalization unresolved",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Run the template resolver first; normalization requires a fully expanded pipeline.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-CAT-0001",
                       "area":  "CAT",
                       "title":  "Task or action not in catalog",

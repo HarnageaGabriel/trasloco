@@ -16,7 +16,7 @@ Every valid pipeline obeys all of these invariants:
 4. `stages` are a partition of `jobs`: every job appears in exactly one stage and no unknown job appears. Stage order is declaration order. A stage with `barrier: true` requires every job in all preceding stages to reach a terminal result before any job in that stage starts; `false` preserves only explicit DAG edges.
 5. Tagged unions (`Expr`, `Cond`, and `Step`) contain exactly the payload selected by their discriminator.
 6. Each source-derived semantic node carries `fidelity`, `provenance`, and `origin`. A synthetic normalization node MAY omit `origin`, but MUST inherit or aggregate fidelity and provenance from its causes.
-7. Secrets appear only as `SecretRef`; secret values MUST NOT occur in the IR, extensions, raw nodes, debug output, or fixtures.
+7. Secrets appear only as `SecretRef`; values of declared secrets MUST NOT occur in the IR, extensions, raw nodes, debug output, or fixtures. Detection of secret-looking literals inside free-form text is best effort (maintainer scope decision, see [normalize-ado.md](normalize-ado.md)).
 8. All implicit source behavior is explicit as described in section 3. Absence then means intentionally disabled or inapplicable, never “use the provider default.”
 
 `Validate(*Pipeline)` emits diagnostics through `diag.Collector`, deduplicated and sorted by source position and code; map keys are visited in sorted order. Each node finding uses that node's origin, never the pipeline origin. `Fidelity` and `Provenance` are shared diag types. Stable diagnostics: `TRL-VAL-0007` for a schema version or required field, `TRL-VAL-0008` for duplicate IDs, `TRL-VAL-0009` for a cycle, `TRL-VAL-0010` for an unresolved reference, `TRL-VAL-0011` for an invalid stage partition, and `TRL-VAL-0012` for an invalid union or enum.
@@ -38,7 +38,7 @@ Every valid pipeline obeys all of these invariants:
 |---|---|---|---|
 | `source` | `diag.Source` | yes | Shared source position: platform, file, line/col and exclusive endLine/endCol. Byte spans belong to the shared Source model (ADR 0003). |
 | `chain` | `diag.Source[]` | no | Template instantiation chain, outermost first. |
-| `originalTextHash` | string | yes | `sha256:<hex>` of the exact source bytes for the construct before decoding or normalization. |
+| `originalTextHash` | string | yes | `sha256:<hex>` of the exact source bytes for the construct before decoding or normalization; it is the literal `unavailable` when the source text is unavailable (ADR 0003). |
 
 `Raw` is the explicit escape hatch: `provider`, provider node `kind`, serialization `format`, and exactly one of textual `text` or JSON `json`, plus optional `origin`. Raw content is never silently executed by another dialect. A cross-dialect emitter emits a failing placeholder or manual task according to fidelity.
 
