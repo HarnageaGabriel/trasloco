@@ -13,7 +13,7 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  - ${{ if contains(parameters.targets, 'arm64') }}:
+  - ${{ if containsValue(parameters.targets, 'arm64') }}:
       - script: echo has arm64
   - ${{ if containsValue(parameters.targets, 'x64') }}:
       - script: echo has x64
