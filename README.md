@@ -5,8 +5,8 @@
   </picture>
 </p>
 
-<h3 align="center">Building an open-source, any-to-any CI/CD migration engine.<br>
-Provider-neutral, deterministic and auditable by design.</h3>
+<h3 align="center">An open-source tool, in the making, to move CI/CD pipelines<br>
+between Azure DevOps, GitHub and more. Predictable and reviewable by design.</h3>
 
 <p align="center">
   <a href="https://github.com/HarnageaGabriel/trasloco/actions/workflows/ci.yml">
@@ -25,7 +25,7 @@ Provider-neutral, deterministic and auditable by design.</h3>
 
 <p align="center">
   <a href="#try-it-now-find-retired-azure-pipelines-tasks">Try it now</a> ·
-  <a href="#key-features">Features</a> ·
+  <a href="#design-goals">Design goals</a> ·
   <a href="#status">Status</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#getting-started">Getting started</a> ·
@@ -37,14 +37,15 @@ Provider-neutral, deterministic and auditable by design.</h3>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme-hero-dark.svg">
     <img src="docs/assets/readme-hero-light.svg" width="880"
-      alt="Pipelines from any source platform are compiled into one provider-neutral IR and emitted for any target platform">
+      alt="Pipelines from any source platform are read into one common model and written out for any target platform">
   </picture>
 </p>
 
 **trasloco** (Italian for "house move") moves CI/CD pipelines, and the DevOps
-resources around them, from one platform to another. Every source is compiled
-into one provider-neutral intermediate representation (IR) and every target is
-generated from it, so each new platform works with all the others.
+resources around them, from one platform to another. It reads a pipeline,
+turns it into one common, platform-neutral description, and writes that
+description out for the target platform. Each new platform therefore works
+with all the others: **any platform to any platform**.
 
 The first pair is **Azure DevOps <-> GitHub**, plus `modernize` to upgrade
 Azure Pipelines in place. trasloco is free software under Apache-2.0 and will
@@ -52,33 +53,11 @@ stay free.
 
 > [!WARNING]
 > **Pre-alpha: no migration command works yet.** What exists today is the
-> foundation and most of the Azure Pipelines front end (YAML parser,
-> expression engine, template resolver); see [Status](#status). Interfaces will
-> change. To migrate to GitHub today, see
+> foundation and the first half of the Azure Pipelines reader (YAML parser,
+> expressions, templates); see [Status](#status). Interfaces will change. To
+> migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
 > Star the repository and watch releases to follow progress.
-
-## Key features
-
-These are the goals the code is built to; the [status table](#status) shows
-what is implemented today.
-
-- **Any to any.** Source dialects and target emitters only talk to the IR, so
-  adding a platform does not mean writing a converter for every pair.
-- **Deterministic.** The same normalized input, catalog version and
-  configuration always give the same output. Anything that cannot be converted
-  is reported as a diagnostic, never silently guessed.
-- **Plan before you change anything.** Platform changes (repositories,
-  variables, environments, secrets) follow a `plan` / `apply` / `resume` /
-  `rollback` lifecycle recorded in a local SQLite ledger, like Terraform.
-- **`modernize` in place.** Upgrade Azure Pipelines without changing platform:
-  replace retired tasks, actions and runner images.
-- **Secrets stay secret.** The IR stores secret references, not secret values,
-  and every log, event and diagnostic goes through redaction.
-- **Built for fleets.** Rate limiting, bounded retries and credential selection
-  are built into the HTTP layer, for organizations with many repositories.
-- **Local and private.** One static binary, no container runtime, no AI
-  required and no telemetry.
 
 ## Try it now: find retired Azure Pipelines tasks
 
@@ -89,7 +68,8 @@ pipelines that still use them fail
 trasloco ships that list as data,
 [`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
 with the recommended replacements. Three lines of shell find the candidates in
-any checked-out repository, with nothing to install:
+any checked-out repository, with nothing to install (the recording also counts
+the list with `wc -l`):
 
 <p align="center">
   <img src="docs/assets/readme-retired-check.svg" width="880"
@@ -119,30 +99,55 @@ Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -Pattern $pattern
 
 This is a plain-text search: it can match comments, and it does not see
 classic (UI-defined) pipelines or task names built from template parameters.
-The planned `modernize` command is designed to analyze pipelines through the
-parser and template resolver and rewrite supported tasks for you.
+The planned `modernize` command is designed to read pipelines with the full
+parser and template expansion and rewrite supported tasks for you.
+
+## Design goals
+
+What trasloco is being built to do; the [status table](#status) shows what
+exists today.
+
+- **Any platform to any platform.** Every pipeline is translated into one
+  common model and written out from it, so adding a platform means teaching
+  trasloco one format, not writing a converter for every pair.
+- **Predictable.** The same pipeline, catalog version and configuration
+  always give the same result. Anything that cannot be converted is listed
+  clearly, never silently guessed.
+- **Plan before you change anything.** Changes to the platforms (repositories,
+  variables, environments, secrets) follow a `plan` / `apply` / `resume` /
+  `rollback` lifecycle recorded in a local SQLite file, like Terraform.
+- **`modernize` in place.** Upgrade Azure Pipelines without changing platform:
+  replace retired tasks, actions and runner images.
+- **Secrets stay secret.** The common model stores references to secrets,
+  never their values, and every log, event and diagnostic goes through
+  redaction.
+- **Built for fleets.** Rate limiting, bounded retries and credential
+  selection are built into the HTTP layer, for organizations with many
+  repositories.
+- **Local and private.** One self-contained Go binary, no container runtime,
+  no AI required and no telemetry.
 
 ## Status
 
 | Component | Status | Milestone |
 |---|---|---|
 | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache | Done | M0 |
-| Azure Pipelines YAML parser, with source positions | Done | M1 |
+| Azure Pipelines YAML parser, with exact source positions | Done | M1 |
 | Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | Done | M1 |
-| Azure Pipelines template resolver | Done | M1 |
-| Azure Pipelines variable evaluator | In review | M1 |
-| Azure Pipelines -> IR normalization | In review | M1 |
-| Task retirement catalog (73 task versions) and in-box task catalog | Done | M2 |
+| Azure Pipelines template expansion | Done | M1 |
+| Azure Pipelines variables | In review | M1 |
+| Azure Pipelines -> common model | In review | M1 |
+| Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
 | Curated task -> action mappings | Planned | M2 |
-| GitHub Actions emitter, `convert`, `modernize` | Planned | M2 |
+| GitHub Actions output, `convert`, `modernize` | Planned | M2 |
 | `audit` | Planned | M3 |
 | `plan` / `apply` / `resume` / `rollback` (the ledger is done) | Planned | M4 |
 | GitHub -> Azure DevOps | Planned | M6 |
-| GitLab CI, Bitbucket Pipelines (source and target); Jenkins, Bamboo (source) | Planned | after 1.0 |
+| GitLab CI, Bitbucket Pipelines (both ways); Jenkins, Bamboo (as sources) | Planned | after 1.0 |
 
-"In review" means the code is in an open pull request, not yet on `main`. Only
-`version` and help work in the CLI today; every other command exits with a
-"not implemented" error.
+"In review" means the code is in an open pull request, not yet on `main`. In
+the CLI only `version`, `completion` and help work today; every other command
+exits with a "not implemented" error.
 
 ## trasloco and GitHub Actions Importer
 
@@ -161,22 +166,22 @@ trasloco's planned scope is complementary:
 - **The resources around pipelines**: variables, environments, secrets by
   reference, repositories and cutover, with a reviewable plan, resumable apply
   and rollback.
-- **A single static binary** with no container runtime, and an open engine
+- **A self-contained binary** with no container runtime, and an open engine
   you can read, audit and extend.
 
 ## How it works
 
-A pipeline is designed to go through five stages, like a compiler. Parse and
-resolve exist today for Azure Pipelines; normalize is in review.
+A pipeline goes through five steps, like code through a compiler. Steps 1 and
+2 exist today for Azure Pipelines; step 3 is in review.
 
-1. **parse** reads the source YAML with exact source positions.
-2. **resolve** expands templates and compile-time expressions.
-3. **normalize** turns the result into the provider-neutral IR.
-4. **check** validates the IR and reports what cannot be converted.
-5. **emit** writes the pipeline for the target platform.
+1. **Read** the source YAML, keeping the exact position of every value.
+2. **Expand** templates and compile-time expressions.
+3. **Translate** the result into the common model.
+4. **Check** the model and list everything that cannot be converted.
+5. **Write** the pipeline for the target platform.
 
-Changes to the platforms themselves will follow a reviewable lifecycle backed
-by the ledger:
+Changes to the platforms themselves will follow a reviewable lifecycle, with
+every step recorded in a local ledger so an interrupted run can resume:
 
 ```mermaid
 flowchart LR
@@ -186,7 +191,7 @@ flowchart LR
   resume --> apply
   apply --> verify["verify"]
   apply -.-> rollback["rollback"]
-  ledger[("SQLite ledger")]
+  ledger[("ledger<br/>(SQLite)")]
   apply <--> ledger
   resume <--> ledger
   rollback <--> ledger
@@ -198,17 +203,20 @@ Migration tools fail on the edge cases, so trasloco is tested against them:
 
 - **319 Azure Pipelines fixtures** in
   [`testdata/azurepipelines/corpus`](testdata/azurepipelines/corpus): 230 valid
-  pipelines, 44 template fragments and 45 invalid pipelines with their expected
-  diagnostics.
+  pipelines and template files, 45 invalid pipelines with their expected
+  diagnostics, and 44 unrendered starter templates vendored from
+  microsoft/azure-pipelines-yaml (kept for coverage, not yet parsed).
 - **446 expression vectors and 296 YAML structure vectors** written as tables
-  in the [normative specifications](docs/spec/README.md); the tests load them
-  directly from the Markdown.
-- **Every semantic rule cites its source**: the Microsoft or GitHub
-  documentation page, or a captured behaviour.
+  in the [specifications](docs/spec/README.md); the tests load them directly
+  from the Markdown.
+- **Every vector cites its source**: a Microsoft documentation page or the
+  open-source reference implementation. Rows inferred rather than documented
+  are labelled as such.
 - **Fuzzing** of parsers and decoders, race-detector runs and coverage floors
   in CI.
-- **Catalogs generated from upstream data**: 159 in-box Azure Pipelines tasks
-  from [microsoft/azure-pipelines-tasks](https://github.com/microsoft/azure-pipelines-tasks)
+- **Catalogs generated from upstream data**: 159 built-in Azure Pipelines
+  tasks from
+  [microsoft/azure-pipelines-tasks](https://github.com/microsoft/azure-pipelines-tasks)
   and the 73 retired task versions from the official announcement.
 
 ## Getting started
@@ -238,9 +246,9 @@ make docs-check  # generated diagnostics docs are up to date
 | Milestone | Scope |
 |---|---|
 | M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
-| M1 (in progress) | Azure Pipelines dialect: parser, expressions, template resolver, variables, normalization to IR |
-| M2 | GitHub Actions emitter, catalog, `convert` and `modernize`; possible early 0.x release |
-| M3 | Platform adapters and `audit` |
+| M1 (in progress) | Read Azure Pipelines: parser, expressions, templates, variables, translation into the common model |
+| M2 | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
+| M3 | Platform connections and `audit` |
 | M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
 | M5 | Hard cases: OIDC and workload identity federation, classic pipelines, deployment jobs, matrices |
 | M6 | GitHub -> Azure DevOps |
@@ -252,11 +260,12 @@ make docs-check  # generated diagnostics docs are up to date
 
 - **Follow progress**: star the repository and watch releases to hear when
   `convert` and `modernize` land.
-- **Share hard cases**: request a task mapping or report a construct that
-  other tools get wrong, with the
+- **Try the retired tasks check** on your repositories and tell us what it
+  misses, with the
   [issue templates](https://github.com/HarnageaGabriel/trasloco/issues/new/choose).
-  Anonymized real-world pipelines that break converters are the most valuable
-  contribution.
+- **Share hard cases**: request a task mapping or report a construct that
+  other tools get wrong. Anonymized real-world pipelines that break converters
+  are the most valuable contribution.
 - **Contribute code**: read [CONTRIBUTING.md](CONTRIBUTING.md) and
   [CONVENTIONS.md](CONVENTIONS.md) first; every commit needs a DCO sign-off
   (`git commit -s`). This project follows the
@@ -282,23 +291,32 @@ or CI runner, talking only to the platforms you configure.
 <details>
 <summary><b>Does it use AI?</b></summary>
 
-Conversion is deterministic and needs no AI. Optional, opt-in assistance for
-constructs without a deterministic mapping is on the roadmap.
+No. Conversion is rule-based and needs no AI. Optional, opt-in AI assistance
+for constructs without a rule may come later; it is specified but not
+scheduled.
 </details>
 
 <details>
 <summary><b>Why Azure DevOps and GitHub first?</b></summary>
 
 Many organizations run both side by side and move work between them, and the
-Azure Pipelines task retirement makes `modernize` urgent. The IR is designed
-so that more platforms follow.
+Azure Pipelines task retirement makes `modernize` urgent. The common model is
+designed so that more platforms follow.
+</details>
+
+<details>
+<summary><b>What is the "common model"?</b></summary>
+
+A platform-neutral description of a pipeline: stages, jobs, steps, variables,
+conditions, secrets as references. Compiler people call it an intermediate
+representation (IR); its specification is [docs/spec/ir.md](docs/spec/ir.md).
 </details>
 
 ## Documentation
 
 | Where | What |
 |---|---|
-| [docs/spec](docs/spec/README.md) | Normative specifications (IR, expressions, YAML structure, variables, selectors, naming, events, exit codes, ...) |
+| [docs/spec](docs/spec/README.md) | Specifications (common model, expressions, YAML structure, variables, naming, events, exit codes, ...) |
 | [docs/adr](docs/adr/README.md) | Architecture decision records |
 | [docs/diagnostics](docs/diagnostics/README.md) | Every `TRL-*` diagnostic code |
 | [catalog](catalog) | Generated task, action and retirement catalogs |

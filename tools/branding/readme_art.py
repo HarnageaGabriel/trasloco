@@ -21,9 +21,9 @@ MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',m
 TAPE = "#F0A83A"
 
 THEMES = {
-    "light": dict(ink="#1B2433", muted="#59636E", faint="#8C959F", box="#F6F8FA",
+    "light": dict(ink="#1B2433", muted="#59636E", faint="#6E7781", box="#F6F8FA",
                   line="#D0D7DE", panel="#FFFFFF", planned="#F6F8FA"),
-    "dark": dict(ink="#E6EDF3", muted="#9198A1", faint="#6E7681", box="#161B22",
+    "dark": dict(ink="#E6EDF3", muted="#9198A1", faint="#8B949E", box="#161B22",
                  line="#3D444D", panel="#0D1117", planned="#0D1117"),
 }
 
@@ -68,9 +68,9 @@ def route(sy, ty):
 
 def hero(t):
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-         f'role="img" aria-label="trasloco compiles every source pipeline dialect into one '
-         f'provider-neutral IR and emits every target from it">',
-         f'<title>Any to any through one provider-neutral IR</title>',
+         f'role="img" aria-label="trasloco reads pipelines from any source platform into one common, '
+         f'platform-neutral model and writes them out for any target platform">',
+         f'<title>Any platform to any platform through one common model</title>',
          f'<g font-family="{SANS}">']
     for x, label in ((SRC_X, "SOURCE"), (DST_X, "TARGET")):
         p.append(f'<text x="{x + BOX_W / 2}" y="70" text-anchor="middle" font-size="12" '
@@ -118,12 +118,12 @@ def hero(t):
              f'<animate attributeName="r" values="58;84" dur="3s" repeatCount="indefinite"/>'
              f'<animate attributeName="opacity" values="0.55;0" dur="3s" repeatCount="indefinite"/></circle>')
     p.append(f'<circle cx="{CX}" cy="{CY}" r="58" fill="{t["panel"]}" stroke="{TAPE}" stroke-width="3"/>')
-    p.append(f'<text x="{CX}" y="{CY + 4}" text-anchor="middle" font-size="30" font-weight="700" '
-             f'fill="{t["ink"]}" font-family="{MONO}">IR</text>')
-    p.append(f'<text x="{CX}" y="{CY + 24}" text-anchor="middle" font-size="10.5" '
-             f'fill="{t["muted"]}">provider-neutral</text>')
-    p.append(f'<text x="{CX}" y="{CY + 92}" text-anchor="middle" font-size="12.5" fill="{t["muted"]}" '
-             f'font-family="{MONO}">parse › resolve › normalize › check › emit</text>')
+    p.append(f'<text x="{CX}" y="{CY - 4}" text-anchor="middle" font-size="17" font-weight="700" '
+             f'fill="{t["ink"]}">common</text>')
+    p.append(f'<text x="{CX}" y="{CY + 16}" text-anchor="middle" font-size="17" font-weight="700" '
+             f'fill="{t["ink"]}">model</text>')
+    p.append(f'<text x="{CX}" y="{CY + 92}" text-anchor="middle" font-size="12.5" fill="{t["muted"]}">'
+             f'read › expand templates › translate › check › write</text>')
 
     for i, (label, sub, planned) in enumerate(sources):
         p.append(box(SRC_X, ROWS[i], label, sub, t, planned, src_anim[i]))
@@ -133,7 +133,7 @@ def hero(t):
     # legend
     ly = H - 14
     p.append(f'<line x1="{SRC_X}" y1="{ly - 4}" x2="{SRC_X + 28}" y2="{ly - 4}" stroke="{TAPE}" stroke-width="3"/>'
-             f'<text x="{SRC_X + 36}" y="{ly}" font-size="12" fill="{t["muted"]}">first pair: Azure DevOps and GitHub (in development)</text>'
+             f'<text x="{SRC_X + 36}" y="{ly}" font-size="12" fill="{t["muted"]}">first pair: Azure DevOps and GitHub</text>'
              f'<line x1="{SRC_X + 380}" y1="{ly - 4}" x2="{SRC_X + 408}" y2="{ly - 4}" stroke="{t["line"]}" '
              f'stroke-width="2" stroke-dasharray="5 5"/>'
              f'<text x="{SRC_X + 416}" y="{ly}" font-size="12" fill="{t["muted"]}">planned after 1.0</text>')
@@ -180,7 +180,7 @@ def terminal():
         if kind == "cmd":
             n = len(text) + 2
             dur = min(2.2, 0.35 + n * 0.018)
-            defs.append(f'<clipPath id="c{i}"><rect x="{PAD - 2}" y="{y - 15}" height="{LINE}" width="0">'
+            defs.append(f'<clipPath id="c{i}"><rect x="{PAD - 2}" y="{y - 15}" height="{LINE}" width="{n * CHAR + 6:.0f}">'
                         f'<set attributeName="width" to="0" begin="clk.begin"/>'
                         f'<animate attributeName="width" from="0" to="{n * CHAR + 6:.0f}" dur="{dur:.2f}s" '
                         f'begin="clk.begin+{t:.2f}s" fill="freeze" calcMode="discrete" '
@@ -197,13 +197,13 @@ def terminal():
                         f'<tspan fill="#7EE787">{num}</tspan><tspan fill="#9198A1">:</tspan>'
                         f'<tspan fill="#E6EDF3">{escape(mid)}</tspan>'
                         f'<tspan fill="#FF7B72" font-weight="700">{escape(task)}</tspan>')
-            p.append(f'<text x="{PAD}" y="{y}" opacity="0">{body}'
+            p.append(f'<text x="{PAD}" y="{y}">{body}'
                      f'<set attributeName="opacity" to="0" begin="clk.begin"/>'
                      f'<set attributeName="opacity" to="1" begin="clk.begin+{t:.2f}s"/></text>')
             t += 0.25
         y += LINE
     # blinking cursor on the last prompt line
-    p.append(f'<text x="{PAD}" y="{y}" opacity="0"><tspan fill="{TAPE}">$ </tspan>'
+    p.append(f'<text x="{PAD}" y="{y}"><tspan fill="{TAPE}">$ </tspan>'
              f'<tspan fill="#E6EDF3">▍<animate attributeName="opacity" values="1;0;1" dur="1s" '
              f'repeatCount="indefinite"/></tspan>'
              f'<set attributeName="opacity" to="0" begin="clk.begin"/>'
