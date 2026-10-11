@@ -186,7 +186,7 @@ flowchart TB
     direction LR
     ado_in["Azure Pipelines"]
     gha_in["GitHub Actions"]
-    more_in["GitLab CI, Bitbucket,<br/>Jenkins, Bamboo"]
+    more_in["GitLab CI, Bitbucket,<br/>Jenkins, Bamboo<br/>(after 1.0)"]
   end
   subgraph compiler["Deterministic compiler"]
     direction LR
@@ -200,14 +200,10 @@ flowchart TB
     direction LR
     gha_out["GitHub Actions"]
     ado_out["Azure Pipelines"]
-    more_out["GitLab CI, Bitbucket"]
+    more_out["GitLab CI, Bitbucket<br/>(after 1.0)"]
   end
-  ado_in --> parse
-  gha_in --> parse
-  more_in -.-> parse
-  emit --> gha_out
-  emit --> ado_out
-  emit -.-> more_out
+  sources --> compiler
+  compiler --> targets
   compiler -. findings .-> diag["TRL-* diagnostics"]
 ```
 
