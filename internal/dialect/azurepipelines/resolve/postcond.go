@@ -95,7 +95,7 @@ func findLeftovers(p *ast.Pipeline) []leftover {
 					report("map condition")
 				}
 			case name == "Insertable":
-				if !value.FieldByName("Insertion").IsNil() {
+				if insertion, _ := value.FieldByName("Insertion").Interface().(*ast.Directive); compileTime(insertion) {
 					report("whole-value insertion")
 				}
 			case name == "AnyEntry":

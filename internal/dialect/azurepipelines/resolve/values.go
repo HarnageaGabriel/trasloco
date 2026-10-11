@@ -59,7 +59,10 @@ func (r *resolver) mapParams(ctx context.Context, m *ast.Map[*ast.Any], env *exp
 		return nil, nil
 	}
 	var out []supplied
-	if m.Insertion != nil {
+	if r.rejectRuntime(m.Insertion) {
+		return nil, nil
+	}
+	if compileTime(m.Insertion) {
 		value, ok, err := r.evalOK(ctx, m.Insertion, env)
 		if err != nil {
 			return nil, err
