@@ -53,8 +53,8 @@ stay free.
 
 > [!WARNING]
 > **Pre-alpha: no migration command works yet.** What exists today is the
-> foundation and the first half of the Azure Pipelines reader (YAML parser,
-> expressions, templates); see [Status](#status). Interfaces will change. To
+> foundation and the Azure Pipelines reader up to template expansion (YAML
+> parser, expressions, templates); see [Status](#status). Interfaces will change. To
 > migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
 > Star the repository and watch releases to follow progress.
@@ -172,7 +172,8 @@ trasloco's planned scope is complementary:
 ## How it works
 
 A pipeline goes through five steps, like code through a compiler. Steps 1 and
-2 exist today for Azure Pipelines; step 3 is in review.
+2 exist today for Azure Pipelines, step 3 is in review, and steps 4 and 5 are
+planned.
 
 1. **Read** the source YAML, keeping the exact position of every value.
 2. **Expand** templates and compile-time expressions.

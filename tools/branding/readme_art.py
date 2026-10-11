@@ -21,7 +21,7 @@ MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',m
 TAPE = "#F0A83A"
 
 THEMES = {
-    "light": dict(ink="#1B2433", muted="#59636E", faint="#6E7781", box="#F6F8FA",
+    "light": dict(ink="#1B2433", muted="#59636E", faint="#66707A", box="#F6F8FA",
                   line="#D0D7DE", panel="#FFFFFF", planned="#F6F8FA"),
     "dark": dict(ink="#E6EDF3", muted="#9198A1", faint="#8B949E", box="#161B22",
                  line="#3D444D", panel="#0D1117", planned="#0D1117"),
