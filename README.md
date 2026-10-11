@@ -10,7 +10,9 @@
 `trasloco` is an open-source Go CLI for planning and executing auditable CI/CD
 pipeline and DevOps migrations between platforms.
 
-> **Status:** pre-alpha — M0 foundations complete.
+> **Status:** pre-alpha. Foundations (M0) are complete and the Azure Pipelines
+> dialect (M1: parser, expressions, template resolver, variables, normalization)
+> is in progress. Not ready for production use; interfaces will change.
 
 ## Principles
 
