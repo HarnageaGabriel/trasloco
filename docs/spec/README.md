@@ -18,6 +18,7 @@ These specifications define contracts shared by every dialect and platform adapt
 | `script-protocol.md` | Portable operations embedded in scripts |
 | `events.md` | Versioned engine event stream |
 | `exit-codes.md` | Process exit status contract |
+| `modernize-ado.md` | Retired Azure Pipelines task handling in `modernize` (draft) |
 
 ## Normative language
 
