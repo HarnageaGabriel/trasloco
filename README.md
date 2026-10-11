@@ -5,8 +5,8 @@
   </picture>
 </p>
 
-<h3 align="center">Building an open-source, any-to-any CI/CD migration engine.<br>
-Provider-neutral, deterministic and auditable by design.</h3>
+<h3 align="center">An open-source tool, in the making, to move CI/CD pipelines<br>
+between Azure DevOps, GitHub and more. Predictable and reviewable by design.</h3>
 
 <p align="center">
   <a href="https://github.com/HarnageaGabriel/trasloco/actions/workflows/ci.yml">
@@ -24,62 +24,69 @@ Provider-neutral, deterministic and auditable by design.</h3>
 </p>
 
 <p align="center">
-  <a href="#check-your-pipelines-for-retired-tasks-today">Retired tasks check</a> ·
-  <a href="#why-trasloco">Why</a> ·
-  <a href="#platforms">Platforms</a> ·
+  <a href="#try-it-now-find-retired-azure-pipelines-tasks">Try it now</a> ·
+  <a href="#design-goals">Design goals</a> ·
   <a href="#status">Status</a> ·
   <a href="#how-it-works">How it works</a> ·
-  <a href="#quick-start">Quick start</a> ·
+  <a href="#getting-started">Getting started</a> ·
   <a href="#roadmap">Roadmap</a> ·
-  <a href="#get-involved">Get involved</a>
+  <a href="#contributing">Contributing</a>
 </p>
 
-**trasloco** (Italian for "house move") is an open-source Go CLI being built
-to migrate CI/CD pipelines and the DevOps resources around them between
-platforms. Its architecture is built around a provider-neutral intermediate
-representation (IR): source dialects compile into the IR and target emitters
-consume it, so each new platform connects to all the others without pairwise
-converters: **any to any**.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme-hero-dark.svg">
+    <img src="docs/assets/readme-hero-light.svg" width="880"
+      alt="Pipelines from any source platform are packed into the trasloco format and unpacked for any target platform">
+  </picture>
+</p>
+
+**trasloco** (Italian for "house move") moves CI/CD pipelines, and the DevOps
+resources around them, from one platform to another. Like a house move, it
+packs each pipeline into one box that belongs to no platform, the **trasloco
+format**, and unpacks it on the target platform. Think Pandoc, but for CI/CD
+pipelines: every new platform works with all the others, **any platform to any
+platform**.
 
 The first pair is **Azure DevOps <-> GitHub**, plus `modernize` to upgrade
-Azure Pipelines in place. GitLab CI, Bitbucket Pipelines, Jenkins and Bamboo
-follow on the same IR. trasloco is free software under Apache-2.0 and will
+Azure Pipelines in place. trasloco is free software under Apache-2.0 and will
 stay free.
 
 > [!WARNING]
-> **Pre-alpha: no migration command works yet.** Only `version` and help are
-> functional; every migration and management command exits with a
-> "not implemented" error. What exists today is the foundation
-> (configuration, diagnostics, ledger, HTTP and rate-limiting libraries) and
-> most of the Azure Pipelines front end (YAML parser, expression engine,
-> template resolver). Interfaces will change. If you need to migrate to GitHub
-> today, see
+> **Pre-alpha: no migration command works yet.** What exists today is the
+> foundation and most of the Azure Pipelines reader (YAML parser, expressions,
+> templates, variables); see [Status](#status). Interfaces will change. To
+> migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
-> To follow progress, star the repository and watch releases.
+> Star the repository and watch releases to follow progress.
 
-## Check your pipelines for retired tasks today
+## Try it now: find retired Azure Pipelines tasks
 
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
-for retirement on **2026-10-15**; on **2027-03-15** they are removed, and
-pipelines that still reference them fail
+for retirement on **2026-10-15**; on **2027-03-15** they are removed and
+pipelines that still use them fail
 ([official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement)).
-
-trasloco already ships that list in machine-readable form,
+trasloco ships that list as data,
 [`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
-generated from the announcement. Built-in task replacements are listed
-directly; cases that need an external replacement are marked `external`.
-You can use it right now, without installing anything, to find candidate
-references to retired tasks in the YAML files of a checked-out repository:
+with the recommended replacements. Three lines of shell find the candidates in
+any checked-out repository, with nothing to install (the recording also counts
+the list with `wc -l`):
+
+<p align="center">
+  <img src="docs/assets/readme-retired-check.svg" width="880"
+    alt="Terminal: the retired task list is downloaded, then grep finds DotNetCoreCLI@1, CopyFiles@1 and AzureCLI@0 in a sample repository">
+</p>
 
 ```sh
-# bash (Linux, macOS, Git Bash, WSL)
-curl -fsSL https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml \
-  | sed -n 's/^ *- task: //p' > retired-tasks.txt
+url=https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml
+curl -fsSL "$url" | sed -n 's/^ *- task: //p' > retired-tasks.txt
 grep -rniwF -f retired-tasks.txt --include='*.yml' --include='*.yaml' .
 ```
 
+<details>
+<summary>PowerShell</summary>
+
 ```powershell
-# PowerShell
 $url = 'https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml'
 $retired = (Invoke-RestMethod $url) -split "`n" |
   Select-String '^\s*- task: (\S+)' |
@@ -89,71 +96,59 @@ $pattern = '(?<![A-Za-z0-9_])(?:' + $names + ')(?![A-Za-z0-9_])'
 Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -Pattern $pattern
 ```
 
-This is a plain-text candidate search: it can report matches in comments or
-unrelated values, and it does not see classic (UI-defined) pipelines or task
-names built from template parameters. The planned `modernize` command is
-designed to analyze pipelines through the parser and template resolver and
-rewrite supported tasks for you.
+</details>
 
-## Why trasloco
+This is a plain-text search: it can match comments, and it does not see
+classic (UI-defined) pipelines or task names built from template parameters.
+The planned `modernize` command is designed to read pipelines with the full
+parser and template expansion and rewrite supported tasks for you.
 
-Moving pipelines between platforms is usually a manual rewrite: templates,
-variables, expressions and secrets are translated by hand, one repository at a
-time, which makes the result hard to audit consistently. trasloco treats a
-migration like a compiler plus an infrastructure tool. These are the design
-goals the code is being built to:
+## Design goals
 
-- **Deterministic by design.** Pipelines go through parse -> resolve ->
-  normalize -> check -> emit. The same normalized input, catalog version and
-  configuration give the same output, and every construct that cannot be
-  converted is reported as a diagnostic instead of being silently guessed.
-- **Any to any.** Dialects and emitters only talk to the provider-neutral IR,
-  so adding a platform does not mean writing a converter for every pair.
-- **Plan before mutation.** Platform changes (repositories, variables,
-  environments, secrets) will follow a Terraform-like `plan` / `apply` /
-  `resume` / `rollback` lifecycle recorded in a local SQLite ledger. The
-  ledger exists today; the commands do not yet.
-- **Built for fleets.** The HTTP layer already implements rate limiting,
-  bounded retries and credential selection, as the foundation for migrating
-  organizations with many repositories.
-- **Secrets by reference.** The IR types store secret references, not secret
-  values, and the logging, event and diagnostic layers redact registered
-  values. End-to-end secret migration is not implemented yet.
-- **No AI required, no telemetry.** Conversion is rule-based and reproducible,
-  and trasloco sends nothing anywhere except to the platforms you configure.
+What trasloco is being built to do; the [status table](#status) shows what
+exists today.
 
-## Platforms
-
-| Platform | As a source | As a target |
-|---|---|---|
-| Azure Pipelines | 🛠️ in progress (parser, expressions and templates done) | 🗓️ planned (`modernize` in M2, full emitter in M6) |
-| GitHub Actions | 🗓️ planned (M6) | 🗓️ planned (M2) |
-| GitLab CI | 🗓️ after 1.0 | 🗓️ after 1.0 |
-| Bitbucket Pipelines | 🗓️ after 1.0 | 🗓️ after 1.0 |
-| Jenkins (declarative) | 🗓️ after 1.0 | not planned |
-| Bamboo | 🗓️ after 1.0 | not planned |
-
-Migrating *to* Jenkins or Bamboo is not on the roadmap, but nothing in the IR
-prevents it.
+- **Any platform to any platform.** Every pipeline is packed into the
+  trasloco format and unpacked from it, so adding a platform means teaching
+  trasloco one format, not writing a converter for every pair.
+- **Predictable.** The same pipeline, catalog version and configuration
+  always give the same result. Anything that cannot be converted is listed
+  clearly, never silently guessed.
+- **Plan before you change anything.** Changes to the platforms (repositories,
+  variables, environments, secrets) follow a `plan` / `apply` / `resume` /
+  `rollback` lifecycle recorded in a local SQLite file, like Terraform.
+- **`modernize` in place.** Upgrade Azure Pipelines without changing platform:
+  replace retired tasks, actions and runner images.
+- **Secrets stay secret.** The trasloco format stores references to secrets,
+  never their values, and every log, event and diagnostic goes through
+  redaction.
+- **Built for fleets.** Rate limiting, bounded retries and credential
+  selection are built into the HTTP layer, for organizations with many
+  repositories.
+- **Local and private.** One self-contained Go binary, no container runtime,
+  no AI required and no telemetry.
 
 ## Status
 
-| Area | Status | Milestone |
+| Component | Status | Milestone |
 |---|---|---|
-| Foundations: CLI skeleton, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache | ✅ done | M0 |
-| Azure Pipelines YAML parser with source positions | ✅ done | M1 |
-| Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | ✅ done | M1 |
-| Azure Pipelines template resolver | ✅ done | M1 |
-| Azure Pipelines variable evaluator | 🔍 in review | M1 |
-| Azure Pipelines -> IR normalization | 🔍 in review | M1 |
-| Task retirement catalog (73 task versions) and in-box task catalog | ✅ done | M2 |
-| Curated task -> action mappings | 🗓️ planned | M2 |
-| GitHub Actions emitter, `convert`, `modernize` | 🗓️ planned | M2 |
-| `audit` | 🗓️ planned | M3 |
-| `plan` / `apply` / `resume` / `rollback` | 🗓️ planned (ledger done) | M4 |
-| GitHub -> Azure DevOps | 🗓️ planned | M6 |
+| Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache | Done | M0 |
+| Azure Pipelines YAML parser, with exact source positions | Done | M1 |
+| Azure Pipelines expressions (`${{ }}`, `$[ ]`, `$( )`) | Done | M1 |
+| Azure Pipelines template expansion | Done | M1 |
+| Azure Pipelines variables | Done | M1 |
+| Azure Pipelines -> trasloco format | In review | M1 |
+| Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
+| Curated task -> action mappings | Planned | M2 |
+| GitHub Actions output, `convert`, `modernize` | Planned | M2 |
+| `audit` | Planned | M3 |
+| `plan` / `apply` / `resume` / `rollback` (the ledger is done) | Planned | M4 |
+| GitHub -> Azure DevOps | Planned | M6 |
+| GitLab CI, Bitbucket Pipelines (both ways); Jenkins, Bamboo (as sources) | Planned | after 1.0 |
 
-"In review" means the code is in an open pull request and not yet on `main`.
+"In review" means the code is in an open pull request, not yet on `main`. In
+the CLI only `version`, `completion` and help work today; every other command
+exits with a "not implemented" error.
 
 ## trasloco and GitHub Actions Importer
 
@@ -172,44 +167,23 @@ trasloco's planned scope is complementary:
 - **The resources around pipelines**: variables, environments, secrets by
   reference, repositories and cutover, with a reviewable plan, resumable apply
   and rollback.
-- **A single static binary** with no container runtime, and an open engine
+- **A self-contained binary** with no container runtime, and an open engine
   you can read, audit and extend.
 
 ## How it works
 
-The diagrams show the planned architecture; the [status table](#status) shows
-what is implemented today.
+A pipeline goes through five steps. Steps 1 and
+2 exist today for Azure Pipelines, step 3 is in review, and steps 4 and 5 are
+planned.
 
-```mermaid
-flowchart TB
-  subgraph sources["Source dialects"]
-    direction LR
-    ado_in["Azure Pipelines"]
-    gha_in["GitHub Actions"]
-    more_in["GitLab CI, Bitbucket,<br/>Jenkins, Bamboo<br/>(after 1.0)"]
-    ado_in ~~~ gha_in ~~~ more_in
-  end
-  subgraph compiler["Deterministic compiler"]
-    direction LR
-    parse["parse"] --> resolve["resolve<br/>templates, expressions"]
-    resolve --> normalize["normalize"]
-    normalize --> ir[("provider-neutral IR")]
-    ir --> check["check"]
-    check --> emit["emit"]
-  end
-  subgraph targets["Target dialects"]
-    direction LR
-    gha_out["GitHub Actions"]
-    ado_out["Azure Pipelines"]
-    more_out["GitLab CI, Bitbucket<br/>(after 1.0)"]
-    gha_out ~~~ ado_out ~~~ more_out
-  end
-  sources --> compiler
-  compiler --> targets
-  compiler -. findings .-> diag["TRL-* diagnostics"]
-```
+1. **Read** the source YAML, keeping the exact position of every value.
+2. **Expand** templates and compile-time expressions.
+3. **Pack** the result into the trasloco format.
+4. **Check** it and list everything that cannot be converted.
+5. **Unpack** it: write the pipeline for the target platform.
 
-Platform changes follow a plan/apply lifecycle backed by the ledger:
+Changes to the platforms themselves will follow a reviewable lifecycle, with
+every step recorded in a local ledger so an interrupted run can resume:
 
 ```mermaid
 flowchart LR
@@ -219,7 +193,7 @@ flowchart LR
   resume --> apply
   apply --> verify["verify"]
   apply -.-> rollback["rollback"]
-  ledger[("SQLite ledger")]
+  ledger[("ledger<br/>(SQLite)")]
   apply <--> ledger
   resume <--> ledger
   rollback <--> ledger
@@ -231,20 +205,23 @@ Migration tools fail on the edge cases, so trasloco is tested against them:
 
 - **319 Azure Pipelines fixtures** in
   [`testdata/azurepipelines/corpus`](testdata/azurepipelines/corpus): 230 valid
-  pipelines, 44 template fragments and 45 invalid pipelines with their expected
-  diagnostics.
+  pipelines and template files, 45 invalid pipelines with their expected
+  diagnostics, and 44 unrendered starter templates vendored from
+  microsoft/azure-pipelines-yaml (kept for coverage, not yet parsed).
 - **446 expression vectors and 296 YAML structure vectors** written as tables
-  in the [normative specifications](docs/spec/README.md); the tests load them
-  directly from the Markdown.
-- **Every semantic rule cites its source**: the Microsoft or GitHub
-  documentation page, or a captured behaviour.
+  in the [specifications](docs/spec/README.md); the tests load them directly
+  from the Markdown.
+- **Every vector cites its source**: a Microsoft documentation page or the
+  open-source reference implementation. Rows inferred rather than documented
+  are labelled as such.
 - **Fuzzing** of parsers and decoders, race-detector runs and coverage floors
   in CI.
-- **Catalogs generated from upstream data**: 159 in-box Azure Pipelines tasks
-  from [microsoft/azure-pipelines-tasks](https://github.com/microsoft/azure-pipelines-tasks)
+- **Catalogs generated from upstream data**: 159 built-in Azure Pipelines
+  tasks from
+  [microsoft/azure-pipelines-tasks](https://github.com/microsoft/azure-pipelines-tasks)
   and the 73 retired task versions from the official announcement.
 
-## Quick start
+## Getting started
 
 There is no release yet. Build from source with Go 1.26 or newer (see
 [go.mod](go.mod)):
@@ -257,7 +234,7 @@ make build                # or: go build -o bin/trasloco ./cmd/trasloco
 ./bin/trasloco --help     # the planned command surface
 ```
 
-Only `version` and help are functional today. Developer commands:
+Developer commands:
 
 ```sh
 make test        # go test -race ./...
@@ -266,68 +243,83 @@ make vuln        # govulncheck
 make docs-check  # generated diagnostics docs are up to date
 ```
 
-## Design principles
-
-- Plan before mutation, and make every change reviewable.
-- Keep secrets out of configuration, logs and every generated artifact.
-- Prefer deterministic conversion with explicit, diagnosed unsupported cases.
-- Use least privilege, pinned actions, resumable execution and verification.
-- Built only from public documentation; every semantic claim cites its source.
-
 ## Roadmap
 
-- **M0 - Foundations** ✅: CLI, config, diagnostics, events, redaction,
-  ledger, HTTP, rate limiting, credential pool, cache.
-- **M1 - Azure Pipelines dialect** 🛠️: parser, expressions, template
-  resolver, variables, normalization to IR.
-- **M2 - GitHub Actions emitter, catalog, `convert` and `modernize`**, with a
-  possible early 0.x release of `convert` and `modernize`.
-- **M3 - Platform adapters and `audit`.**
-- **M4 - `plan` / `apply` / `resume` / `rollback` to GitHub.**
-- **M5 - Hard cases:** OIDC and workload identity federation, classic
-  pipelines, deployment jobs, matrices.
-- **M6 - GitHub -> Azure DevOps.**
-- **M7 - Repositories, governance metadata and cutover.**
-- **Then:** hardening, private beta and **1.0**; after 1.0, GitLab CI,
-  Bitbucket Pipelines, Jenkins and Bamboo.
+| Milestone | Scope |
+|---|---|
+| M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
+| M1 (in progress) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
+| M2 | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
+| M3 | Platform connections and `audit` |
+| M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
+| M5 | Hard cases: OIDC and workload identity federation, classic pipelines, deployment jobs, matrices |
+| M6 | GitHub -> Azure DevOps |
+| M7 | Repositories, governance metadata and cutover |
+| 1.0 | Hardening and private beta, then the first stable release |
+| After 1.0 | GitLab CI, Bitbucket Pipelines, Jenkins and Bamboo |
 
-## Get involved
+## Contributing
 
-- ⭐ **Star** the repository and **watch releases** to hear when `convert`
-  and `modernize` land.
-- 🧩 **Request a task mapping** or report a construct that other tools get
-  wrong, with the [issue templates](https://github.com/HarnageaGabriel/trasloco/issues/new/choose).
-  Anonymized real-world pipelines that break converters are the most valuable
-  contribution.
-- 🛠️ **Contribute code**: read [CONTRIBUTING.md](CONTRIBUTING.md) and
+- **Follow progress**: star the repository and watch releases to hear when
+  `convert` and `modernize` land.
+- **Try the retired tasks check** on your repositories and tell us what it
+  misses, with the
+  [issue templates](https://github.com/HarnageaGabriel/trasloco/issues/new/choose).
+- **Share hard cases**: request a task mapping or report a construct that
+  other tools get wrong. Anonymized real-world pipelines that break converters
+  are the most valuable contribution.
+- **Contribute code**: read [CONTRIBUTING.md](CONTRIBUTING.md) and
   [CONVENTIONS.md](CONVENTIONS.md) first; every commit needs a DCO sign-off
   (`git commit -s`). This project follows the
   [Code of Conduct](CODE_OF_CONDUCT.md).
-- 🔒 **Report vulnerabilities privately** as described in
+- **Report vulnerabilities privately**, as described in
   [SECURITY.md](SECURITY.md), never in public issues.
 
 ## FAQ
 
-**Is trasloco free?** Yes, always: Apache-2.0, with no paid edition and no
-feature gates.
+<details>
+<summary><b>Is trasloco free?</b></summary>
 
-**Does it send my pipelines anywhere?** No. trasloco has no telemetry and is
-designed to run entirely on your machine or CI runner, talking only to the
-platforms you configure.
+Yes, always: Apache-2.0, with no paid edition and no feature gates.
+</details>
 
-**Does it use AI?** Conversion is deterministic and needs no AI. Optional,
-opt-in assistance for constructs without a deterministic mapping is on the
-roadmap.
+<details>
+<summary><b>Does it send my pipelines anywhere?</b></summary>
 
-**Why Azure DevOps and GitHub first?** Many organizations run both side by
-side and move work between them, and the Azure Pipelines task retirement makes
-`modernize` urgent. The IR is designed so that more platforms follow.
+No. trasloco has no telemetry and is designed to run entirely on your machine
+or CI runner, talking only to the platforms you configure.
+</details>
+
+<details>
+<summary><b>Does it use AI?</b></summary>
+
+No. Conversion is rule-based and needs no AI. Optional, opt-in AI assistance
+for constructs without a rule may come later; it is specified but not
+scheduled.
+</details>
+
+<details>
+<summary><b>Why Azure DevOps and GitHub first?</b></summary>
+
+Many organizations run both side by side and move work between them, and the
+Azure Pipelines task retirement makes `modernize` urgent. The trasloco format
+is designed so that more platforms follow.
+</details>
+
+<details>
+<summary><b>What is the "trasloco format"?</b></summary>
+
+trasloco's own description of a pipeline, independent of any platform:
+stages, jobs, steps, variables, conditions, and secrets as references. Pandoc
+does the same for documents. In compiler terms it is an intermediate
+representation (IR); its specification is [docs/spec/ir.md](docs/spec/ir.md).
+</details>
 
 ## Documentation
 
 | Where | What |
 |---|---|
-| [docs/spec](docs/spec/README.md) | Normative specifications (IR, expressions, YAML structure, variables, selectors, naming, events, exit codes, ...) |
+| [docs/spec](docs/spec/README.md) | Specifications (trasloco format, expressions, YAML structure, variables, naming, events, exit codes, ...) |
 | [docs/adr](docs/adr/README.md) | Architecture decision records |
 | [docs/diagnostics](docs/diagnostics/README.md) | Every `TRL-*` diagnostic code |
 | [catalog](catalog) | Generated task, action and retirement catalogs |
