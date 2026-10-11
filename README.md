@@ -187,6 +187,7 @@ flowchart TB
     ado_in["Azure Pipelines"]
     gha_in["GitHub Actions"]
     more_in["GitLab CI, Bitbucket,<br/>Jenkins, Bamboo<br/>(after 1.0)"]
+    ado_in ~~~ gha_in ~~~ more_in
   end
   subgraph compiler["Deterministic compiler"]
     direction LR
@@ -201,6 +202,7 @@ flowchart TB
     gha_out["GitHub Actions"]
     ado_out["Azure Pipelines"]
     more_out["GitLab CI, Bitbucket<br/>(after 1.0)"]
+    gha_out ~~~ ado_out ~~~ more_out
   end
   sources --> compiler
   compiler --> targets
