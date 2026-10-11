@@ -133,11 +133,11 @@ func (r *resolver) walkKnown(ctx context.Context, node any, env *expr.Object) (b
 	case *ast.Variables:
 		return true, r.expandVariables(ctx, node, env)
 	case *ast.Map[*ast.Scalar]:
-		return true, mapWalk(ctx, r, node, env, scalarMapOps(r))
+		return true, mapWalk(ctx, r, node, env, scalarMapOps(r), false)
 	case *ast.Map[*ast.Any]:
-		return true, mapWalk(ctx, r, node, env, anyMapOps(r))
+		return true, mapWalk(ctx, r, node, env, anyMapOps(r), false)
 	case *ast.Map[*ast.Map[*ast.Scalar]]:
-		return true, mapWalk(ctx, r, node, env, matrixMapOps(r))
+		return true, mapWalk(ctx, r, node, env, matrixMapOps(r), false)
 	case *ast.List[*ast.Scalar]:
 		return true, listWalk(ctx, r, node, env)
 	case *ast.List[ast.Step]:
@@ -196,6 +196,14 @@ func (r *resolver) walkStruct(ctx context.Context, value reflect.Value, env *exp
 		if name == "Pos" || name == "Inserts" {
 			continue
 		}
+		if field.Kind() == reflect.Pointer && !field.IsNil() {
+			if d := nodeInsertion(field); d != nil && d.Kind == ast.DirectiveRuntime {
+				if !runtimeInsertionAllowed(value, name) {
+					r.rejectRuntime(d)
+				}
+				continue
+			}
+		}
 		if field.Kind() == reflect.Pointer && !field.IsNil() && hasNodeInsertion(field) {
 			if err := r.materializeField(ctx, value, i, env); err != nil {
 				return err
@@ -211,7 +219,12 @@ func (r *resolver) walkStruct(ctx context.Context, value reflect.Value, env *exp
 			continue
 		}
 		r.next = r.frameFor(self, kind.Field(i), field)
-		err := r.walk(ctx, field, env, depth+1)
+		var err error
+		if matrix, ok := field.Interface().(*ast.Map[*ast.Map[*ast.Scalar]]); ok && matrix != nil {
+			err = mapWalk(ctx, r, matrix, env, matrixMapOps(r), matrixRuntimeInsertionAllowed(value, name))
+		} else {
+			err = r.walk(ctx, field, env, depth+1)
+		}
 		r.next = nil
 		if err != nil {
 			return err
@@ -255,24 +268,74 @@ func (r *resolver) rederiveTaskRef(task *ast.TaskStep) {
 // hasNodeInsertion reports a typed node (not a list, mapping or variables
 // block, which expand their own insertion) written as one ${{ expr }}.
 func hasNodeInsertion(field reflect.Value) bool {
-	switch field.Interface().(type) {
-	case *ast.Variables, *ast.Extends, *ast.Any, *ast.Scalar:
+	if _, ok := field.Interface().(*ast.Extends); ok {
 		return false
+	}
+	return compileTime(nodeInsertion(field))
+}
+
+// nodeInsertion returns the whole-value insertion of a typed node field, or
+// nil. Variables, lists and mappings expand their own insertion.
+func nodeInsertion(field reflect.Value) *ast.Directive {
+	switch field.Interface().(type) {
+	case *ast.Variables, *ast.Any, *ast.Scalar:
+		return nil
 	}
 	node := field.Elem()
 	if node.Kind() != reflect.Struct {
-		return false
+		return nil
 	}
 	name := node.Type().Name()
 	if strings.HasPrefix(name, "List[") || strings.HasPrefix(name, "Map[") {
-		return false
+		return nil
 	}
 	insertable := node.FieldByName("Insertable")
 	if !insertable.IsValid() {
-		return false
+		return nil
 	}
 	insertion, _ := insertable.FieldByName("Insertion").Interface().(*ast.Directive)
-	return insertion != nil
+	return insertion
+}
+
+// runtimeInsertionAllowed reports the only typed-node positions where Azure
+// documents a whole-value runtime expression: a job or deployment container.
+func runtimeInsertionAllowed(parent reflect.Value, field string) bool {
+	if field != "Container" || !parent.CanAddr() {
+		return false
+	}
+	switch parent.Addr().Interface().(type) {
+	case *ast.JobDef, *ast.Deployment, *ast.Pipeline:
+		// A pipeline with no jobs is one implicit job; its root container is
+		// the job container (documented in container-phases).
+		return true
+	}
+	return false
+}
+
+// matrixRuntimeInsertionAllowed identifies the Strategy.Matrix field itself.
+// Maps of the same Go type in all other positions remain compile-time values.
+func matrixRuntimeInsertionAllowed(parent reflect.Value, field string) bool {
+	if field != "Matrix" || !parent.CanAddr() {
+		return false
+	}
+	_, ok := parent.Addr().Interface().(*ast.Strategy)
+	return ok
+}
+
+// rejectRuntime reports a whole-value runtime expression in a position that is
+// resolved at compile time. It returns true when d was such an expression.
+func (r *resolver) rejectRuntime(d *ast.Directive) bool {
+	if d == nil || d.Kind != ast.DirectiveRuntime {
+		return false
+	}
+	r.addAt("TRL-EXPR-0005", d.Pos, "runtime expression not allowed here; this value is resolved at compile time", nil)
+	return true
+}
+
+// compileTime reports a whole-value insertion that the resolver must expand.
+// Runtime $[ ] directives are left for Azure to evaluate.
+func compileTime(d *ast.Directive) bool {
+	return d != nil && d.Kind != ast.DirectiveRuntime
 }
 
 // ---------------------------------------------------------------------------
@@ -548,7 +611,9 @@ func listWalk[T any](ctx context.Context, r *resolver, list *ast.List[T], env *e
 		return err
 	}
 	list.Items = valuesToItems(items)
-	list.Insertion = nil
+	if compileTime(list.Insertion) {
+		list.Insertion = nil
+	}
 	return nil
 }
 
@@ -567,7 +632,19 @@ func listItems[T any](ctx context.Context, r *resolver, list *ast.List[T], env *
 		}
 		return nil
 	}
-	if list.Insertion != nil {
+	if r.rejectRuntime(list.Insertion) {
+		return nil, nil
+	}
+	invalid := false
+	for _, item := range list.Items {
+		if r.rejectRuntime(item.Insert) {
+			invalid = true
+		}
+	}
+	if invalid {
+		return nil, nil
+	}
+	if compileTime(list.Insertion) {
 		value, ok, err := r.evalOK(ctx, list.Insertion, env)
 		if err != nil {
 			return nil, err
@@ -730,21 +807,25 @@ func listValues[T any](list *ast.List[T]) []T {
 // Shared mapping expansion.
 
 type mapOps[V any] struct {
-	value func(ctx context.Context, v V, env *expr.Object) (V, error)
-	eval  func(ctx context.Context, v V, env *expr.Object) (expr.Value, bool, error)
-	from  func(ctx context.Context, name string, value expr.Value, pos ast.Pos) (V, bool, error)
+	value     func(ctx context.Context, v V, env *expr.Object) (V, error)
+	eval      func(ctx context.Context, v V, env *expr.Object) (expr.Value, bool, error)
+	from      func(ctx context.Context, name string, value expr.Value, pos ast.Pos) (V, bool, error)
+	insertion func(v V) *ast.Directive
 }
 
-func mapWalk[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *expr.Object, ops mapOps[V]) error {
-	entries, err := mapEntries(ctx, r, m, env, ops)
+func mapWalk[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *expr.Object, ops mapOps[V], runtimeAllowed bool) error {
+	entries, err := mapEntries(ctx, r, m, env, ops, runtimeAllowed)
 	if err != nil {
 		return err
 	}
-	m.Entries, m.Insertion = entries, nil
+	m.Entries = entries
+	if compileTime(m.Insertion) {
+		m.Insertion = nil
+	}
 	return nil
 }
 
-func mapEntries[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *expr.Object, ops mapOps[V]) ([]ast.MapEntry[V], error) {
+func mapEntries[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *expr.Object, ops mapOps[V], runtimeAllowed bool) ([]ast.MapEntry[V], error) {
 	var out []ast.MapEntry[V]
 	if m == nil {
 		return nil, nil
@@ -766,7 +847,10 @@ func mapEntries[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *exp
 		}
 		return r.charge(len(object.Properties), 0)
 	}
-	if m.Insertion != nil {
+	if !runtimeAllowed && r.rejectRuntime(m.Insertion) {
+		return nil, nil
+	}
+	if compileTime(m.Insertion) {
 		value, ok, err := r.evalOK(ctx, m.Insertion, env)
 		if err != nil {
 			return nil, err
@@ -792,6 +876,9 @@ func mapEntries[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *exp
 				return nil
 			}
 			if isInsertKey(entry.Key) {
+				if ops.insertion != nil && r.rejectRuntime(ops.insertion(entry.Value)) {
+					return nil
+				}
 				value, ok, err := ops.eval(ctx, entry.Value, env)
 				if err != nil {
 					return err
@@ -817,7 +904,7 @@ func mapEntries[V any](ctx context.Context, r *resolver, m *ast.Map[V], env *exp
 			if repeated {
 				body = clone(body)
 			}
-			nested, err := mapEntries(ctx, r, body, bodyEnv, ops)
+			nested, err := mapEntries(ctx, r, body, bodyEnv, ops, false)
 			out = append(out, nested...)
 			return err
 		},
@@ -899,10 +986,10 @@ func matrixMapOps(r *resolver) mapOps[*ast.Map[*ast.Scalar]] {
 			if v == nil {
 				return v, nil
 			}
-			return v, mapWalk(ctx, r, v, env, scalarMapOps(r))
+			return v, mapWalk(ctx, r, v, env, scalarMapOps(r), false)
 		},
 		eval: func(ctx context.Context, v *ast.Map[*ast.Scalar], env *expr.Object) (expr.Value, bool, error) {
-			if v != nil && v.Insertion != nil {
+			if v != nil && compileTime(v.Insertion) {
 				return r.evalOK(ctx, v.Insertion, env)
 			}
 			return nil, false, nil
@@ -915,6 +1002,12 @@ func matrixMapOps(r *resolver) mapOps[*ast.Map[*ast.Scalar]] {
 			}
 			mapped, err := r.scalarMapFromObject(ctx, object, pos)
 			return mapped, err == nil, err
+		},
+		insertion: func(v *ast.Map[*ast.Scalar]) *ast.Directive {
+			if v == nil {
+				return nil
+			}
+			return v.Insertion
 		},
 	}
 }

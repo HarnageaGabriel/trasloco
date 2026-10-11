@@ -120,6 +120,9 @@ func (r *resolver) expandVariables(ctx context.Context, vars *ast.Variables, env
 	if vars == nil {
 		return nil
 	}
+	if r.rejectRuntime(vars.Insertion) {
+		return nil
+	}
 	if vars.Insertion != nil {
 		insertion := vars.Insertion
 		vars.Insertion = nil
@@ -149,7 +152,7 @@ func (r *resolver) expandVariables(ctx context.Context, vars *ast.Variables, env
 		return nil
 	}
 	if vars.Map != nil {
-		if err := mapWalk(ctx, r, vars.Map, env, scalarMapOps(r)); err != nil {
+		if err := mapWalk(ctx, r, vars.Map, env, scalarMapOps(r), false); err != nil {
 			return err
 		}
 	}
