@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+{{template "head" .Head}}
+<body>
+{{template "header" .}}
+<main>
+<h1>{{h .Head.Title}}</h1>
+<p>Azure Pipelines tasks are retired on <time datetime="{{h .Cfg.RetirementDate}}">{{h .Cfg.RetirementDate}}</time> and removed on <time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>. Pipelines that still use a removed task fail. Find your task below, open its page for the replacement, and run <code>trasloco modernize --check</code> to list every affected step in your repositories.</p>
+<p>Official source: <a href="{{h .Cfg.AnnouncementURL}}">Azure DevOps task retirement announcement</a>. Last verified: <time datetime="{{h .Cfg.Generated}}">{{h .Cfg.Generated}}</time>.</p>
+<h2 id="classes">Tasks by kind of migration</h2>
+<ul>
+{{- range .Groups}}
+<li><a href="#{{h .Slug}}">{{h .Label}}</a> ({{.Count}})</li>
+{{- end}}
+</ul>
+<h2 id="all">All {{.Total}} tasks</h2>
+<table>
+<caption>Retired Azure Pipelines task versions, sorted by task name</caption>
+<thead>
+<tr><th scope="col">Task</th><th scope="col">Replacement</th><th scope="col">Kind of migration</th></tr>
+</thead>
+<tbody>
+{{- range .Entries}}
+<tr><th scope="row"><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a></th><td>{{if .Replacement}}{{h (join .Replacement ", ")}}{{else}}none{{end}}</td><td>{{h .ClassLabel}}</td></tr>
+{{- end}}
+</tbody>
+</table>
+<h2 id="by-kind">Grouped by kind of migration</h2>
+{{- range .Groups}}
+<h3 id="{{h .Slug}}">{{h .Label}} ({{.Count}})</h3>
+<ul class="cols">
+{{- range .Entries}}
+<li><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a></li>
+{{- end}}
+</ul>
+{{- end}}
+<h2 id="faq">Questions</h2>
+{{- range .FAQ}}
+<h3>{{h .Question}}</h3>
+<p>{{h .Answer}}</p>
+{{- end}}
+<h2 id="about">About trasloco</h2>
+<p>trasloco is an open-source command-line tool that migrates CI/CD pipelines between platforms and finds retired Azure Pipelines tasks. This site is generated from its catalog. Machine-readable versions: <a href="{{h .Base}}/llms.txt">llms.txt</a>, <a href="{{h .Base}}/llms-full.txt">llms-full.txt</a> and <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
+</main>
+{{template "footer" .}}
+</body>
+</html>

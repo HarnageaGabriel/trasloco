@@ -1,0 +1,23 @@
+# trasloco: retired Azure Pipelines tasks
+
+> Azure Pipelines tasks are retired on 2026-10-15 and removed on 2027-03-15. This site lists 4 retired task versions, their replacements and how to find them. Generated from the trasloco catalog; last verified 2026-10-12.
+
+Each task page answers: when it is removed, what replaces it, and whether trasloco can rewrite it automatically.
+
+## Start here
+
+- [All retired tasks](https://example.test/site/): table of every task and its replacement
+- [Official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement): Microsoft task retirement page
+
+## Retired tasks
+
+- [AndroidBuild@1](https://example.test/site/tasks/androidbuild-1/): replace with Gradle@4 (manual migration)
+- [Chef@1](https://example.test/site/tasks/chef-1/): no replacement: platform retired or external tool
+- [CopyFiles@1](https://example.test/site/tasks/copyfiles-1/): replace with CopyFiles@2 (drop-in replacement)
+- [InvokeRESTAPI@0](https://example.test/site/tasks/invokerestapi-0/): replace with InvokeRESTAPI@1 (replacement with input changes)
+
+## Data
+
+- [modernize.json](https://example.test/site/data/modernize.json): every row as JSON
+- [llms-full.txt](https://example.test/site/llms-full.txt): all entries as plain Markdown facts
+- [Source code](https://github.com/HarnageaGabriel/trasloco): trasloco repository
