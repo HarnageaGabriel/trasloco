@@ -632,17 +632,14 @@ func listItems[T any](ctx context.Context, r *resolver, list *ast.List[T], env *
 		}
 		return nil
 	}
-	if r.rejectRuntime(list.Insertion) {
-		return nil, nil
-	}
-	invalid := false
-	for _, item := range list.Items {
-		if r.rejectRuntime(item.Insert) {
-			invalid = true
-		}
-	}
-	if invalid {
-		return nil, nil
+	// A rejected runtime insertion is reported and skipped; the remaining
+	// siblings are still walked so their independent errors are reported too.
+	// The rejection already makes resolution fail, so the partial result is
+	// never used.
+	r.rejectRuntime(list.Insertion)
+	rejected := make([]bool, len(list.Items))
+	for i, item := range list.Items {
+		rejected[i] = r.rejectRuntime(item.Insert)
 	}
 	if compileTime(list.Insertion) {
 		value, ok, err := r.evalOK(ctx, list.Insertion, env)
@@ -664,6 +661,9 @@ func listItems[T any](ctx context.Context, r *resolver, list *ast.List[T], env *
 		at: func(i int) (*ast.Directive, *ast.Directive) {
 			if cond := list.Items[i].Cond; cond != nil {
 				return cond.Directive, nil
+			}
+			if rejected[i] {
+				return nil, nil
 			}
 			return nil, list.Items[i].Insert
 		},

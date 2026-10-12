@@ -293,3 +293,16 @@ jobs:
 		t.Fatalf("compile-time insertion not expanded:\n%s", text)
 	}
 }
+
+// A rejected runtime list insertion must not hide the diagnostics of its
+// siblings: every independent rejection is reported, in source order.
+func TestRuntimeListItemInsertionKeepsWalkingSiblings(t *testing.T) {
+	input := `steps:
+- $[ variables['steps'] ]
+- script: echo
+  env: $[ variables['env'] ]
+`
+	findings := failure(t, input, nil, Options{}, "TRL-EXPR-0005", "TRL-EXPR-0005")
+	at(t, findings[0], "root.yml", 2)
+	at(t, findings[1], "root.yml", 4)
+}
