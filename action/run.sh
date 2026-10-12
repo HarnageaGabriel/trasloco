@@ -13,6 +13,10 @@ if [[ ! "${TRASLOCO_ACTION_REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]];
   echo "invalid action repository" >&2
   exit 1
 fi
+if [[ -z "${TRASLOCO_INPUT_PATH}" ]]; then
+  echo "path must not be empty" >&2
+  exit 64
+fi
 if [[ "${TRASLOCO_INPUT_PATH}" == -* ]]; then
   echo "path must not start with '-'" >&2
   exit 64
@@ -22,6 +26,22 @@ version=${TRASLOCO_VERSION}
 if [[ -z "${version}" ]]; then
   if [[ "${TRASLOCO_ACTION_REF:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
     version=${TRASLOCO_ACTION_REF}
+  elif [[ "${TRASLOCO_ACTION_REF:-}" =~ ^v([0-9]+)$ ]]; then
+    major=${BASH_REMATCH[1]}
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "jq is required to resolve the ${TRASLOCO_ACTION_REF} release" >&2
+      exit 1
+    fi
+    releases=$(curl --fail --location --silent --show-error --retry 3 \
+      "https://api.github.com/repos/${TRASLOCO_ACTION_REPOSITORY}/releases?per_page=100")
+    version=$(printf '%s' "${releases}" | jq -r --arg major "v${major}" '
+      [.[] | select(.prerelease == false and .draft == false) | .tag_name
+        | select(test("^" + $major + "\\.[0-9]+\\.[0-9]+$"))]
+      | sort_by(ltrimstr("v") | split(".") | map(tonumber)) | last // empty')
+    if [[ -z "${version}" ]]; then
+      echo "no non-prerelease ${TRASLOCO_ACTION_REF}.x.y release found" >&2
+      exit 1
+    fi
   else
     latest_release_url=$(curl --fail --location --silent --show-error --retry 3 \
       --output /dev/null --write-out '%{url_effective}' \
@@ -62,9 +82,9 @@ if [[ ! "${expected}" =~ ^[0-9a-fA-F]{64}$ ]]; then
   exit 1
 fi
 if command -v sha256sum >/dev/null 2>&1; then
-  actual=$(sha256sum "${work_dir}/${archive}" | awk '{print $1}')
+  actual=$(sha256sum < "${work_dir}/${archive}" | awk '{print $1}')
 else
-  actual=$(shasum -a 256 "${work_dir}/${archive}" | awk '{print $1}')
+  actual=$(shasum -a 256 < "${work_dir}/${archive}" | awk '{print $1}')
 fi
 if [[ "${actual}" != "${expected}" ]]; then
   echo "SHA-256 verification failed for ${archive}" >&2
@@ -84,7 +104,13 @@ args=(modernize --format "${TRASLOCO_INPUT_FORMAT}")
 if [[ "${TRASLOCO_FAIL_ON_FINDINGS}" == true ]]; then args+=(--check); fi
 args+=(-- "${TRASLOCO_INPUT_PATH}")
 if [[ "${TRASLOCO_INPUT_FORMAT}" == sarif ]]; then
-  "${executable}" "${args[@]}" > "${TRASLOCO_SARIF_FILE}"
+  status=0
+  "${executable}" "${args[@]}" > "${TRASLOCO_SARIF_FILE}" || status=$?
+  # Only a complete report (exit 0 or 5) is uploaded to code scanning.
+  if [[ ( "${status}" -eq 0 || "${status}" -eq 5 ) && -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "sarif-written=true" >> "${GITHUB_OUTPUT}"
+  fi
+  exit "${status}"
 else
   "${executable}" "${args[@]}"
 fi

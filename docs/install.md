@@ -17,11 +17,9 @@ archive=trasloco_0.1.0_linux_amd64.tar.gz
 base=https://github.com/HarnageaGabriel/trasloco/releases/download/$version
 curl -fLO "$base/$archive"
 curl -fLO "$base/checksums.txt"
-curl -fLO "$base/checksums.txt.sig"
-curl -fLO "$base/checksums.txt.pem"
+curl -fLO "$base/checksums.txt.sigstore.json"
 cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
+  --bundle checksums.txt.sigstore.json \
   --certificate-identity "https://github.com/HarnageaGabriel/trasloco/.github/workflows/release.yml@refs/tags/$version" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
@@ -35,22 +33,53 @@ tar -xzf "$archive"
 ./trasloco version
 ```
 
-On macOS, select the same single entry and pass it to `shasum`:
+`gh attestation verify` needs `gh auth login` or a `GH_TOKEN` environment
+variable.
+
+On macOS, use `shasum` and the same order (all verification before extracting):
 
 ```bash
+set -euo pipefail
+
+version=v0.1.0
+archive=trasloco_0.1.0_darwin_arm64.tar.gz
+base=https://github.com/HarnageaGabriel/trasloco/releases/download/$version
+curl -fLO "$base/$archive"
+curl -fLO "$base/checksums.txt"
+curl -fLO "$base/checksums.txt.sigstore.json"
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity "https://github.com/HarnageaGabriel/trasloco/.github/workflows/release.yml@refs/tags/$version" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
 checksum_line=$(awk -v file="$archive" '
   ($2 == file || $2 == "*" file) { count++; line = $1 "  " file }
   END { if (count == 1) print line; else exit 1 }
 ' checksums.txt)
 printf '%s\n' "$checksum_line" | shasum -a 256 -c -
+gh attestation verify "$archive" --repo HarnageaGabriel/trasloco
+tar -xzf "$archive"
+./trasloco version
 ```
 
-Windows archives are ZIP files. In PowerShell, compare `Get-FileHash` only with
-the exact archive entry:
+Windows archives are ZIP files. In PowerShell, verify `checksums.txt` with
+`cosign verify-blob --bundle checksums.txt.sigstore.json` (same identity and
+issuer flags as above), compare `Get-FileHash` only with the exact archive entry,
+run `gh attestation verify`, and only then expand the archive:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
+$version = 'v0.1.0'
 $archive = 'trasloco_0.1.0_windows_amd64.zip'
+$base = "https://github.com/HarnageaGabriel/trasloco/releases/download/$version"
+Invoke-WebRequest "$base/$archive" -OutFile $archive
+Invoke-WebRequest "$base/checksums.txt" -OutFile checksums.txt
+Invoke-WebRequest "$base/checksums.txt.sigstore.json" -OutFile checksums.txt.sigstore.json
+cosign verify-blob --bundle checksums.txt.sigstore.json `
+  --certificate-identity "https://github.com/HarnageaGabriel/trasloco/.github/workflows/release.yml@refs/tags/$version" `
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com `
+  checksums.txt
+if ($LASTEXITCODE -ne 0) { throw 'cosign verification failed' }
 $entryHashes = @(
   foreach ($line in Get-Content checksums.txt) {
     if ($line -match '^([0-9a-fA-F]{64}) [ *](.+)$' -and $Matches[2] -ceq $archive) {
@@ -65,6 +94,10 @@ $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash
 if ($actual -ine $entryHashes[0]) {
   throw "SHA-256 verification failed for $archive"
 }
+gh attestation verify $archive --repo HarnageaGabriel/trasloco
+if ($LASTEXITCODE -ne 0) { throw 'attestation verification failed' }
+Expand-Archive $archive -DestinationPath .
+.\trasloco.exe version
 ```
 
 Every archive also has an SPDX JSON SBOM beside it.
@@ -80,7 +113,10 @@ trasloco modernize --check --format text -- .
 ```
 
 This complete Azure Pipelines example pins a release, verifies the exact Linux
-amd64 archive entry before extraction, and runs the check from a Bash step:
+amd64 archive entry before extraction, and runs the check from a Bash step.
+It verifies the archive against `checksums.txt` from the same release only (no
+cosign or attestation); see [Download and verify](#download-and-verify) for the
+full verification.
 
 ```yaml
 pool:
@@ -112,7 +148,9 @@ Exit 5 means actionable retired tasks remain and fails the script step.
 ## GitHub Action
 
 The composite action downloads the runner's release archive, verifies it
-against `checksums.txt`, and fails closed before running the binary. It needs no
+against `checksums.txt` from the same release (no cosign or attestation check;
+see [Download and verify](#download-and-verify) for the full verification), and
+fails closed before running the binary. It needs no
 secret; the check itself only contacts GitHub Releases for those downloads.
 Optional SARIF upload sends the result to GitHub code scanning.
 
@@ -148,6 +186,7 @@ steps:
 Set `fail-on-findings: false` to report findings without `--check`. The optional
 `version` input selects an explicit release tag. With its default empty value,
 an exact action ref such as `@v0.1.0` downloads that release. A major alias such
-as `@v0`, a branch, or a commit SHA resolves the latest release through GitHub's
-public `/releases/latest` redirect; no token is needed. The `@v0` major alias
+as `@v0` resolves the highest non-prerelease `v0.x.y` release through the
+unauthenticated GitHub releases API; a branch or commit SHA resolves the latest
+release. The action fails if none is found. The `@v0` major alias
 moves to each non-prerelease v0 release, while `@v0.1.0` is immutable.

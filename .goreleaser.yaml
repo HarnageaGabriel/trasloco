@@ -59,15 +59,12 @@ signs:
   - id: checksums-keyless
     cmd: cosign
     artifacts: checksum
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
       - --yes
-      - --output-signature
+      - --bundle
       - "${signature}"
-      - --output-certificate
-      - "${certificate}"
       - "${artifact}"
 
 changelog:

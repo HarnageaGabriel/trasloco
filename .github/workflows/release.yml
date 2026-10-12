@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
 
 permissions: {}
 
@@ -52,7 +52,14 @@ jobs:
             exit 1
           fi
           major_tag="v${BASH_REMATCH[1]}"
+          highest=$(git tag --list "v${BASH_REMATCH[1]}.*" \
+            | grep -E "^v${BASH_REMATCH[1]}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+          if [[ "${highest}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "${GITHUB_REF_NAME} is not the highest ${major_tag}.x.y release; leaving ${major_tag} unchanged"
+            exit 0
+          fi
           auth_header=$(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)
+          echo "::add-mask::${auth_header}"
           git tag -f "${major_tag}" "${GITHUB_SHA}"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
             push -f origin "refs/tags/${major_tag}"
