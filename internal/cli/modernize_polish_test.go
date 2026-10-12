@@ -38,7 +38,11 @@ func TestDecodeModernizeDataUTF16(t *testing.T) {
 		{name: "LE without BOM", input: encodeUTF16(retiredCopy, true, false), want: retiredCopy},
 		{name: "BE without BOM", input: encodeUTF16(retiredCopy, false, false), want: retiredCopy},
 		{name: "plain UTF-8", input: []byte(retiredCopy), want: retiredCopy},
-		{name: "odd length LE without BOM", input: append(encodeUTF16(retiredCopy, true, false), 'x'), wantErr: true},
+		{name: "odd length LE with BOM", input: append(encodeUTF16(retiredCopy, true, true), 'x'), wantErr: true},
+		// Without a BOM an odd length is not UTF-16: the bytes are returned unchanged and later skipped.
+		{name: "odd length LE without BOM", input: append(encodeUTF16(retiredCopy, true, false), 'x'), want: string(append(encodeUTF16(retiredCopy, true, false), 'x'))},
+		{name: "short file", input: []byte("a\x00"), want: "a\x00"},
+		{name: "NUL only", input: make([]byte, 8), want: string(make([]byte, 8))},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

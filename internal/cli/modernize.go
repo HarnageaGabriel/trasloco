@@ -40,7 +40,8 @@ Only files that look like Azure Pipelines files are examined; GitHub
 workflows, Kubernetes manifests and other YAML are skipped silently.
 Directory scans skip .git, node_modules and vendor directories.
 
-UTF-16 files are decoded with or without a byte order mark.
+UTF-16 files are decoded when they start with a byte order mark, or without
+one when their first characters are in the Latin range.
 
 Exit codes: 0 nothing to fix (or --check not given), 5 retired tasks found
 with --check, 64 usage error, 1 a named path cannot be read (or, with
@@ -265,7 +266,8 @@ func decodeModernizeData(data []byte) ([]byte, error) {
 	start := 2
 	if !littleEndian && !bigEndian {
 		littleEndian, bigEndian = sniffBOMlessUTF16(data)
-		if !littleEndian && !bigEndian {
+		if (!littleEndian && !bigEndian) || len(data)%2 != 0 {
+			// Not recognisably UTF-16: leave it to the normal (skipped) path.
 			return data, nil
 		}
 		start = 0

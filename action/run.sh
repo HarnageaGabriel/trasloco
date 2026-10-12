@@ -39,7 +39,7 @@ fetch_all_releases() {
     page_state=$(printf '%s' "${body}" | node -e '
       const pageData = JSON.parse(require("fs").readFileSync(0, "utf8"));
       if (!Array.isArray(pageData)) process.exit(2);
-      process.stdout.write(pageData.length === 0 ? "empty" : "more");
+      process.stdout.write(pageData.length === 0 ? "empty" : pageData.length < 100 ? "last" : "more");
     ') || { echo "unexpected GitHub releases API response" >&2; return 1; }
     if [[ "${page_state}" == empty ]]; then
       break
@@ -49,9 +49,15 @@ fetch_all_releases() {
       const first = JSON.parse(parts[0]);
       const rest = JSON.parse(parts.slice(1).join("\n"));
       process.stdout.write(JSON.stringify(first.concat(rest)));
-    ')
+    ') || { echo "failed to merge GitHub release pages" >&2; return 1; }
+    if [[ "${page_state}" == last ]]; then
+      break
+    fi
     page=$((page + 1))
   done
+  if [[ "${page}" -gt "${max_pages}" ]]; then
+    echo "warning: stopped after ${max_pages} pages of releases" >&2
+  fi
   printf '%s' "${combined}"
 }
 
