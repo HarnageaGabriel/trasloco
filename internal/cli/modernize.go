@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/spf13/cobra"
 
@@ -37,10 +38,12 @@ current directory). Nothing is modified.
 
 Only files that look like Azure Pipelines files are examined; GitHub
 workflows, Kubernetes manifests and other YAML are skipped silently.
+Directory scans skip .git, node_modules and vendor directories.
 
 Exit codes: 0 nothing to fix (or --check not given), 5 retired tasks found
 with --check, 64 usage error, 1 a named path cannot be read (or, with
---strict, an Azure Pipelines file does not parse).`,
+--strict, an Azure Pipelines file has parser errors, including constructs the
+parser rejects).`,
 		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -93,19 +96,16 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		return fmt.Errorf("load catalog: %w", err)
 	}
 
-	files, notices, err := pipelineFiles(paths)
+	files, notices, pathFailures := pipelineFiles(paths)
 	for _, notice := range notices {
 		_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: %s\n", notice)
-	}
-	if err != nil {
-		return err
 	}
 	if len(files) == 0 {
 		_, _ = fmt.Fprintln(a.io.Err, "trasloco: warning: 0 YAML files scanned")
 	}
 
 	var result modernizeResult
-	ioFailed, strictFailed := 0, false
+	ioFailed, strictFailed := pathFailures, false
 	for _, file := range files {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -113,6 +113,14 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		data, readErr := os.ReadFile(file.path) //nolint:gosec // paths are the command's explicit scan targets
 		if readErr != nil {
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)
+			if file.explicit {
+				ioFailed++
+			}
+			continue
+		}
+		data, readErr = decodeModernizeData(data)
+		if readErr != nil {
+			_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: skipped %s: %v\n", file.display, readErr)
 			if file.explicit {
 				ioFailed++
 			}
@@ -171,13 +179,14 @@ type scanFile struct {
 }
 
 // pipelineFiles lists the YAML files under paths. Notices are problems with
-// single paths that do not stop the scan; the error is a failure of a named
-// path.
-func pipelineFiles(paths []string) ([]scanFile, []string, error) {
+// single paths that do not stop the scan; failures counts unreadable named
+// paths so the caller can return exit 1 after writing the report.
+func pipelineFiles(paths []string) ([]scanFile, []string, int) {
 	cwd, _ := os.Getwd()
 	seen := make(map[string]bool)
 	var files []scanFile
 	var notices []string
+	failures := 0
 	add := func(path string, explicit bool) {
 		absolute, err := filepath.Abs(path)
 		if err != nil || seen[absolute] {
@@ -189,7 +198,9 @@ func pipelineFiles(paths []string) ([]scanFile, []string, error) {
 	for _, root := range paths {
 		info, err := os.Lstat(root)
 		if err != nil {
-			return nil, notices, fmt.Errorf("scan %s: %w", root, err)
+			notices = append(notices, fmt.Sprintf("cannot read %s: %v", root, err))
+			failures++
+			continue
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			notices = append(notices, fmt.Sprintf("skipped %s: symbolic links are not followed", root))
@@ -226,7 +237,8 @@ func pipelineFiles(paths []string) ([]scanFile, []string, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, notices, fmt.Errorf("scan %s: %w", root, err)
+			notices = append(notices, fmt.Sprintf("cannot read %s: %v", root, err))
+			failures++
 		}
 	}
 	sort.Slice(files, func(i, j int) bool {
@@ -235,7 +247,30 @@ func pipelineFiles(paths []string) ([]scanFile, []string, error) {
 		}
 		return files[i].path < files[j].path
 	})
-	return files, notices, nil
+	return files, notices, failures
+}
+
+func decodeModernizeData(data []byte) ([]byte, error) {
+	if len(data) < 2 {
+		return data, nil
+	}
+	littleEndian := data[0] == 0xff && data[1] == 0xfe
+	bigEndian := data[0] == 0xfe && data[1] == 0xff
+	if !littleEndian && !bigEndian {
+		return data, nil
+	}
+	if (len(data)-2)%2 != 0 {
+		return nil, errors.New("malformed UTF-16 file")
+	}
+	units := make([]uint16, 0, (len(data)-2)/2)
+	for offset := 2; offset < len(data); offset += 2 {
+		value := uint16(data[offset])<<8 | uint16(data[offset+1])
+		if littleEndian {
+			value = uint16(data[offset+1])<<8 | uint16(data[offset])
+		}
+		units = append(units, value)
+	}
+	return []byte(string(utf16.Decode(units))), nil
 }
 
 // displayPath is the path shown in reports: relative to the current

@@ -80,7 +80,7 @@
 | [TRL-MOD-0001](TRL-MOD-0001.md) | warning | Retired task with a drop-in replacement | active |
 | [TRL-MOD-0002](TRL-MOD-0002.md) | warning | Retired task whose replacement needs input changes | active |
 | [TRL-MOD-0003](TRL-MOD-0003.md) | warning | Retired task needs a manual migration | active |
-| [TRL-MOD-0004](TRL-MOD-0004.md) | warning | Retired task has no replacement task | active |
+| [TRL-MOD-0004](TRL-MOD-0004.md) | error | Retired task has no replacement task | active |
 | [TRL-MOD-0005](TRL-MOD-0005.md) | warning | Task reference is not static or names a retired task as a string | active |
 | [TRL-MOD-0006](TRL-MOD-0006.md) | warning | Input cannot be migrated automatically | active |
 | [TRL-MOD-0007](TRL-MOD-0007.md) | warning | Input unknown to the retired task preserved | active |

@@ -17,9 +17,10 @@ import (
 // is the only place the site address is written down.
 const HelpBaseURL = "https://harnageagabriel.github.io/trasloco/tasks/"
 
-// Severities of a Finding. Only SeverityWarning findings are actionable.
+// Severities of a Finding. Warning and error findings are actionable.
 const (
 	SeverityWarning = "warning"
+	SeverityError   = "error"
 	SeverityInfo    = "info"
 )
 
@@ -62,7 +63,7 @@ func Scan(name string, data []byte, cat *catalog.Catalog) ([]Finding, []diag.Dia
 		collector.Add(diagnostic)
 	}
 	if document == nil || document.Root() == nil {
-		return nil, collector.List()
+		return fallbackTaskStrings(name, data, newIndex(cat)), collector.List()
 	}
 	_ = adoparse.Document(document, collector)
 
@@ -73,6 +74,9 @@ func Scan(name string, data []byte, cat *catalog.Catalog) ([]Finding, []diag.Dia
 			finding.Path = name
 			findings = append(findings, finding)
 		}, index)
+	}
+	if len(findings) == 0 && hasError(collector.List()) {
+		findings = append(findings, fallbackTaskStrings(name, data, index)...)
 	}
 	sort.SliceStable(findings, func(i, j int) bool {
 		a, b := findings[i], findings[j]
@@ -85,6 +89,42 @@ func Scan(name string, data []byte, cat *catalog.Catalog) ([]Finding, []diag.Dia
 		return a.Code < b.Code
 	})
 	return findings, collector.List()
+}
+
+func hasError(diagnostics []diag.Diagnostic) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == diag.SeverityError {
+			return true
+		}
+	}
+	return false
+}
+
+var fallbackTask = regexp.MustCompile(`(?im)(?:^|[,{])\s*-?\s*["']?task["']?\s*:\s*["']?([^\s,}\]"']+)`)
+
+// fallbackTaskStrings conservatively scans parser-rejected documents. These
+// values are manual findings because the surrounding step shape is invalid.
+func fallbackTaskStrings(name string, data []byte, index catalogIndex) []Finding {
+	var findings []Finding
+	for _, match := range fallbackTask.FindAllSubmatchIndex(data, -1) {
+		start, end := match[2], match[3]
+		raw := string(data[start:end])
+		task, major, _, ok := splitReference(raw)
+		if !ok {
+			continue
+		}
+		if _, state := index.resolve(task, major); state == notRetired {
+			continue
+		}
+		line := 1 + strings.Count(string(data[:start]), "\n")
+		lineStart := strings.LastIndex(string(data[:start]), "\n") + 1
+		findings = append(findings, Finding{
+			Code: "TRL-MOD-0005", Severity: SeverityWarning, Path: name,
+			Line: line, Column: start - lineStart + 1, RetiredTask: raw,
+			Action: "Cannot determine the task version; replace the retired task reference by hand.",
+		})
+	}
+	return findings
 }
 
 type walkContext struct {
@@ -138,7 +178,13 @@ func walkMapping(node *yamlx.Node, context walkContext, emit func(Finding), inde
 			if finding, ok := index.reference(task); ok {
 				emit(finding)
 			}
-		} else if !context.freeform && !context.stepBody {
+		} else if context.freeform {
+			if task := scalarTask(pairs); task != nil {
+				if finding, ok := index.retiredString(task); ok {
+					emit(finding)
+				}
+			}
+		} else if !context.stepBody {
 			if key := dynamicTaskKey(pairs); key != nil {
 				emit(manualFinding(key, strings.TrimSpace(key.Value())))
 			}
@@ -182,7 +228,7 @@ func stepTask(pairs []yamlx.Pair, freeform bool) *yamlx.Node {
 	var task *yamlx.Node
 	for _, pair := range pairs {
 		key := strings.ToLower(strings.TrimSpace(pair.Key.Value()))
-		if freeform && !freeformStepKeys[key] {
+		if freeform && !freeformStepKeys[key] && !isDirective(key) {
 			return nil
 		}
 		if key == "task" && pair.Value.Kind() == yamlx.ScalarKind {
@@ -190,6 +236,15 @@ func stepTask(pairs []yamlx.Pair, freeform bool) *yamlx.Node {
 		}
 	}
 	return task
+}
+
+func scalarTask(pairs []yamlx.Pair) *yamlx.Node {
+	for _, pair := range pairs {
+		if strings.EqualFold(strings.TrimSpace(pair.Key.Value()), "task") && pair.Value.Kind() == yamlx.ScalarKind {
+			return pair.Value
+		}
+	}
+	return nil
 }
 
 // dynamicTaskKey finds a key produced by an expression (not a control
@@ -228,13 +283,13 @@ func hasWordPrefix(text, word string) bool {
 func IsCandidate(name string, data []byte) bool {
 	document, _ := yamlx.Parse(name, data)
 	if document == nil || len(document.Documents) == 0 {
-		return taskLine.Match(data)
+		return taskLine.Match(data) || fallbackTask.Match(data)
 	}
 	for _, root := range document.Documents {
 		if root == nil {
 			continue
 		}
-		if hasPipelineKey(root) || hasTaskKey(root, 0) {
+		if !hasExcludedTopLevelKey(root) && (hasPipelineKey(root) || hasTaskKey(root, 0)) {
 			return true
 		}
 	}
@@ -245,7 +300,7 @@ var taskLine = regexp.MustCompile(`(?im)^\s*(?:-\s+)*["']?task["']?\s*:`)
 
 var pipelineKeys = map[string]bool{
 	"task": true, "steps": true, "jobs": true, "stages": true, "extends": true, "template": true,
-	"trigger": true, "pool": true, "pr": true, "resources": true, "variables": true,
+	"trigger": true, "pool": true, "pr": true, "resources": true, "variables": true, "parameters": true,
 }
 
 func hasPipelineKey(root *yamlx.Node) bool {
@@ -259,10 +314,24 @@ func hasPipelineKey(root *yamlx.Node) bool {
 		case "on", "apiversion":
 			return false
 		default:
-			found = found || pipelineKeys[key]
+			found = found || pipelineKeys[key] || isDirective(key)
 		}
 	}
 	return found
+}
+
+func hasExcludedTopLevelKey(root *yamlx.Node) bool {
+	if root.Kind() != yamlx.MappingKind {
+		return false
+	}
+	pairs, _ := root.Map()
+	for _, pair := range pairs {
+		key := strings.ToLower(strings.TrimSpace(pair.Key.Value()))
+		if key == "on" || key == "apiversion" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasTaskKey(node *yamlx.Node, depth int) bool {

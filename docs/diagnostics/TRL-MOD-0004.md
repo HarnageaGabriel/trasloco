@@ -2,7 +2,7 @@
 
 # TRL-MOD-0004: Retired task has no replacement task
 
-- Severity: warning
+- Severity: error
 - Exit class: none
 - Area: MOD
 - Since: 0.1.0
@@ -11,10 +11,10 @@
 
 ## Remediation
 
-Follow the official guidance in `params.guidance`.
+Follow the official guidance in `action`.
 
 ## Example
 
 ```json
-{"code": "TRL-MOD-0004", "severity": "warning", "params": {}}
+{"code": "TRL-MOD-0004", "severity": "error", "params": {}}
 ```

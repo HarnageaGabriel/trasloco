@@ -89,6 +89,39 @@ func TestScanParameterStepContentsAreNotStrings(t *testing.T) {
 	}
 }
 
+func TestScanFreeformTaskMappingsAreNeverDropped(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			"extends parameter step with directive",
+			"extends: {template: t.yml, parameters: {list: [{task: CopyFiles@1, ${{ if eq(1,1) }}: {inputs: {}}}]}}\n",
+			[]string{"TRL-MOD-0005"},
+		},
+		{
+			"stepList default with directive",
+			"parameters:\n- name: list\n  type: stepList\n  default:\n  - task: CopyFiles@1\n    ${{ if eq(1,1) }}:\n      inputs: {}\n",
+			[]string{"TRL-MOD-0001"},
+		},
+		{
+			"unknown key falls back to string detection",
+			"parameters:\n  list:\n  - task: CopyFiles@1\n    futureKey: value\n",
+			[]string{"TRL-MOD-0005"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			findings, _ := Scan("p.yml", []byte(test.input), testCatalog(t))
+			got := codesOf(findings)
+			if strings.Join(got, ",") != strings.Join(test.want, ",") {
+				t.Fatalf("codes = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestSplitReferenceRejectsSignedMajors(t *testing.T) {
 	for _, raw := range []string{"CopyFiles@+1", "CopyFiles@-1", "CopyFiles@1.+2", "CopyFiles@ 1"} {
 		if _, _, _, ok := splitReference(raw); ok {

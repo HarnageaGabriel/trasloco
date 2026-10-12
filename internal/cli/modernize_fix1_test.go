@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf16"
 )
 
 func writeTree(t *testing.T, files map[string]string) string {
@@ -134,6 +135,77 @@ func TestModernizeWarnsOnEmptyScanAndSkippedArguments(t *testing.T) {
 	code, _, stderr := executeModernize(t, "modernize", "readme.txt")
 	if code != ExitOK || !strings.Contains(stderr, "readme.txt") || !strings.Contains(stderr, "0 YAML files scanned") {
 		t.Fatalf("exit = %d, stderr = %q", code, stderr)
+	}
+}
+
+func TestModernizeDecodesUTF16(t *testing.T) {
+	root := t.TempDir()
+	units := utf16.Encode([]rune(retiredCopy))
+	data := make([]byte, 2, 2+2*len(units))
+	data[0], data[1] = 0xff, 0xfe
+	for _, unit := range units {
+		data = append(data, byte(unit), byte(unit>>8))
+	}
+	if err := os.WriteFile(filepath.Join(root, "pipeline.yml"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitPolicy || !strings.Contains(out, "CopyFiles@1") || stderr != "" {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeInvalidRootSequenceStillReportsTask(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": "- task: CopyFiles@1\n"})
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitPolicy || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "TRL-PARSE") {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeMissingNamedPathDoesNotHideOtherReports(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy})
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "missing.yml", "pipeline.yml")
+	if code != ExitError || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "missing.yml") {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeHelpDocumentsTraversalAndStrictParsing(t *testing.T) {
+	code, out, stderr := executeModernize(t, "modernize", "--help")
+	if code != ExitOK || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr)
+	}
+	for _, want := range []string{".git", "node_modules", "vendor", "constructs the", "parser rejects"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestModernizeClassDIsSARIFError(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": "steps:\n- task: AppCenterDistribute@2\n"})
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--format", "sarif")
+	if code != ExitOK {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr)
+	}
+	var report struct {
+		Runs []struct {
+			Results []struct {
+				RuleID string `json:"ruleId"`
+				Level  string `json:"level"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Runs) != 1 || len(report.Runs[0].Results) != 1 || report.Runs[0].Results[0].RuleID != "TRL-MOD-0004" || report.Runs[0].Results[0].Level != "error" {
+		t.Fatalf("results = %#v", report.Runs)
 	}
 }
 

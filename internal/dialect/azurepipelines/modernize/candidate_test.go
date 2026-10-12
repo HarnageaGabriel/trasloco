@@ -12,14 +12,18 @@ func TestIsCandidate(t *testing.T) {
 		{"stages", "stages:\n- stage: a\n", true},
 		{"trigger", "trigger:\n- main\n", true},
 		{"template call", "template: x.yml\n", true},
+		{"parameters only template", "parameters:\n- name: x\n  type: string\n", true},
+		{"directive wrapped variables", "${{ if eq(1, 1) }}:\n  variables:\n    x: y\n", true},
 		{"task nested", "a:\n  b:\n  - task: Foo@1\n", true},
 		{"github workflow", "name: ci\non: [push]\njobs:\n  b:\n    runs-on: x\n    steps:\n    - uses: a/b@v1\n", false},
+		{"github matrix task", "on: push\njobs:\n  build:\n    strategy:\n      matrix:\n        include:\n        - task: test\n", false},
 		{"kubernetes multi document", "apiVersion: v1\nkind: Service\n---\napiVersion: apps/v1\nkind: Deployment\nspec:\n  template: {}\n", false},
 		{"unrelated mapping", "unrelated:\n  document: true\n", false},
 		{"scalar document", "just text\n", false},
 		{"helm template", "name: {{ .Release.Name }}\n", false},
 		{"invalid yaml without task", "a: [1, 2\nb: : :\n", false},
 		{"invalid yaml with task line", "steps:\n- task: CopyFiles@1\n  inputs: [unclosed\n", true},
+		{"invalid flow parameters with task", "extends: {template: t.yml, parameters: {list: [{task: CopyFiles@1, ${{ if eq(1,1) }}: {inputs: {}}}]}}\n", true},
 		{"empty", "", false},
 	}
 	for _, test := range tests {
@@ -28,6 +32,13 @@ func TestIsCandidate(t *testing.T) {
 				t.Fatalf("IsCandidate = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestClassDSeverityIsError(t *testing.T) {
+	findings, _ := Scan("p.yml", []byte("steps:\n- task: AppCenterDistribute@2\n"), testCatalog(t))
+	if len(findings) != 1 || findings[0].Code != "TRL-MOD-0004" || findings[0].Severity != SeverityError || !findings[0].Actionable() {
+		t.Fatalf("findings = %#v", findings)
 	}
 }
 
@@ -78,5 +89,15 @@ func TestScanStringsAndDirectiveShapes(t *testing.T) {
 	want := []string{"TRL-MOD-0005", "TRL-MOD-0001"}
 	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("codes = %v, want %v", got, want)
+	}
+}
+
+func TestScanInvalidTopLevelSequenceFallsBackToTaskStrings(t *testing.T) {
+	findings, diagnostics := Scan("p.yml", []byte("- task: CopyFiles@1\n"), testCatalog(t))
+	if got := codesOf(findings); len(got) != 1 || got[0] != "TRL-MOD-0005" {
+		t.Fatalf("codes = %v", got)
+	}
+	if !hasError(diagnostics) {
+		t.Fatalf("diagnostics = %#v", diagnostics)
 	}
 }

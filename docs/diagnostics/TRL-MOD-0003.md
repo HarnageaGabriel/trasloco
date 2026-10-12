@@ -11,7 +11,7 @@
 
 ## Remediation
 
-Follow `params.replacements`; no automatic mapping is documented.
+Use `replacements` and follow `action`; no automatic mapping is documented.
 
 ## Example
 

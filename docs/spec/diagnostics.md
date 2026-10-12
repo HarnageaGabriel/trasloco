@@ -281,8 +281,8 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 |---|---|---|---|---|---|
 | TRL-MOD-0001 | warning | ex | - | Retired task with a drop-in replacement | Use the replacement task named in the report; the inputs are identical. |
 | TRL-MOD-0002 | warning | ap | - | Retired task whose replacement needs input changes | Use the replacement task and change its inputs as described in the report; test the pipeline. |
-| TRL-MOD-0003 | warning | nm | - | Retired task needs a manual migration | Follow `params.replacements`; no automatic mapping is documented. |
-| TRL-MOD-0004 | warning | nm | - | Retired task has no replacement task | Follow the official guidance in `params.guidance`. |
+| TRL-MOD-0003 | warning | nm | - | Retired task needs a manual migration | Use `replacements` and follow `action`; no automatic mapping is documented. |
+| TRL-MOD-0004 | error | nm | - | Retired task has no replacement task | Follow the official guidance in `action`. |
 | TRL-MOD-0005 | warning | nm | - | Task reference is not static or names a retired task as a string | Replace the retired task by hand where the value is used. |
 | TRL-MOD-0006 | warning | nm | - | Input cannot be migrated automatically | Change the input named in `params.input` by hand, then re-run. |
 | TRL-MOD-0007 | warning | ap | - | Input unknown to the retired task preserved | Check the input name for typos. |

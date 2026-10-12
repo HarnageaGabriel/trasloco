@@ -144,13 +144,17 @@ func itoa(value int) string { return strconv.Itoa(value) }
 
 func fromEntry(node *yamlx.Node, raw string, entry catalog.Modernization) Finding {
 	code := map[string]string{"A": "TRL-MOD-0001", "B": "TRL-MOD-0002", "C": "TRL-MOD-0003", "D": "TRL-MOD-0004"}[entry.Class]
+	severity := SeverityWarning
+	if entry.Class == "D" {
+		severity = SeverityError
+	}
 	position := node.Position()
 	source := ""
 	if len(entry.Sources) > 0 {
 		source = entry.Sources[0]
 	}
 	return Finding{
-		Code: code, Severity: SeverityWarning, Line: position.Line, Column: position.Col,
+		Code: code, Severity: severity, Line: position.Line, Column: position.Col,
 		RetiredTask: raw, Class: entry.Class, Replacements: append([]string(nil), entry.Replacement...),
 		Action: entry.Action, SourceURL: source, Help: HelpURL(entry.Task),
 	}

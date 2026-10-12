@@ -1130,10 +1130,10 @@
                       "code": "TRL-MOD-0002", "area": "MOD", "title": "Retired task whose replacement needs input changes", "severity": "warning", "exitClass": "none", "remediation": "Use the replacement task and change its inputs as described in the report; test the pipeline.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
                   },
                   {
-                      "code": "TRL-MOD-0003", "area": "MOD", "title": "Retired task needs a manual migration", "severity": "warning", "exitClass": "none", "remediation": "Follow `params.replacements`; no automatic mapping is documented.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                      "code": "TRL-MOD-0003", "area": "MOD", "title": "Retired task needs a manual migration", "severity": "warning", "exitClass": "none", "remediation": "Use `replacements` and follow `action`; no automatic mapping is documented.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
                   },
                   {
-                      "code": "TRL-MOD-0004", "area": "MOD", "title": "Retired task has no replacement task", "severity": "warning", "exitClass": "none", "remediation": "Follow the official guidance in `params.guidance`.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                      "code": "TRL-MOD-0004", "area": "MOD", "title": "Retired task has no replacement task", "severity": "error", "exitClass": "none", "remediation": "Follow the official guidance in `action`.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
                   },
                   {
                       "code": "TRL-MOD-0005", "area": "MOD", "title": "Task reference is not static or names a retired task as a string", "severity": "warning", "exitClass": "none", "remediation": "Replace the retired task by hand where the value is used.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
