@@ -48,14 +48,15 @@ format**, and unpacks it on the target platform. Think Pandoc, but for CI/CD
 pipelines: every new platform works with all the others, **any platform to any
 platform**.
 
-The first pair is **Azure DevOps <-> GitHub**, plus `modernize` to upgrade
-Azure Pipelines in place. trasloco is free software under Apache-2.0 and will
-stay free.
+The first pair is **Azure DevOps <-> GitHub**. The shipped `modernize --check`
+finds retired Azure Pipelines tasks; automatic upgrades are planned. trasloco
+is free software under Apache-2.0 and will stay free.
 
 > [!WARNING]
-> **Pre-alpha: no migration command works yet.** What exists today is the
-> foundation and the complete Azure Pipelines reader (YAML parser, expressions,
-> templates, variables, packing into the trasloco format); see
+> **Pre-alpha: no migration or rewrite command works yet.** What exists today
+> includes the check-only `modernize --check`, the foundation, and the complete
+> Azure Pipelines reader (YAML parser, expressions, templates, variables,
+> packing into the trasloco format); see
 > [Status](#status). Interfaces will change. To
 > migrate to GitHub today, see
 > [trasloco and GitHub Actions Importer](#trasloco-and-github-actions-importer).
@@ -70,42 +71,19 @@ Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail
 ([official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement)).
-trasloco ships that list as data,
-[`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
-with the recommended replacements. Three lines of shell find the candidates in
-any checked-out repository, with nothing to install (the recording also counts
-the list with `wc -l`):
-
-<p align="center">
-  <img src="docs/assets/readme-retired-check.svg" width="880"
-    alt="Terminal: the retired task list is downloaded, then grep finds DotNetCoreCLI@1, CopyFiles@1 and AzureCLI@0 in a sample repository">
-</p>
+trasloco ships that list as data and checks pipeline YAML with its full parser.
+Install a release, then block actionable retired tasks locally or in CI:
 
 ```sh
-url=https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml
-curl -fsSL "$url" | sed -n 's/^ *- task: //p' > retired-tasks.txt
-grep -rniwF -f retired-tasks.txt --include='*.yml' --include='*.yaml' .
+trasloco modernize --check --format text -- .
 ```
 
-<details>
-<summary>PowerShell</summary>
-
-```powershell
-$url = 'https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml'
-$retired = (Invoke-RestMethod $url) -split "`n" |
-  Select-String '^\s*- task: (\S+)' |
-  ForEach-Object { $_.Matches[0].Groups[1].Value }
-$names = ($retired | ForEach-Object { [regex]::Escape($_) }) -join '|'
-$pattern = '(?<![A-Za-z0-9_])(?:' + $names + ')(?![A-Za-z0-9_])'
-Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -Pattern $pattern
-```
-
-</details>
-
-This is a plain-text search: it can match comments, and it does not see
-classic (UI-defined) pipelines or task names built from template parameters.
-The planned `modernize` command is designed to read pipelines with the full
-parser and template expansion and rewrite supported tasks for you.
+Exit status 5 means actionable retired tasks remain; 0 means the check passed.
+See [installation and CI examples](docs/install.md), including the reusable
+GitHub Action and SARIF upload. The Action and Azure Pipelines snippet verify
+the archive against `checksums.txt` from the same release only; the full Linux,
+macOS, and Windows recipes also verify the signed checksum bundle and require
+an authenticated GitHub CLI for `gh attestation verify`.
 
 ## Design goals
 
@@ -143,15 +121,17 @@ exists today.
 | Azure Pipelines variables | Done | M1 |
 | Azure Pipelines -> trasloco format | Done | M1 |
 | Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
+| `modernize --check` retired-task reporting (no rewrites) | Done | M2 / 0.1.0 |
 | Curated task -> action mappings | Planned | M2 |
-| GitHub Actions output, `convert`, `modernize` | Planned | M2 |
+| GitHub Actions output, `convert`, and automatic `modernize --write` rewrites | Planned | M2 |
 | `audit` | Planned | M3 |
 | `plan` / `apply` / `resume` / `rollback` (the ledger is done) | Planned | M4 |
 | GitHub -> Azure DevOps | Planned | M6 |
 | GitLab CI, Bitbucket Pipelines (both ways); Jenkins, Bamboo (as sources) | Planned | after 1.0 |
 
-In the CLI only `version`, `completion` and help work today; every other command
-exits with a "not implemented" error.
+In the CLI, `version`, `completion`, help, and the check-only
+`modernize --check` work today. Conversion and automatic rewrites are not yet
+implemented.
 
 ## trasloco and GitHub Actions Importer
 
@@ -219,15 +199,17 @@ Migration tools fail on the edge cases, so trasloco is tested against them:
 
 ## Getting started
 
-There is no release yet. Build from source with Go 1.26 or newer (see
-[go.mod](go.mod)):
+Download a verified Linux, macOS, or Windows release using the
+[installation guide](docs/install.md), or build from source with Go 1.26 or
+newer (see [go.mod](go.mod)):
 
 ```sh
 git clone https://github.com/HarnageaGabriel/trasloco.git
 cd trasloco
 make build                # or: go build -o bin/trasloco ./cmd/trasloco
 ./bin/trasloco version
-./bin/trasloco --help     # the planned command surface
+./bin/trasloco modernize --check -- .
+./bin/trasloco --help     # shipped and planned command surface
 ```
 
 Developer commands:
@@ -245,7 +227,7 @@ make docs-check  # generated diagnostics docs are up to date
 |---|---|
 | M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
 | M1 (done) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
-| M2 (next) | Write GitHub Actions; task catalog; `convert` and `modernize`; possible early 0.x release |
+| M2 (in progress) | Task catalog and check-only `modernize --check` shipped in 0.1.0; automatic `modernize --write`, mappings, GitHub Actions output, and `convert` remain |
 | M3 | Platform connections and `audit` |
 | M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
 | M5 | Hard cases: OIDC and workload identity federation, classic pipelines, deployment jobs, matrices |
@@ -257,7 +239,7 @@ make docs-check  # generated diagnostics docs are up to date
 ## Contributing
 
 - **Follow progress**: star the repository and watch releases to hear when
-  `convert` and `modernize` land.
+  `convert` and automatic `modernize --write` land.
 - **Try the retired tasks check** on your repositories and tell us what it
   misses, with the
   [issue templates](https://github.com/HarnageaGabriel/trasloco/issues/new/choose).

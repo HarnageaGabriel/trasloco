@@ -1,0 +1,84 @@
+version: 2
+
+project_name: trasloco
+
+builds:
+  - id: trasloco
+    main: ./cmd/trasloco
+    binary: trasloco
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/HarnageaGabriel/trasloco/internal/version.Version={{ .Version }}
+        -X github.com/HarnageaGabriel/trasloco/internal/version.Commit={{ .Commit }}
+        -X github.com/HarnageaGabriel/trasloco/internal/version.Date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: release
+    ids:
+      - trasloco
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - id: archives
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.spdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - --output
+      - "spdx-json=${document}"
+
+signs:
+  - id: checksums-keyless
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - --yes
+      - --bundle
+      - "${signature}"
+      - "${artifact}"
+
+changelog:
+  use: git
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Other changes
+      order: 999
+
+release:
+  prerelease: auto
