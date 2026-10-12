@@ -5,21 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chef@1 retired: what to do</title>
 <meta name="description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
+<meta name="robots" content="index,follow,max-snippet:-1">
 <link rel="canonical" href="https://example.test/site/tasks/chef-1/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
+<link rel="alternate" type="application/atom+xml" title="trasloco retired task updates" href="/site/feed.xml">
 <meta property="og:site_name" content="trasloco">
+<meta property="og:locale" content="en_US">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Chef@1 retired: what to do">
 <meta property="og:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
 <meta property="og:url" content="https://example.test/site/tasks/chef-1/">
 <meta property="og:image" content="https://example.test/site/og-image.png">
+<meta property="article:modified_time" content="2026-10-12">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Chef@1 retired: what to do">
 <meta name="twitter:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
 <meta name="twitter:image" content="https://example.test/site/og-image.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.","headline":"Chef@1 is retired: migrate off its platform or external tool","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/chef-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is Chef@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"There is no drop-in replacement task for Chef@1. Use the \"Chef\" extension or a script step."},"name":"What replaces Chef@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix Chef@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Yes. Chef@1 is retired on 2026-10-15. Azure Pipelines shows a retirement error, but the run does not fail until removal."},"name":"Is Chef@1 deprecated?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Chef@1 is removed on 2027-03-15. Pipelines that still use it fail after removal."},"name":"When does Chef@1 stop working?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"There is no drop-in replacement task for Chef@1. Use the \"Chef\" extension or a script step."},"name":"What should I use instead of Chef@1?"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/chef-1/","name":"Chef@1","position":2}]}</script>
 </head>
 <body>
@@ -63,6 +67,10 @@
 </ul>
 <p>Last verified: <time datetime="2026-10-12">2026-10-12</time></p>
 </section>
+<section aria-labelledby="warning">
+<h2 id="warning">Why does my pipeline show a retirement error for Chef@1?</h2>
+<p>On <time datetime="2026-10-15">2026-10-15</time>, Azure Pipelines shows a retirement error for <code>Chef@1</code>, but the run does not fail. On <time datetime="2027-03-15">2027-03-15</time>, pipelines that still use <code>Chef@1</code> fail.</p>
+</section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
 <p>With plain grep, nothing to install:</p>
@@ -73,13 +81,18 @@
 <p>Use the &#34;Chef&#34; extension or a script step.</p>
 </section>
 <section aria-labelledby="faq">
-<h2 id="faq">Questions</h2>
-<h3>When is Chef@1 removed?</h3>
-<p>Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal.</p>
-<h3>What replaces Chef@1?</h3>
+<h2 id="faq">Chef@1 retirement FAQ</h2>
+<h3>Is Chef@1 deprecated?</h3>
+<p>Yes. Chef@1 is retired on 2026-10-15. Azure Pipelines shows a retirement error, but the run does not fail until removal.</p>
+<h3>When does Chef@1 stop working?</h3>
+<p>Chef@1 is removed on 2027-03-15. Pipelines that still use it fail after removal.</p>
+<h3>What should I use instead of Chef@1?</h3>
 <p>There is no drop-in replacement task for Chef@1. Use the &#34;Chef&#34; extension or a script step.</p>
-<h3>Can trasloco fix Chef@1 automatically?</h3>
-<p>Not available yet.</p>
+</section>
+<section aria-labelledby="related">
+<h2 id="related">Related retired tasks</h2>
+<ul class="cols">
+</ul>
 </section>
 </main>
 <footer class="site">

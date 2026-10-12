@@ -35,6 +35,10 @@
 </ul>
 <p>Last verified: <time datetime="{{h .Cfg.Generated}}">{{h .Cfg.Generated}}</time></p>
 </section>
+<section aria-labelledby="warning">
+<h2 id="warning">Why does my pipeline show a retirement error for {{h .E.Task}}?</h2>
+<p>On <time datetime="{{h .Cfg.RetirementDate}}">{{h .Cfg.RetirementDate}}</time>, Azure Pipelines shows a retirement error for <code>{{h .E.Task}}</code>, but the run does not fail. On <time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>, pipelines that still use <code>{{h .E.Task}}</code> fail.</p>
+</section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
 {{- if .Cfg.ToolAvailable}}
@@ -64,11 +68,19 @@
 </section>
 {{- end}}
 <section aria-labelledby="faq">
-<h2 id="faq">Questions</h2>
+<h2 id="faq">{{h .E.Task}} retirement FAQ</h2>
 {{- range .FAQ}}
 <h3>{{h .Question}}</h3>
 <p>{{h .Answer}}</p>
 {{- end}}
+</section>
+<section aria-labelledby="related">
+<h2 id="related">Related retired tasks</h2>
+<ul class="cols">
+{{- range .E.Related}}
+<li><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a> — {{h .ClassLabel}}</li>
+{{- end}}
+</ul>
 </section>
 </main>
 {{template "footer" .}}

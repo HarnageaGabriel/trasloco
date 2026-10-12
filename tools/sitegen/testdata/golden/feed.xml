@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>trasloco: retired Azure Pipelines tasks</title>
+  <id>https://example.test/site/</id>
+  <link rel="self" type="application/atom+xml" href="https://example.test/site/feed.xml"/>
+  <link rel="alternate" type="text/html" href="https://example.test/site/"/>
+  <updated>2026-10-12T00:00:00Z</updated>
+  <author><name>trasloco</name><uri>https://github.com/HarnageaGabriel/trasloco</uri></author>
+  <entry>
+    <title>AndroidBuild@1 retired: use Gradle@4</title>
+    <id>https://example.test/site/tasks/androidbuild-1/</id>
+    <link href="https://example.test/site/tasks/androidbuild-1/"/>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <summary>AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.</summary>
+  </entry>
+  <entry>
+    <title>Chef@1 retired: what to do</title>
+    <id>https://example.test/site/tasks/chef-1/</id>
+    <link href="https://example.test/site/tasks/chef-1/"/>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <summary>Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.</summary>
+  </entry>
+  <entry>
+    <title>CopyFiles@1 retired: use CopyFiles@2</title>
+    <id>https://example.test/site/tasks/copyfiles-1/</id>
+    <link href="https://example.test/site/tasks/copyfiles-1/"/>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <summary>CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2.</summary>
+  </entry>
+  <entry>
+    <title>InvokeRESTAPI@0 retired: use InvokeRESTAPI@1</title>
+    <id>https://example.test/site/tasks/invokerestapi-0/</id>
+    <link href="https://example.test/site/tasks/invokerestapi-0/"/>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <summary>InvokeRESTAPI@0 retired 2026-10-15, removed 2027-03-15. Replace it with InvokeRESTAPI@1.</summary>
+  </entry>
+</feed>

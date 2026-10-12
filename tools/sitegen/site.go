@@ -28,6 +28,7 @@ const (
 	siteName       = "trasloco"
 	maxDescription = 155
 	dateLayout     = "2006-01-02"
+	indexNowKey    = "8f62c194d7304e5ab0182f79c356a4de"
 )
 
 // Config carries every input of the generator that does not come from the catalog rows.
@@ -42,6 +43,9 @@ type Config struct {
 	ToolAvailable bool
 	// RewriteAvailable states whether "trasloco modernize --write" ships; pages say "planned" until it does.
 	RewriteAvailable bool
+	// Verification tokens are optional and only rendered on the index page.
+	GoogleVerification string
+	BingVerification   string
 
 	basePath string
 }
@@ -107,7 +111,6 @@ type entry struct {
 	Sources         []sourceLink
 	Auto            string
 	AutoText        string
-	RemovedText     string
 	ReplacementText string
 	Title           string
 	Heading         string
@@ -115,6 +118,7 @@ type entry struct {
 	Grep            string
 	Example         *example
 	FAQ             []faq
+	Related         []*entry
 }
 
 type classGroup struct {
@@ -123,26 +127,35 @@ type classGroup struct {
 	Entries []*entry
 }
 
+type replacementGroup struct {
+	Replacement string
+	Entries     []*entry
+}
+
 type headData struct {
-	Title       string
-	Description string
-	Canonical   string
-	OGType      string
-	OGImage     string
-	NoIndex     bool
-	Base        string
-	LD          []string
+	Title              string
+	Description        string
+	Canonical          string
+	OGType             string
+	OGImage            string
+	NoIndex            bool
+	Base               string
+	LD                 []string
+	Modified           string
+	GoogleVerification string
+	BingVerification   string
 }
 
 type pageData struct {
-	Head    headData
-	Base    string
-	Cfg     *Config
-	E       *entry
-	Entries []*entry
-	Groups  []classGroup
-	Total   int
-	FAQ     []faq
+	Head              headData
+	Base              string
+	Cfg               *Config
+	E                 *entry
+	Entries           []*entry
+	Groups            []classGroup
+	ReplacementGroups []replacementGroup
+	Total             int
+	FAQ               []faq
 }
 
 func (c *Config) normalize() error {
@@ -214,14 +227,16 @@ func buildEntries(cat *catalog.Catalog, cfg *Config) ([]*entry, error) {
 		fillFacts(e, cfg)
 		entries = append(entries, e)
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		a, b := strings.ToLower(entries[i].Name), strings.ToLower(entries[j].Name)
-		if a != b {
-			return a < b
-		}
-		return entries[i].Major < entries[j].Major
-	})
+	sort.Slice(entries, func(i, j int) bool { return entryLess(entries[i], entries[j]) })
 	return entries, nil
+}
+
+func entryLess(a, b *entry) bool {
+	left, right := strings.ToLower(a.Name), strings.ToLower(b.Name)
+	if left != right {
+		return left < right
+	}
+	return a.Major < b.Major
 }
 
 func sourceLabel(source, announcement string) string {
@@ -239,7 +254,6 @@ func joinAnd(items []string) string { return strings.Join(items, " and ") }
 
 func fillFacts(e *entry, cfg *Config) {
 	repl := joinAnd(e.Replacement)
-	e.RemovedText = fmt.Sprintf("%s: retirement date %s, removal date %s. Pipelines that still use it fail after removal.", e.Task, cfg.RetirementDate, cfg.RemovalDate)
 	switch {
 	case e.Class == "D":
 		e.Title = e.Task + " retired: what to do"
@@ -283,9 +297,9 @@ func fillFacts(e *entry, cfg *Config) {
 		e.Example = &example{Before: "- task: " + e.Task, After: "- task: " + e.Replacement[0]}
 	}
 	e.FAQ = []faq{
-		{"When is " + e.Task + " removed?", e.RemovedText},
-		{"What replaces " + e.Task + "?", e.ReplacementText},
-		{"Can trasloco fix " + e.Task + " automatically?", e.AutoText},
+		{"Is " + e.Task + " deprecated?", fmt.Sprintf("Yes. %s is retired on %s. Azure Pipelines shows a retirement error, but the run does not fail until removal.", e.Task, cfg.RetirementDate)},
+		{"When does " + e.Task + " stop working?", fmt.Sprintf("%s is removed on %s. Pipelines that still use it fail after removal.", e.Task, cfg.RemovalDate)},
+		{"What should I use instead of " + e.Task + "?", e.ReplacementText},
 	}
 }
 
@@ -334,6 +348,76 @@ func groupEntries(entries []*entry) []classGroup {
 		groups = append(groups, group)
 	}
 	return groups
+}
+
+func groupReplacements(entries []*entry) []replacementGroup {
+	byReplacement := make(map[string][]*entry)
+	for _, e := range entries {
+		if e.Class == "D" {
+			continue
+		}
+		for _, replacement := range e.Replacement {
+			byReplacement[replacement] = append(byReplacement[replacement], e)
+		}
+	}
+	groups := make([]replacementGroup, 0, len(byReplacement))
+	for replacement, grouped := range byReplacement {
+		groups = append(groups, replacementGroup{Replacement: replacement, Entries: grouped})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		a, b := strings.ToLower(groups[i].Replacement), strings.ToLower(groups[j].Replacement)
+		if a != b {
+			return a < b
+		}
+		return groups[i].Replacement < groups[j].Replacement
+	})
+	return groups
+}
+
+func addRelated(entries []*entry) {
+	for _, current := range entries {
+		seen := map[string]bool{current.Slug: true}
+		var related []*entry
+		add := func(candidate *entry) {
+			if !seen[candidate.Slug] {
+				seen[candidate.Slug] = true
+				related = append(related, candidate)
+			}
+		}
+		for _, candidate := range entries {
+			if strings.EqualFold(candidate.Name, current.Name) {
+				add(candidate)
+			}
+		}
+		for _, candidate := range entries {
+			if sharesReplacement(current, candidate) {
+				add(candidate)
+			}
+		}
+		kindCount := 0
+		for _, candidate := range entries {
+			if candidate.Class == current.Class && !seen[candidate.Slug] && kindCount < 5 {
+				add(candidate)
+				kindCount++
+			}
+		}
+		sort.Slice(related, func(i, j int) bool { return entryLess(related[i], related[j]) })
+		current.Related = related
+	}
+}
+
+func sharesReplacement(a, b *entry) bool {
+	if a == b || len(a.Replacement) == 0 || len(b.Replacement) == 0 {
+		return false
+	}
+	for _, left := range a.Replacement {
+		for _, right := range b.Replacement {
+			if strings.EqualFold(left, right) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseTemplates() (*template.Template, error) {
@@ -437,6 +521,7 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 	if err != nil {
 		return nil, err
 	}
+	addRelated(entries)
 	tmpl, err := parseTemplates()
 	if err != nil {
 		return nil, err
@@ -446,6 +531,7 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 	ogImage := cfg.abs("/og-image.png")
 
 	groups := groupEntries(entries)
+	replacementGroups := groupReplacements(entries)
 	indexTitle := fmt.Sprintf("Azure Pipelines task retirement: all %d tasks", len(entries))
 	indexDesc := fmt.Sprintf("Azure Pipelines tasks retire on %s and are removed on %s. Look up each of the %d tasks, its replacement and how to find it.", cfg.RetirementDate, cfg.RemovalDate, len(entries))
 	indexFAQ := []faq{
@@ -463,13 +549,14 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 		return nil, err
 	}
 	index, err := render(tmpl, "index.tmpl", &pageData{
-		Head:    headData{Title: indexTitle, Description: indexDesc, Canonical: cfg.abs("/"), OGType: "website", OGImage: ogImage, Base: cfg.basePath, LD: indexLD},
-		Base:    cfg.basePath,
-		Cfg:     &cfg,
-		Entries: entries,
-		Groups:  groups,
-		Total:   len(entries),
-		FAQ:     indexFAQ,
+		Head:              headData{Title: indexTitle, Description: indexDesc, Canonical: cfg.abs("/"), OGType: "website", OGImage: ogImage, Base: cfg.basePath, LD: indexLD, Modified: cfg.Generated, GoogleVerification: cfg.GoogleVerification, BingVerification: cfg.BingVerification},
+		Base:              cfg.basePath,
+		Cfg:               &cfg,
+		Entries:           entries,
+		Groups:            groups,
+		ReplacementGroups: replacementGroups,
+		Total:             len(entries),
+		FAQ:               indexFAQ,
 	})
 	if err != nil {
 		return nil, err
@@ -486,7 +573,7 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 			return nil, err
 		}
 		page, err := render(tmpl, "task.tmpl", &pageData{
-			Head: headData{Title: e.Title, Description: e.Description, Canonical: e.URL, OGType: "article", OGImage: ogImage, Base: cfg.basePath, LD: ld},
+			Head: headData{Title: e.Title, Description: e.Description, Canonical: e.URL, OGType: "article", OGImage: ogImage, Base: cfg.basePath, LD: ld, Modified: cfg.Generated},
 			Base: cfg.basePath,
 			Cfg:  &cfg,
 			E:    e,
@@ -515,7 +602,9 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 	add("data/modernize.json", data)
 	add("llms.txt", []byte(llmsTxt(entries, &cfg)))
 	add("llms-full.txt", []byte(llmsFull(entries, &cfg)))
+	add("feed.xml", []byte(atomFeed(entries, &cfg)))
 	add("sitemap.xml", []byte(sitemap(entries, &cfg)))
+	add(indexNowKey+".txt", []byte(indexNowKey))
 	add("robots.txt", []byte("User-agent: *\nAllow: /\n\nSitemap: "+cfg.abs("/sitemap.xml")+"\n"))
 	css, err := embedded.ReadFile("assets/style.css")
 	if err != nil {
@@ -583,6 +672,7 @@ func llmsTxt(entries []*entry, cfg *Config) string {
 	b.WriteString("Each task page answers: when it is removed, what replaces it, and whether trasloco can rewrite it automatically.\n\n")
 	b.WriteString("## Start here\n\n")
 	fmt.Fprintf(&b, "- [All retired tasks](%s): table of every task and its replacement\n", cfg.abs("/"))
+	fmt.Fprintf(&b, "- [Atom feed](%s): updates for every retired task page\n", cfg.abs("/feed.xml"))
 	fmt.Fprintf(&b, "- [Official announcement](%s): Microsoft task retirement page\n\n", cfg.AnnouncementURL)
 	b.WriteString("## Retired tasks\n\n")
 	for _, e := range entries {
@@ -651,13 +741,37 @@ func sitemap(entries []*entry, cfg *Config) string {
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
-	write := func(loc string) {
-		fmt.Fprintf(&b, "  <url><loc>%s</loc><lastmod>%s</lastmod></url>\n", html.EscapeString(loc), cfg.Generated)
+	write := func(loc, priority string) {
+		fmt.Fprintf(&b, "  <url><loc>%s</loc><lastmod>%s</lastmod><changefreq>weekly</changefreq><priority>%s</priority></url>\n", html.EscapeString(loc), cfg.Generated, priority)
 	}
-	write(cfg.abs("/"))
+	write(cfg.abs("/"), "1.0")
 	for _, e := range entries {
-		write(e.URL)
+		write(e.URL, "0.8")
 	}
 	b.WriteString("</urlset>\n")
+	return b.String()
+}
+
+func atomFeed(entries []*entry, cfg *Config) string {
+	updated := cfg.Generated + "T00:00:00Z"
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	b.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom">` + "\n")
+	fmt.Fprintf(&b, "  <title>%s</title>\n", html.EscapeString("trasloco: retired Azure Pipelines tasks"))
+	fmt.Fprintf(&b, "  <id>%s</id>\n", html.EscapeString(cfg.abs("/")))
+	fmt.Fprintf(&b, "  <link rel=\"self\" type=\"application/atom+xml\" href=\"%s\"/>\n", html.EscapeString(cfg.abs("/feed.xml")))
+	fmt.Fprintf(&b, "  <link rel=\"alternate\" type=\"text/html\" href=\"%s\"/>\n", html.EscapeString(cfg.abs("/")))
+	fmt.Fprintf(&b, "  <updated>%s</updated>\n", updated)
+	b.WriteString("  <author><name>trasloco</name><uri>https://github.com/HarnageaGabriel/trasloco</uri></author>\n")
+	for _, e := range entries {
+		b.WriteString("  <entry>\n")
+		fmt.Fprintf(&b, "    <title>%s</title>\n", html.EscapeString(e.Title))
+		fmt.Fprintf(&b, "    <id>%s</id>\n", html.EscapeString(e.URL))
+		fmt.Fprintf(&b, "    <link href=\"%s\"/>\n", html.EscapeString(e.URL))
+		fmt.Fprintf(&b, "    <updated>%s</updated>\n", updated)
+		fmt.Fprintf(&b, "    <summary>%s</summary>\n", html.EscapeString(e.Description))
+		b.WriteString("  </entry>\n")
+	}
+	b.WriteString("</feed>\n")
 	return b.String()
 }
