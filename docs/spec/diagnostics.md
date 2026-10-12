@@ -279,8 +279,8 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
-| TRL-MOD-0001 | info | ex | - | Retired task reference rewritten to the same task family | None; the inputs are identical. |
-| TRL-MOD-0002 | warning | ap | - | Retired task reference rewritten with an input mapping | Review `params.changes` and `params.review`; test the pipeline. |
+| TRL-MOD-0001 | warning | ex | - | Retired task with a drop-in replacement | Use the replacement task named in the report; the inputs are identical. |
+| TRL-MOD-0002 | warning | ap | - | Retired task whose replacement needs input changes | Use the replacement task and change its inputs as described in the report; test the pipeline. |
 | TRL-MOD-0003 | warning | nm | - | Retired task needs a manual migration | Follow `params.replacements`; no automatic mapping is documented. |
 | TRL-MOD-0004 | warning | nm | - | Retired task has no replacement task | Follow the official guidance in `params.guidance`. |
 | TRL-MOD-0005 | warning | nm | - | Task reference is not static or names a retired task as a string | Replace the retired task by hand where the value is used. |

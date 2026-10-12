@@ -21,7 +21,7 @@ func TestModernizeExitCodesAndDeterminism(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("default exit = %d, stderr = %s", code, stderr)
 	}
-	if !strings.Contains(first, "COPYFILES@1") || !strings.Contains(first, "replacement=CopyFiles@2") {
+	if !strings.Contains(first, "COPYFILES@1") || !strings.Contains(first, "-> CopyFiles@2  [drop-in replacement]") {
 		t.Fatalf("text output = %s", first)
 	}
 	code, second, stderr := executeModernize(t, "modernize", "--check", path)
@@ -86,7 +86,7 @@ func TestModernizeJSONAndSARIFShape(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &sarif); err != nil {
 		t.Fatal(err)
 	}
-	if sarif.Version != "2.1.0" || len(sarif.Runs) != 1 || len(sarif.Runs[0].Results) != 5 || len(sarif.Runs[0].Tool.Driver.Rules) != 11 || sarif.Runs[0].Tool.Driver.Name == "" {
+	if sarif.Version != "2.1.0" || len(sarif.Runs) != 1 || len(sarif.Runs[0].Results) != 5 || len(sarif.Runs[0].Tool.Driver.Rules) != 6 || sarif.Runs[0].Tool.Driver.Name == "" {
 		t.Fatalf("invalid SARIF shape: %#v", sarif)
 	}
 	for _, result := range sarif.Runs[0].Results {
@@ -101,7 +101,7 @@ func TestModernizeContinuesAfterNonPipelineYAML(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("exit = %d, stderr = %s", code, stderr)
 	}
-	if !strings.Contains(output, "AppCenterDistribute@2") || !strings.Contains(stderr, "TRL-PARSE-") {
+	if !strings.Contains(output, "AppCenterDistribute@2") || stderr != "" || strings.Contains(output, "not-pipeline") {
 		t.Fatalf("stdout=%s\nstderr=%s", output, stderr)
 	}
 }

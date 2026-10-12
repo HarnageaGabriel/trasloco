@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -23,6 +22,7 @@ const retirementURL = "https://learn.microsoft.com/en-us/azure/devops/pipelines/
 
 type modernizeOptions struct {
 	check  bool
+	strict bool
 	format string
 }
 
@@ -31,7 +31,17 @@ func newModernizeCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "modernize [paths...]",
 		Short: "Report retired Azure Pipelines task versions",
-		Args:  usageArgs(cobra.ArbitraryArgs),
+		Long: `Find references to Azure Pipelines tasks that Microsoft retires on 2026-10-15
+(removed 2027-03-15) in the YAML files under the given paths (default: the
+current directory). Nothing is modified.
+
+Only files that look like Azure Pipelines files are examined; GitHub
+workflows, Kubernetes manifests and other YAML are skipped silently.
+
+Exit codes: 0 nothing to fix (or --check not given), 5 retired tasks found
+with --check, 64 usage error, 1 a named path cannot be read (or, with
+--strict, an Azure Pipelines file does not parse).`,
+		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				args = []string{"."}
@@ -40,8 +50,37 @@ func newModernizeCmd(a *app) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&options.check, "check", false, "return exit code 5 when retired tasks are found")
+	cmd.Flags().BoolVar(&options.strict, "strict", false, "return exit code 1 when an Azure Pipelines file cannot be parsed")
 	cmd.Flags().StringVar(&options.format, "format", "text", "report format: text, json or sarif")
 	return cmd
+}
+
+// modernizeWarning is a parse problem in an Azure Pipelines file. It never
+// changes the exit code unless --strict is given.
+type modernizeWarning struct {
+	Code     string `json:"code"`
+	Severity string `json:"severity"`
+	Path     string `json:"path"`
+	Line     int    `json:"line"`
+	Column   int    `json:"column"`
+	Message  string `json:"message"`
+}
+
+type modernizeResult struct {
+	findings []modernize.Finding
+	warnings []modernizeWarning
+	scanned  int
+	skipped  int
+}
+
+func (r modernizeResult) actionable() int {
+	count := 0
+	for _, finding := range r.findings {
+		if finding.Actionable() {
+			count++
+		}
+	}
+	return count
 }
 
 func runModernize(ctx context.Context, a *app, options modernizeOptions, paths []string) error {
@@ -54,61 +93,73 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		return fmt.Errorf("load catalog: %w", err)
 	}
 
-	files, err := pipelineFiles(paths)
+	files, notices, err := pipelineFiles(paths)
+	for _, notice := range notices {
+		_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: %s\n", notice)
+	}
 	if err != nil {
 		return err
 	}
-	var findings []modernize.Finding
-	failed := 0
+	if len(files) == 0 {
+		_, _ = fmt.Fprintln(a.io.Err, "trasloco: warning: 0 YAML files scanned")
+	}
+
+	var result modernizeResult
+	ioFailed, strictFailed := 0, false
 	for _, file := range files {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		data, readErr := os.ReadFile(file.path) //nolint:gosec // paths are the command's explicit scan targets
 		if readErr != nil {
-			failed++
-			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.path, readErr)
+			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)
+			if file.explicit {
+				ioFailed++
+			}
 			continue
 		}
-		display := file.display
-		found, diagnostics := modernize.Scan(display, data, cat)
-		findings = append(findings, found...)
-		fileFailed := false
+		result.scanned++
+		if !modernize.IsCandidate(file.display, data) {
+			result.skipped++
+			continue
+		}
+		found, diagnostics := modernize.Scan(file.display, data, cat)
+		result.findings = append(result.findings, found...)
 		for _, diagnostic := range diagnostics {
 			if diagnostic.Severity == diag.SeverityError {
-				fileFailed = true
+				strictFailed = true
 			}
-			location := display
+			warning := modernizeWarning{Code: diagnostic.Code, Severity: string(diagnostic.Severity), Path: file.display, Line: 1, Column: 1, Message: diagnostic.Message}
 			if diagnostic.Source != nil {
-				location = fmt.Sprintf("%s:%d:%d", diagnostic.Source.File, diagnostic.Source.Line, diagnostic.Source.Col)
+				warning.Path, warning.Line, warning.Column = diagnostic.Source.File, diagnostic.Source.Line, diagnostic.Source.Col
 			}
-			_, _ = fmt.Fprintf(a.io.Err, "%s: %s: %s\n", location, diagnostic.Code, diagnostic.Message)
-		}
-		if fileFailed {
-			failed++
+			result.warnings = append(result.warnings, warning)
+			_, _ = fmt.Fprintf(a.io.Err, "warning: %s:%d:%d: %s: %s\n", warning.Path, warning.Line, warning.Column, warning.Code, warning.Message)
 		}
 	}
-	sort.Slice(findings, func(i, j int) bool {
-		a, b := findings[i], findings[j]
-		if a.Path != b.Path {
-			return a.Path < b.Path
+	sort.SliceStable(result.findings, func(i, j int) bool {
+		x, y := result.findings[i], result.findings[j]
+		if x.Path != y.Path {
+			return x.Path < y.Path
 		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
+		if x.Line != y.Line {
+			return x.Line < y.Line
 		}
-		if a.Column != b.Column {
-			return a.Column < b.Column
+		if x.Column != y.Column {
+			return x.Column < y.Column
 		}
-		return a.Code < b.Code
+		return x.Code < y.Code
 	})
-	if err := writeModernizeReport(a, options.format, findings); err != nil {
+	if err := writeModernizeReport(a, options.format, result, !strictFailed); err != nil {
 		return err
 	}
-	if failed > 0 {
-		code := ExitError
-		if failed < len(files) {
-			code = ExitPartial
-		}
-		return WithExitCode(code, fmt.Errorf("%d pipeline file(s) could not be parsed", failed))
+	if ioFailed > 0 {
+		return WithExitCode(ExitError, fmt.Errorf("%d named file(s) could not be read", ioFailed))
 	}
-	if options.check && len(findings) > 0 {
+	if options.strict && strictFailed {
+		return WithExitCode(ExitError, errors.New("an Azure Pipelines file could not be parsed (--strict)"))
+	}
+	if options.check && result.actionable() > 0 {
 		return WithExitCode(ExitPolicy, errors.New(""))
 	}
 	return nil
@@ -116,33 +167,46 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 
 type scanFile struct {
 	path, display string
+	explicit      bool
 }
 
-func pipelineFiles(paths []string) ([]scanFile, error) {
+// pipelineFiles lists the YAML files under paths. Notices are problems with
+// single paths that do not stop the scan; the error is a failure of a named
+// path.
+func pipelineFiles(paths []string) ([]scanFile, []string, error) {
+	cwd, _ := os.Getwd()
 	seen := make(map[string]bool)
 	var files []scanFile
+	var notices []string
+	add := func(path string, explicit bool) {
+		absolute, err := filepath.Abs(path)
+		if err != nil || seen[absolute] {
+			return
+		}
+		seen[absolute] = true
+		files = append(files, scanFile{path: absolute, display: displayPath(cwd, absolute), explicit: explicit})
+	}
 	for _, root := range paths {
 		info, err := os.Lstat(root)
 		if err != nil {
-			return nil, fmt.Errorf("scan %s: %w", root, err)
+			return nil, notices, fmt.Errorf("scan %s: %w", root, err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
+			notices = append(notices, fmt.Sprintf("skipped %s: symbolic links are not followed", root))
 			continue
 		}
 		if !info.IsDir() {
 			if pipelineExtension(root) {
-				absolute, _ := filepath.Abs(root)
-				if !seen[absolute] {
-					seen[absolute] = true
-					files = append(files, scanFile{path: absolute, display: filepath.ToSlash(filepath.Base(root))})
-				}
+				add(root, true)
+			} else {
+				notices = append(notices, fmt.Sprintf("skipped %s: not a .yml or .yaml file", root))
 			}
 			continue
 		}
-		absoluteRoot, _ := filepath.Abs(root)
 		err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
-				return walkErr
+				notices = append(notices, fmt.Sprintf("cannot read %s: %v", path, walkErr))
+				return nil
 			}
 			if entry.IsDir() && path != root {
 				switch strings.ToLower(entry.Name()) {
@@ -157,17 +221,12 @@ func pipelineFiles(paths []string) ([]scanFile, error) {
 				return nil
 			}
 			if !entry.IsDir() && pipelineExtension(path) {
-				absolute, _ := filepath.Abs(path)
-				if !seen[absolute] {
-					seen[absolute] = true
-					relative, _ := filepath.Rel(absoluteRoot, absolute)
-					files = append(files, scanFile{path: absolute, display: filepath.ToSlash(relative)})
-				}
+				add(path, false)
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("scan %s: %w", root, err)
+			return nil, notices, fmt.Errorf("scan %s: %w", root, err)
 		}
 	}
 	sort.Slice(files, func(i, j int) bool {
@@ -176,129 +235,21 @@ func pipelineFiles(paths []string) ([]scanFile, error) {
 		}
 		return files[i].path < files[j].path
 	})
-	return files, nil
+	return files, notices, nil
+}
+
+// displayPath is the path shown in reports: relative to the current
+// directory with forward slashes, or absolute when no relative path exists.
+func displayPath(cwd, absolute string) string {
+	if cwd != "" {
+		if relative, err := filepath.Rel(cwd, absolute); err == nil {
+			return filepath.ToSlash(relative)
+		}
+	}
+	return filepath.ToSlash(absolute)
 }
 
 func pipelineExtension(path string) bool {
 	extension := strings.ToLower(filepath.Ext(path))
 	return extension == ".yml" || extension == ".yaml"
-}
-
-func writeModernizeReport(a *app, format string, findings []modernize.Finding) error {
-	switch format {
-	case "text":
-		for _, finding := range findings {
-			replacement := "none"
-			if len(finding.Replacements) > 0 {
-				replacement = strings.Join(finding.Replacements, ", ")
-			}
-			codes := append([]string{finding.Code}, finding.Diagnostics...)
-			_, err := fmt.Fprintf(a.io.Out, "%s:%d:%d: %s retired=%s class=%s replacement=%s action=%s source=%s\n",
-				finding.Path, finding.Line, finding.Column, strings.Join(codes, ","), finding.RetiredTask, valueOr(finding.Class, "manual"),
-				replacement, finding.Action, valueOr(finding.SourceURL, retirementURL))
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	case "json":
-		return writeJSON(a.io.Out, struct {
-			Findings []modernize.Finding `json:"findings"`
-		}{Findings: findings})
-	case "sarif":
-		return writeJSON(a.io.Out, makeSARIF(findings))
-	default:
-		return errors.New("unreachable report format")
-	}
-}
-
-func valueOr(value, fallback string) string {
-	if value == "" {
-		return fallback
-	}
-	return value
-}
-
-func writeJSON(writer interface{ Write([]byte) (int, error) }, value any) error {
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "  ")
-	encoder.SetEscapeHTML(false)
-	return encoder.Encode(value)
-}
-
-type sarifLog struct {
-	Version string     `json:"version"`
-	Schema  string     `json:"$schema"`
-	Runs    []sarifRun `json:"runs"`
-}
-type sarifRun struct {
-	Tool    sarifTool     `json:"tool"`
-	Results []sarifResult `json:"results"`
-}
-type sarifTool struct {
-	Driver sarifDriver `json:"driver"`
-}
-type sarifDriver struct {
-	Name           string      `json:"name"`
-	InformationURI string      `json:"informationUri"`
-	Rules          []sarifRule `json:"rules"`
-}
-type sarifRule struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	HelpURI string `json:"helpUri"`
-}
-type sarifResult struct {
-	RuleID    string          `json:"ruleId"`
-	Level     string          `json:"level"`
-	Message   sarifMessage    `json:"message"`
-	Locations []sarifLocation `json:"locations"`
-}
-type sarifMessage struct {
-	Text string `json:"text"`
-}
-type sarifLocation struct {
-	PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
-}
-type sarifPhysicalLocation struct {
-	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
-	Region           sarifRegion           `json:"region"`
-}
-type sarifArtifactLocation struct {
-	URI string `json:"uri"`
-}
-type sarifRegion struct {
-	StartLine   int `json:"startLine"`
-	StartColumn int `json:"startColumn"`
-}
-
-func makeSARIF(findings []modernize.Finding) sarifLog {
-	ruleMap := make(map[string]sarifRule)
-	for number := 1; number <= 11; number++ {
-		id := fmt.Sprintf("TRL-MOD-%04d", number)
-		ruleMap[id] = sarifRule{ID: id, Name: id, HelpURI: retirementURL}
-	}
-	results := make([]sarifResult, 0, len(findings))
-	for _, finding := range findings {
-		help := valueOr(finding.SourceURL, retirementURL)
-		ruleMap[finding.Code] = sarifRule{ID: finding.Code, Name: finding.Code, HelpURI: help}
-		text := fmt.Sprintf("Retired task %s (class %s): %s", finding.RetiredTask, valueOr(finding.Class, "manual"), finding.Action)
-		codes := append([]string{finding.Code}, finding.Diagnostics...)
-		for _, code := range codes {
-			results = append(results, sarifResult{
-				RuleID: code, Level: "warning", Message: sarifMessage{Text: text},
-				Locations: []sarifLocation{{PhysicalLocation: sarifPhysicalLocation{ArtifactLocation: sarifArtifactLocation{URI: finding.Path}, Region: sarifRegion{StartLine: finding.Line, StartColumn: finding.Column}}}},
-			})
-		}
-	}
-	ids := make([]string, 0, len(ruleMap))
-	for id := range ruleMap {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	rules := make([]sarifRule, 0, len(ids))
-	for _, id := range ids {
-		rules = append(rules, ruleMap[id])
-	}
-	return sarifLog{Version: "2.1.0", Schema: "https://json.schemastore.org/sarif-2.1.0.json", Runs: []sarifRun{{Tool: sarifTool{Driver: sarifDriver{Name: "trasloco modernize", InformationURI: retirementURL, Rules: rules}}, Results: results}}}
 }

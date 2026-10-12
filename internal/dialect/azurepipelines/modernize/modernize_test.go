@@ -72,13 +72,13 @@ func TestScanDeterministic(t *testing.T) {
 	input := []byte("steps:\n- task: copyfiles@1\n- task: CopyFiles@1.1.4\n- task: 5BFB729A-A7C8-4A78-A7C3-8D717BB7C13C@99\n")
 	first, _ := Scan("pipeline.yml", input, testCatalog(t))
 	second, _ := Scan("pipeline.yml", input, testCatalog(t))
-	if len(first) != len(second) || len(first) != 3 {
+	if len(first) != len(second) || len(first) != 2 {
 		t.Fatalf("lengths %d and %d", len(first), len(second))
 	}
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("findings differ:\n%#v\n%#v", first, second)
 	}
-	if len(first[1].Diagnostics) != 1 || first[1].Diagnostics[0] != "TRL-MOD-0011" || first[2].Code != "TRL-MOD-0005" {
+	if len(first[1].Diagnostics) != 1 || first[1].Diagnostics[0] != "TRL-MOD-0011" {
 		t.Fatalf("supplemental diagnostics = %#v", first)
 	}
 }

@@ -1124,10 +1124,10 @@
                       "fidelity":  "approximated"
                   },
                   {
-                      "code": "TRL-MOD-0001", "area": "MOD", "title": "Retired task reference rewritten to the same task family", "severity": "info", "exitClass": "none", "remediation": "None; the inputs are identical.", "since": "0.1.0", "status": "active", "fidelity": "exact"
+                      "code": "TRL-MOD-0001", "area": "MOD", "title": "Retired task with a drop-in replacement", "severity": "warning", "exitClass": "none", "remediation": "Use the replacement task named in the report; the inputs are identical.", "since": "0.1.0", "status": "active", "fidelity": "exact"
                   },
                   {
-                      "code": "TRL-MOD-0002", "area": "MOD", "title": "Retired task reference rewritten with an input mapping", "severity": "warning", "exitClass": "none", "remediation": "Review `params.changes` and `params.review`; test the pipeline.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
+                      "code": "TRL-MOD-0002", "area": "MOD", "title": "Retired task whose replacement needs input changes", "severity": "warning", "exitClass": "none", "remediation": "Use the replacement task and change its inputs as described in the report; test the pipeline.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
                   },
                   {
                       "code": "TRL-MOD-0003", "area": "MOD", "title": "Retired task needs a manual migration", "severity": "warning", "exitClass": "none", "remediation": "Follow `params.replacements`; no automatic mapping is documented.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"

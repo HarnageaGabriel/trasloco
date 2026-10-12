@@ -77,8 +77,8 @@
 | [TRL-LLM-0002](TRL-LLM-0002.md) | warning | LLM output not accepted | active |
 | [TRL-LLM-0003](TRL-LLM-0003.md) | error | LLM output failed validation | active |
 | [TRL-LLM-0004](TRL-LLM-0004.md) | error | LLM provider error | active |
-| [TRL-MOD-0001](TRL-MOD-0001.md) | info | Retired task reference rewritten to the same task family | active |
-| [TRL-MOD-0002](TRL-MOD-0002.md) | warning | Retired task reference rewritten with an input mapping | active |
+| [TRL-MOD-0001](TRL-MOD-0001.md) | warning | Retired task with a drop-in replacement | active |
+| [TRL-MOD-0002](TRL-MOD-0002.md) | warning | Retired task whose replacement needs input changes | active |
 | [TRL-MOD-0003](TRL-MOD-0003.md) | warning | Retired task needs a manual migration | active |
 | [TRL-MOD-0004](TRL-MOD-0004.md) | warning | Retired task has no replacement task | active |
 | [TRL-MOD-0005](TRL-MOD-0005.md) | warning | Task reference is not static or names a retired task as a string | active |
