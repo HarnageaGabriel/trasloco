@@ -64,6 +64,9 @@ is free software under Apache-2.0 and will stay free.
 
 ## Try it now: find retired Azure Pipelines tasks
 
+Look up any retired task and its replacement on the
+[task retirement site](https://harnageagabriel.github.io/trasloco/).
+
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail
@@ -161,19 +164,13 @@ Pipelines; steps 4 and 5 are planned.
 Changes to the platforms themselves will follow a reviewable lifecycle, with
 every step recorded in a local ledger so an interrupted run can resume:
 
-```mermaid
-flowchart LR
-  audit["audit"] --> plan["plan<br/>(reviewable, no changes)"]
-  plan --> apply["apply"]
-  apply -->|interrupted| resume["resume"]
-  resume --> apply
-  apply --> verify["verify"]
-  apply -.-> rollback["rollback"]
-  ledger[("ledger<br/>(SQLite)")]
-  apply <--> ledger
-  resume <--> ledger
-  rollback <--> ledger
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme-lifecycle-dark.svg">
+    <img src="docs/assets/readme-lifecycle-light.svg" width="880"
+      alt="Planned lifecycle: audit, plan with no changes, apply; every step is recorded in a local ledger so an interrupted apply resumes from the last good step; then verify, or roll back">
+  </picture>
+</p>
 
 ## Built on evidence
 

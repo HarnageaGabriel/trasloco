@@ -1124,6 +1124,39 @@
                       "fidelity":  "approximated"
                   },
                   {
+                      "code": "TRL-MOD-0001", "area": "MOD", "title": "Retired task with a drop-in replacement", "severity": "warning", "exitClass": "none", "remediation": "Use the replacement task named in the report; the inputs are identical.", "since": "0.1.0", "status": "active", "fidelity": "exact"
+                  },
+                  {
+                      "code": "TRL-MOD-0002", "area": "MOD", "title": "Retired task whose replacement needs input changes", "severity": "warning", "exitClass": "none", "remediation": "Use the replacement task and change its inputs as described in the report; test the pipeline.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
+                  },
+                  {
+                      "code": "TRL-MOD-0003", "area": "MOD", "title": "Retired task needs a manual migration", "severity": "warning", "exitClass": "none", "remediation": "Use `replacements` and follow `action`; no automatic mapping is documented.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                  },
+                  {
+                      "code": "TRL-MOD-0004", "area": "MOD", "title": "Retired task has no replacement task", "severity": "error", "exitClass": "none", "remediation": "Follow the official guidance in `action`.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                  },
+                  {
+                      "code": "TRL-MOD-0005", "area": "MOD", "title": "Task reference is not static or names a retired task as a string", "severity": "warning", "exitClass": "none", "remediation": "Replace the retired task by hand where the value is used.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                  },
+                  {
+                      "code": "TRL-MOD-0006", "area": "MOD", "title": "Input cannot be migrated automatically", "severity": "warning", "exitClass": "none", "remediation": "Change the input named in `params.input` by hand, then re-run.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                  },
+                  {
+                      "code": "TRL-MOD-0007", "area": "MOD", "title": "Input unknown to the retired task preserved", "severity": "warning", "exitClass": "none", "remediation": "Check the input name for typos.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
+                  },
+                  {
+                      "code": "TRL-MOD-0008", "area": "MOD", "title": "GUID task reference replaced by a task name", "severity": "info", "exitClass": "none", "remediation": "None; the replacement has another GUID.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
+                  },
+                  {
+                      "code": "TRL-MOD-0009", "area": "MOD", "title": "Step layout cannot be edited safely", "severity": "warning", "exitClass": "none", "remediation": "Write `inputs` as a block mapping without directives, or migrate by hand.", "since": "0.1.0", "status": "active", "fidelity": "needs-manual"
+                  },
+                  {
+                      "code": "TRL-MOD-0010", "area": "MOD", "title": "Extension task with a retired built-in name not rewritten", "severity": "info", "exitClass": "none", "remediation": "None; check that the extension task is not retired by its publisher.", "since": "0.1.0", "status": "active"
+                  },
+                  {
+                      "code": "TRL-MOD-0011", "area": "MOD", "title": "Full task version replaced by a major version", "severity": "info", "exitClass": "none", "remediation": "None.", "since": "0.1.0", "status": "active", "fidelity": "approximated"
+                  },
+                  {
                       "code":  "TRL-EMIT-0001",
                       "area":  "EMIT",
                       "title":  "Invalid target combination prevented",

@@ -5,6 +5,7 @@ Usage: python tools/branding/readme_art.py docs/assets
 Writes:
   readme-hero-light.svg / readme-hero-dark.svg  any-to-any architecture
   readme-retired-check.svg                       terminal run of the retired tasks check
+  readme-lifecycle-light.svg / -dark.svg         plan/apply/resume/verify/rollback lifecycle
 
 Animations use SMIL, which GitHub renders in <img> SVGs. The terminal shows the
 real output of the README commands run against a two-file sample repository
@@ -217,8 +218,110 @@ def terminal():
     return "".join(p)
 
 
+# ---------------------------------------------------------------- lifecycle
+LW, LH, LBW, LBH = 960, 330, 150, 52
+LCYCLE = 12.0
+RED, GREEN = "#E5534B", "#3FB950"
+
+
+def lbox(x, y, label, sub, t, anim="", dashed=False):
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    out = [f'<rect x="{x}" y="{y}" width="{LBW}" height="{LBH}" rx="10" fill="{t["box"]}" '
+           f'stroke="{t["line"]}" stroke-width="1.5"{dash}>{anim}</rect>',
+           f'<text x="{x + LBW / 2}" y="{y + (22 if sub else 31)}" text-anchor="middle" font-size="15" '
+           f'font-weight="600" fill="{t["ink"]}">{escape(label)}</text>']
+    if sub:
+        out.append(f'<text x="{x + LBW / 2}" y="{y + 40}" text-anchor="middle" font-size="11" '
+                   f'fill="{t["faint"]}">{escape(sub)}</text>')
+    return "".join(out)
+
+
+def flash(color, t, at, dur=1.4):
+    return (f'<animate attributeName="stroke" values="{color};{color};{t["line"]}" keyTimes="0;0.6;1" '
+            f'dur="{dur}s" begin="lclk.begin+{at:.2f}s"/>'
+            f'<animate attributeName="stroke-width" values="3;3;1.5" keyTimes="0;0.6;1" '
+            f'dur="{dur}s" begin="lclk.begin+{at:.2f}s"/>')
+
+
+def token(path, at, dur, color, r=6):
+    return (f'<circle r="{r}" fill="{color}" opacity="0">'
+            f'<set attributeName="opacity" to="1" begin="lclk.begin+{at:.2f}s"/>'
+            f'<set attributeName="opacity" to="0" begin="lclk.begin+{at + dur:.2f}s"/>'
+            f'<animateMotion path="{path}" dur="{dur}s" begin="lclk.begin+{at:.2f}s" fill="freeze" '
+            f'calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.55 1"/></circle>')
+
+
+def lifecycle(t):
+    y = 120
+    ax, px, apx, vx = 40, 250, 460, 770          # audit, plan, apply, verify
+    rx, ry = 460, 18                             # resume (above apply)
+    bx, by = 650, 236                            # rollback
+    lx, ly = 300, 236                            # ledger
+    mid = y + LBH / 2
+    p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW} {LH}" width="{LW}" height="{LH}" '
+         f'role="img" aria-label="Planned lifecycle: audit, then plan with no changes, then apply; every step is '
+         f'recorded in a local ledger, so an interrupted apply resumes where it stopped; then verify, or roll back">',
+         '<title>Plan, apply, resume, verify, roll back</title>',
+         f'<rect width="0" height="0"><animate id="lclk" attributeName="x" from="0" to="0" dur="{LCYCLE}s" '
+         'begin="0s;lclk.end"/></rect>',
+         f'<g font-family="{SANS}">']
+    line = f'stroke="{t["line"]}" stroke-width="2" fill="none"'
+    seg = {
+        "ap": f"M{ax + LBW},{mid} L{px},{mid}",
+        "pa": f"M{px + LBW},{mid} L{apx},{mid}",
+        "av": f"M{apx + LBW},{mid} L{vx},{mid}",
+        "ar": f"M{apx + 40},{y} L{rx + 40},{ry + LBH}",
+        "ra": f"M{rx + LBW - 40},{ry + LBH} L{apx + LBW - 40},{y}",
+        "al": f"M{apx + 20},{y + LBH} C{apx},{y + LBH + 50} {lx + LBW},{ly + 10} {lx + LBW},{ly + 26}",
+        "ab": f"M{apx + LBW - 20},{y + LBH} C{apx + LBW},{y + LBH + 40} {bx},{by + 26} {bx},{by + 26}",
+    }
+    for k in ("ap", "pa", "av", "ar", "ra", "al"):
+        p.append(f'<path d="{seg[k]}" {line}/>')
+    p.append(f'<path d="{seg["ab"]}" {line} stroke-dasharray="6 5"/>')
+    # arrow heads
+    for (x2, y2, ang) in ((px, mid, 0), (apx, mid, 0), (vx, mid, 0)):
+        p.append(f'<path d="M{x2 - 9},{y2 - 5} L{x2},{y2} L{x2 - 9},{y2 + 5}" {line}/>')
+    # labels on edges
+    p.append(f'<text x="{apx - 2}" y="{ry + LBH + 26}" text-anchor="end" font-size="11.5" fill="{t["muted"]}">interrupted</text>')
+    p.append(f'<text x="{apx + LBW + 2}" y="{ry + LBH + 26}" font-size="11.5" fill="{t["muted"]}">continues</text>')
+    p.append(f'<text x="{lx + LBW + 30}" y="{ly + 4}" font-size="11.5" fill="{t["muted"]}">every step recorded</text>')
+    # nodes with timed flashes
+    p.append(lbox(ax, y, "audit", "inventory", t, flash(TAPE, t, 0.0)))
+    p.append(lbox(px, y, "plan", "reviewable, no changes", t, flash(TAPE, t, 1.2)))
+    p.append(lbox(apx, y, "apply", "changes the platforms", t,
+                  flash(TAPE, t, 2.4) + flash(RED, t, 3.6, 1.2) + flash(TAPE, t, 6.0)))
+    p.append(lbox(rx, ry, "resume", "from the last good step", t, flash(TAPE, t, 4.6)))
+    p.append(lbox(vx, y, "verify", "matches the plan", t, flash(GREEN, t, 7.6, 2.0)))
+    p.append(lbox(bx, by, "rollback", "undo what apply created", t, flash(t["faint"], t, 10.0), dashed=True))
+    # ledger cylinder
+    cx, cw, ch = lx + LBW / 2, LBW, 54
+    p.append(f'<g><path d="M{lx},{ly + 8} L{lx},{ly + ch} A{cw / 2},9 0 0 0 {lx + cw},{ly + ch} L{lx + cw},{ly + 8}" '
+             f'fill="{t["box"]}" stroke="{t["line"]}" stroke-width="1.5"/>'
+             f'<ellipse cx="{cx}" cy="{ly + 8}" rx="{cw / 2}" ry="9" fill="{t["box"]}" stroke="{t["line"]}" stroke-width="1.5">'
+             f'{flash(TAPE, t, 3.0)}{flash(TAPE, t, 5.6)}{flash(TAPE, t, 7.0)}</ellipse>'
+             f'<text x="{cx}" y="{ly + 38}" text-anchor="middle" font-size="15" font-weight="600" fill="{t["ink"]}">ledger</text>'
+             f'<text x="{cx}" y="{ly + 54}" text-anchor="middle" font-size="11" fill="{t["faint"]}">local SQLite file</text></g>')
+    # moving tokens
+    p.append(token(seg["ap"], 0.4, 0.8, TAPE))
+    p.append(token(seg["pa"], 1.6, 0.8, TAPE))
+    p.append(token(seg["al"], 2.6, 0.5, TAPE, 5))
+    p.append(token(seg["ar"], 3.8, 0.7, RED))
+    p.append(token(seg["ra"], 5.0, 0.8, TAPE))
+    p.append(token(seg["al"], 5.4, 0.4, TAPE, 5))
+    p.append(token(seg["al"], 6.6, 0.4, TAPE, 5))
+    p.append(token(seg["av"], 6.9, 0.8, TAPE))
+    p.append(token(seg["ab"], 9.4, 0.7, t["faint"], 5))
+    # legend
+    p.append(f'<text x="{ax}" y="{LH - 12}" font-size="12" fill="{t["muted"]}">Planned lifecycle for changes to the '
+             f'platforms (milestones M3-M4); the ledger already exists.</text>')
+    p.append("</g></svg>")
+    return "".join(p)
+
+
 for name, theme in THEMES.items():
     with open(os.path.join(OUT, f"readme-hero-{name}.svg"), "w", encoding="utf-8", newline="\n") as f:
         f.write(hero(theme) + "\n")
+    with open(os.path.join(OUT, f"readme-lifecycle-{name}.svg"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(lifecycle(theme) + "\n")
 with open(os.path.join(OUT, "readme-retired-check.svg"), "w", encoding="utf-8", newline="\n") as f:
     f.write(terminal() + "\n")

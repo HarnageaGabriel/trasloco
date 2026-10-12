@@ -15,7 +15,7 @@ TRL-<AREA>-<NNNN>
 - `TRL` is a fixed prefix.
 - `<AREA>` is one of the areas in section 2 (upper-case ASCII).
 - `<NNNN>` is a zero-padded 4-digit decimal, starting at `0001` within each area.
-- Regex: `^TRL-(CFG|SEL|AUTH|HTTP|SRC|PARSE|EXPR|TPL|VAR|NAME|CONV|CAT|EMIT|VAL|PLAN|APPLY|SECRET|IDENT|REPO|CUTOVER|LLM|INT)-[0-9]{4}$`
+- Regex: `^TRL-(CFG|SEL|AUTH|HTTP|SRC|PARSE|EXPR|TPL|VAR|NAME|CONV|CAT|MOD|EMIT|VAL|PLAN|APPLY|SECRET|IDENT|REPO|CUTOVER|LLM|INT)-[0-9]{4}$`
 
 ## 2. Areas
 
@@ -33,6 +33,7 @@ TRL-<AREA>-<NNNN>
 | NAME | Target naming (`naming.md`) |
 | CONV | Conversion fidelity decisions (IR to target) |
 | CAT | Catalog: tasks/actions mapping, allowlist, retirement |
+| MOD | Azure Pipelines retired-task modernization |
 | EMIT | Target emission |
 | VAL | Validation of emitted output |
 | PLAN | Plan creation, staleness, conflicts |
@@ -274,6 +275,22 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-CAT-0005 | error | - | E | Catalog entry invalid | Fix the entry; run `trasloco catalog lint`. |
 | TRL-CAT-0006 | info | ap | - | Image alias pinned from catalog date | None; the pinned label and mapping date are in `params`. |
 
+### MOD
+
+| Code | Sev | Fid | Exit | Title | Remediation |
+|---|---|---|---|---|---|
+| TRL-MOD-0001 | warning | ex | - | Retired task with a drop-in replacement | Use the replacement task named in the report; the inputs are identical. |
+| TRL-MOD-0002 | warning | ap | - | Retired task whose replacement needs input changes | Use the replacement task and change its inputs as described in the report; test the pipeline. |
+| TRL-MOD-0003 | warning | nm | - | Retired task needs a manual migration | Use `replacements` and follow `action`; no automatic mapping is documented. |
+| TRL-MOD-0004 | error | nm | - | Retired task has no replacement task | Follow the official guidance in `action`. |
+| TRL-MOD-0005 | warning | nm | - | Task reference is not static or names a retired task as a string | Replace the retired task by hand where the value is used. |
+| TRL-MOD-0006 | warning | nm | - | Input cannot be migrated automatically | Change the input named in `params.input` by hand, then re-run. |
+| TRL-MOD-0007 | warning | ap | - | Input unknown to the retired task preserved | Check the input name for typos. |
+| TRL-MOD-0008 | info | ap | - | GUID task reference replaced by a task name | None; the replacement has another GUID. |
+| TRL-MOD-0009 | warning | nm | - | Step layout cannot be edited safely | Write `inputs` as a block mapping without directives, or migrate by hand. |
+| TRL-MOD-0010 | info | - | - | Extension task with a retired built-in name not rewritten | None; check that the extension task is not retired by its publisher. |
+| TRL-MOD-0011 | info | ap | - | Full task version replaced by a major version | None. |
+
 ### EMIT
 
 | Code | Sev | Fid | Exit | Title | Remediation |
@@ -387,7 +404,7 @@ Validation rules: unique `code`; `area` matches code; `status != active` require
 | TRL-INT-0003 | error | - | E | Feature not implemented for this platform pair | See the capability matrix. |
 | TRL-INT-0004 | warning | - | - | Event sink failed and was detached | Check the sink destination (disk space, closed pipe); the run continues without this sink. |
 
-Total: 166 codes.
+Total: 177 codes.
 
 ## 8. Test vectors
 

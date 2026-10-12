@@ -84,6 +84,7 @@ func NewRootCmd(streams IO) *cobra.Command {
 	pf.BoolVar(&a.verbose, "verbose", false, "verbose logging (shorthand for --log-level debug)")
 
 	root.AddCommand(newVersionCmd(a))
+	root.AddCommand(newModernizeCmd(a))
 	for _, s := range stubCommands() {
 		root.AddCommand(newStubCmd(s))
 	}
@@ -99,7 +100,7 @@ func Execute(ctx context.Context, args []string, streams IO) int {
 	if err := ctx.Err(); err != nil {
 		return CodeFor(err)
 	}
-	root := NewRootCmd(streams)
+	root := NewRootCmd(streams) //nolint:contextcheck // Cobra forwards ExecuteContext through cmd.Context.
 	root.SetArgs(args)
 	err := root.ExecuteContext(ctx)
 	if err == nil {
