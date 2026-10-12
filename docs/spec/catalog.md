@@ -1,8 +1,9 @@
 # Task catalog
 
 The catalog is versioned factual input to pipeline conversion. Version 1 has
-four document kinds: generated Azure Pipelines task facts, the official task
-retirement list, hand-written mappings, and a GitHub Actions lock. Every file
+five document kinds: generated Azure Pipelines task facts, the official task
+retirement list, reviewed task-modernization guidance, hand-written mappings,
+and a GitHub Actions lock. Every file
 is validated against `schemas/catalog/v1.schema.json` before it is indexed.
 
 Generated task facts come from `microsoft/azure-pipelines-tasks` commit
@@ -49,6 +50,12 @@ lexically first task name. A reference may include a major (`TaskName@2`).
 that is neither preview, deprecated, nor present in the retirement list.
 Mapping files are loaded in lexical path order and must reference existing task
 majors and inputs whenever generated task facts are present.
+
+`catalog/azure-pipelines/modernize.yaml` is the machine-readable source for
+retired-task classes and user guidance. It cites the approved modernization
+specification and source URLs, and is indexed case-insensitively by task name
+and major. Loading checks one-to-one agreement with the retirement catalog and
+that built-in replacement task majors exist in the generated task catalog.
 
 Hand-written mappings cite a `source`, declare fidelity and conditions, map
 inputs explicitly, and contain at least one inline test case. Unknown fields,

@@ -1,0 +1,734 @@
+schemaVersion: 1
+kind: task-modernization
+source:
+  spec: docs/spec/modernize-ado.md
+  retirementUrl: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+retirementDate: "2026-10-15"
+removalDate: "2027-03-15"
+tasks:
+  - task: AndroidBuild@1
+    guid: "df857559-8715-46eb-a74e-ac98b9178aa0"
+    replacement:
+      - Gradle@4
+    action: "Migrate this step manually to Gradle@4, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/77d4e3df659c945bdcd465278bca26d87b8f3542/Tasks/AndroidBuild/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/GradleV4/task.json
+  - task: AndroidSigning@1
+    guid: "80f3f6a0-82a6-4a22-ba7a-e5b8c541b9b9"
+    replacement:
+      - AndroidSigning@3
+    action: "Migrate this step manually to AndroidSigning@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/384b8fc58fdae09963fc9039e2d129247fa4db08/Tasks/AndroidSigning/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AndroidSigningV3/task.json
+  - task: AndroidSigning@2
+    guid: "80f3f6a0-82a6-4a22-ba7a-e5b8c541b9b9"
+    replacement:
+      - AndroidSigning@3
+    action: "Migrate this step manually to AndroidSigning@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AndroidSigningV2/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AndroidSigningV3/task.json
+  - task: AppCenterDistribute@0
+    guid: "b832bec5-8c27-4fef-9fb8-6bec8524ad8a"
+    replacement: []
+    action: "Move app distribution to the App Store/TestFlight or Google Play Azure Pipelines extensions."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/c89344e85082bc12e874ff336d6c1fbf7f2a5232/Tasks/AppCenterDistribute/task.json
+  - task: AppCenterDistribute@1
+    guid: "b832bec5-8c27-4fef-9fb8-6bec8524ad8a"
+    replacement: []
+    action: "Move app distribution to the App Store/TestFlight or Google Play Azure Pipelines extensions."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AppCenterDistributeV1/task.json
+  - task: AppCenterDistribute@2
+    guid: "b832bec5-8c27-4fef-9fb8-6bec8524ad8a"
+    replacement: []
+    action: "Move app distribution to the App Store/TestFlight or Google Play Azure Pipelines extensions."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AppCenterDistributeV2/task.json
+  - task: ArchiveFiles@1
+    guid: "d8b84976-e99a-4b86-b885-4849694435b0"
+    replacement:
+      - ArchiveFiles@2
+    action: "Replace ArchiveFiles@1 with ArchiveFiles@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/ffc71acbb83173150f0d052249546eb6f38708cb/Tasks/ArchiveFiles/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ArchiveFilesV2/task.json
+  - task: AutomatedAnalysis@0
+    guid: "6b519857-1a20-4248-bae8-aad039015afb"
+    replacement: []
+    action: "Replace this task with a supported analysis or monitoring workflow suited to the application."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AutomatedAnalysisV0/task.json
+  - task: AzureCLI@0
+    guid: "46e4be58-730b-4389-8a2f-ea10b3e5e815"
+    replacement:
+      - AzureCLI@3
+    action: "Migrate this step manually to AzureCLI@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/c932e92b4db984e06dcec9d6537bd9ca2a0de72c/Tasks/AzureCLI/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureCLIV3/task.json
+  - task: AzureCloudPowerShellDeployment@1
+    guid: "2ca8fe15-42ea-4b26-80f1-e0738ec17e89"
+    replacement:
+      - AzurePowerShell@5
+    action: "Retire the classic Cloud Services deployment workflow and design a supported replacement; AzurePowerShell@5 can run the required script."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureCloudPowerShellDeploymentV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzurePowerShellV5/task.json
+  - task: AzureCloudPowerShellDeployment@2
+    guid: "2ca8fe15-42ea-4b26-80f1-e0738ec17e89"
+    replacement:
+      - AzurePowerShell@5
+    action: "Retire the classic Cloud Services deployment workflow and design a supported replacement; AzurePowerShell@5 can run the required script."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureCloudPowerShellDeploymentV2/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzurePowerShellV5/task.json
+  - task: AzureFunction@0
+    guid: "537fdb7a-a601-4537-aa70-92645a2b5ce4"
+    replacement:
+      - AzureFunction@2
+    action: "Replace AzureFunction@0 with AzureFunction@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/0a7b28405d9b7e1a4e52df380a3b2a6e089c8580/Tasks/AzureFunction/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureFunctionV2/task.json
+  - task: AzureMonitor@0
+    guid: "99a72e7f-25e4-4576-bf38-22a42b995ed8"
+    replacement:
+      - AzureMonitor@1
+    action: "Migrate this step manually to AzureMonitor@1, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureMonitorV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureMonitorV1/task.json
+  - task: AzureNLBManagement@1
+    guid: "e94f1750-a6a8-11e6-be69-bdf37a7b15d8"
+    replacement:
+      - AzurePowerShell@5
+      - AzureCLI@3
+    action: "Migrate this step manually to either AzurePowerShell@5 or AzureCLI@3, and write the replacement script."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureNLBManagementV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzurePowerShellV5/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureCLIV3/task.json
+  - task: AzurePowerShell@1
+    guid: "72a1931b-effb-4d2e-8fd8-f8472a07cb62"
+    replacement:
+      - AzurePowerShell@5
+    action: "Migrate this step manually to AzurePowerShell@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/62edfc369b9be9b9d80964d829eb863ca293afb1/Tasks/AzurePowerShell/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzurePowerShellV5/task.json
+  - task: AzureResourceGroupDeployment@1
+    guid: "94a74903-f93f-4075-884f-dc11f34058b4"
+    replacement:
+      - AzureResourceGroupDeployment@2
+    action: "Migrate this step manually to AzureResourceGroupDeployment@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureResourceGroupDeploymentV2/task.json
+  - task: AzureRmWebAppDeployment@2
+    guid: "497d490f-eea7-4f2b-ab94-48d9c1acdcb1"
+    replacement:
+      - AzureRmWebAppDeployment@5
+    action: "Migrate this step manually to AzureRmWebAppDeployment@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/abcf4c10b043adb9d6d151e9f5cef48cd385242c/Tasks/AzureRmWebAppDeployment/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureRmWebAppDeploymentV5/task.json
+  - task: AzureWebPowerShellDeployment@1
+    guid: "dcbef2c9-e4f4-4929-82b2-ea7fc9166109"
+    replacement:
+      - AzureRmWebAppDeployment@5
+    action: "Migrate this step manually to AzureRmWebAppDeployment@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/77d4e3df659c945bdcd465278bca26d87b8f3542/Tasks/AzureWebPowerShellDeployment/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/AzureRmWebAppDeploymentV5/task.json
+  - task: CacheBeta@0
+    guid: "d53ccab4-555e-4494-9d06-11db043fb4a9"
+    replacement:
+      - Cache@2
+    action: "Replace CacheBeta@0 with Cache@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CacheBetaV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CacheV2/task.json
+    verify:
+      - V5
+  - task: Chef@1
+    guid: "b719db6c-40a2-4f43-9aff-827825baecae"
+    replacement: []
+    action: "Use a supported Chef extension or invoke the current Chef CLI from a script step."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ChefV1/task.json
+  - task: ChefKnife@1
+    guid: "c7b7ccf9-d6e0-472b-97bb-06b6e43504f3"
+    replacement: []
+    action: "Use a supported Chef extension or invoke the current Chef CLI from a script step."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ChefKnifeV1/task.json
+  - task: CmdLine@1
+    guid: "d9bafed4-0b18-4f58-968d-86655b4d2ce9"
+    replacement:
+      - CmdLine@2
+    action: "Migrate this step manually to CmdLine@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/c932e92b4db984e06dcec9d6537bd9ca2a0de72c/Tasks/CmdLine/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CmdLineV2/task.json
+  - task: CondaEnvironment@1
+    guid: "03dd16c3-43e0-4667-ba84-40515d27a410"
+    replacement: []
+    action: "Create and manage the Conda environment from a script step."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CondaEnvironmentV1/task.json
+  - task: CopyFiles@1
+    guid: "5bfb729a-a7c8-4a78-a7c3-8d717bb7c13c"
+    replacement:
+      - CopyFiles@2
+    action: "Replace CopyFiles@1 with CopyFiles@2."
+    class: A
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/ca87a35422ab7edea6439f691c89247ee8339798/Tasks/CopyFiles/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CopyFilesV2/task.json
+  - task: CopyPublishBuildArtifacts@1
+    guid: "1d341bb0-2106-458c-8422-d00bcea6512a"
+    replacement:
+      - CopyFiles@2
+      - PublishBuildArtifacts@1
+    action: "Migrate this step manually to CopyFiles@2 and PublishBuildArtifacts@1, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/3b101aae3fb5f1cb8fede7d65987580cc4eae705/Tasks/CopyPublishBuildArtifacts/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CopyFilesV2/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PublishBuildArtifactsV1/task.json
+  - task: cURLUploader@1
+    guid: "ad8974d8-de11-11e4-b2fe-7fb898a745f3"
+    replacement:
+      - cURLUploader@2
+    action: "Replace cURLUploader@1 with cURLUploader@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/e4dbe93d609c753fbafc2fcd33f75d6b4994bf2e/Tasks/cURLUploader/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/CUrlUploaderV2/task.json
+  - task: DeployVisualStudioTestAgent@1
+    guid: "52a38a6a-1517-41d7-96cc-73ee0c60d2b6"
+    replacement:
+      - VSTest@3
+    action: "Migrate this step manually to VSTest@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/d0c982e8432c574e4bf6bde7f3c0b9329f58005d/Tasks/DeployVisualStudioTestAgent/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/VsTestV3/task.json
+  - task: DotNetCoreCLI@0
+    guid: "5541a522-603c-47ad-91fc-a4b1d163081b"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Replace DotNetCoreCLI@0 with DotNetCoreCLI@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/bb868e8322c1b33dae72cb6850af023bb1e0f405/Tasks/DotNetCoreCLI/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+    verify:
+      - V3
+      - V4
+  - task: DotNetCoreCLI@1
+    guid: "5541a522-603c-47ad-91fc-a4b1d163081b"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Replace DotNetCoreCLI@1 with DotNetCoreCLI@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/8f51d167932725e1b5ee4052e9a6247aaf0d3624/Tasks/DotNetCoreCLI/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+  - task: DotNetCoreInstaller@0
+    guid: "b0ce7256-7898-45d3-9cb5-176b752bfea6"
+    replacement:
+      - UseDotNet@2
+    action: "Replace DotNetCoreInstaller@0 with UseDotNet@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreInstallerV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/UseDotNetV2/task.json
+  - task: DotNetCoreInstaller@1
+    guid: "b0ce7256-7898-45d3-9cb5-176b752bfea6"
+    replacement:
+      - UseDotNet@2
+    action: "Replace DotNetCoreInstaller@1 with UseDotNet@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreInstallerV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/UseDotNetV2/task.json
+  - task: DownloadPackage@0
+    guid: "8d6e8f7e-267d-442d-8c92-1f586864c62f"
+    replacement:
+      - DownloadPackage@1
+    action: "Replace DownloadPackage@0 with DownloadPackage@1 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DownloadPackageV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DownloadPackageV1/task.json
+    verify:
+      - V6
+  - task: DownloadPipelineArtifact@0
+    guid: "61f2a582-95ae-4948-b34d-a1b3c4f6a737"
+    replacement:
+      - DownloadPipelineArtifact@2
+    action: "Replace DownloadPipelineArtifact@0 with DownloadPipelineArtifact@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DownloadPipelineArtifactV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DownloadPipelineArtifactV2/task.json
+  - task: DuffleInstaller@0
+    guid: "11ea7cf0-8a3e-4b5a-98a2-8756cc3094b0"
+    replacement: []
+    action: "Install supported CNAB tooling from a script step because the Duffle project is archived."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DuffleInstallerV0/task.json
+  - task: FtpUpload@1
+    guid: "6f8c69a5-b023-428e-a125-fccf4efcb929"
+    replacement:
+      - FtpUpload@2
+    action: "Replace FtpUpload@1 with FtpUpload@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/FtpUploadV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/FtpUploadV2/task.json
+    verify:
+      - V2
+  - task: GitHubRelease@0
+    guid: "7b5a6198-adf8-4b16-9939-7addf85708b2"
+    replacement:
+      - GitHubRelease@1
+    action: "Replace GitHubRelease@0 with GitHubRelease@1 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/GitHubReleaseV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/GitHubReleaseV1/task.json
+    verify:
+      - V7
+  - task: Gradle@1
+    guid: "8d8eebd8-2b94-4c97-85af-839254cc6da4"
+    replacement:
+      - Gradle@4
+    action: "Replace Gradle@1 with Gradle@4 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/ff18c120fda4929ded0c5c7d8517d432ac7876dc/Tasks/Gradle/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/GradleV4/task.json
+  - task: InstallAppleCertificate@0
+    guid: "d2eff759-736d-4b7b-8554-7ba0960d49d6"
+    replacement:
+      - InstallAppleCertificate@2
+    action: "Replace InstallAppleCertificate@0 with InstallAppleCertificate@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/001f56345dc97d851409f445005ba6152f2f10b7/Tasks/InstallAppleCertificate/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/InstallAppleCertificateV2/task.json
+    verify:
+      - V12
+  - task: InstallAppleCertificate@1
+    guid: "d2eff759-736d-4b7b-8554-7ba0960d49d6"
+    replacement:
+      - InstallAppleCertificate@2
+    action: "Replace InstallAppleCertificate@1 with InstallAppleCertificate@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/cae4c15489d3601794b0ddde6837f5ef77479477/Tasks/InstallAppleCertificate/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/InstallAppleCertificateV2/task.json
+  - task: InstallAppleProvisioningProfile@0
+    guid: "0f9f66ca-250e-40fd-9678-309bcd439d5e"
+    replacement:
+      - InstallAppleProvisioningProfile@1
+    action: "Replace InstallAppleProvisioningProfile@0 with InstallAppleProvisioningProfile@1."
+    class: A
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/2be504d418facc9dc9a5189484842d1beb5c952c/Tasks/InstallAppleProvisioningProfile/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/InstallAppleProvisioningProfileV1/task.json
+  - task: InvokeRESTAPI@0
+    guid: "9c3e8943-130d-4c78-ac63-8af81df62dfb"
+    replacement:
+      - InvokeRESTAPI@1
+    action: "Replace InvokeRESTAPI@0 with InvokeRESTAPI@1 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/0a7b28405d9b7e1a4e52df380a3b2a6e089c8580/Tasks/InvokeRestApi/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/InvokeRestApiV1/task.json
+  - task: JenkinsQueueJob@1
+    guid: "c24b86d4-4256-4925-9a29-246f81aa64a7"
+    replacement:
+      - JenkinsQueueJob@2
+    action: "Replace JenkinsQueueJob@1 with JenkinsQueueJob@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/c43897e88f612638df587d20e00fd01fa04bb04f/Tasks/JenkinsQueueJob/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/JenkinsQueueJobV2/task.json
+    verify:
+      - V8
+  - task: Maven@1
+    guid: "ac4ee482-65da-4485-a532-7b085873e532"
+    replacement:
+      - Maven@4
+    action: "Replace Maven@1 with Maven@4 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/ff18c120fda4929ded0c5c7d8517d432ac7876dc/Tasks/Maven/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/MavenV4/task.json
+  - task: Maven@2
+    guid: "ac4ee482-65da-4485-a532-7b085873e532"
+    replacement:
+      - Maven@4
+    action: "Replace Maven@2 with Maven@4 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/MavenV2/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/MavenV4/task.json
+  - task: MysqlDeploymentOnMachineGroup@1
+    guid: "6fec3938-df52-4c01-9f5a-8ed5f66c377e"
+    replacement: []
+    action: "Use supported MySQL tooling from a script-based deployment or migration."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/MysqlDeploymentOnMachineGroupV1/task.json
+  - task: NuGet@0
+    guid: "2661b7e5-00f9-4de1-ba41-04e68d70b528"
+    replacement:
+      - NuGetCommand@2
+    action: "Migrate this step manually to NuGetCommand@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetCommandV2/task.json
+  - task: NuGetInstaller@0
+    guid: "333b11bd-d341-40d9-afcf-b32d5ce6f23b"
+    replacement:
+      - NuGetToolInstaller@1
+      - NuGetCommand@2
+    action: "Migrate this step manually to NuGetToolInstaller@1 and NuGetCommand@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetInstallerV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetToolInstallerV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetCommandV2/task.json
+  - task: NuGetPackager@0
+    guid: "333b11bd-d341-40d9-afcf-b32d5ce6f24b"
+    replacement:
+      - NuGetCommand@2
+    action: "Migrate this step manually to NuGetCommand@2 with the pack command."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetPackagerV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetCommandV2/task.json
+  - task: NuGetPublisher@0
+    guid: "333b11bd-d341-40d9-afcf-b32d5ce6f25b"
+    replacement:
+      - NuGetCommand@2
+    action: "Migrate this step manually to NuGetCommand@2 with the push command."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetPublisherV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetCommandV2/task.json
+  - task: NuGetRestore@1
+    guid: "333b11bd-d341-40d9-afcf-b32d5ce6f23b"
+    replacement:
+      - NuGetCommand@2
+    action: "Replace NuGetRestore@1 with NuGetCommand@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetRestoreV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/NuGetCommandV2/task.json
+  - task: PackerBuild@0
+    guid: "845fd4f4-642d-4694-8514-047948a5a556"
+    replacement:
+      - PackerBuild@1
+    action: "Migrate this step manually to PackerBuild@1, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PackerBuildV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PackerBuildV1/task.json
+  - task: PowerShell@1
+    guid: "e213ff0f-5d5c-4791-802d-52ea3e7be1f1"
+    replacement:
+      - PowerShell@2
+    action: "Migrate this step manually to PowerShell@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PowerShellV2/task.json
+  - task: PowerShellOnTargetMachines@1
+    guid: "3b5693d4-5777-4fee-862a-bd2b7a374c68"
+    replacement:
+      - PowerShellOnTargetMachines@3
+    action: "Migrate this step manually to PowerShellOnTargetMachines@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PowerShellOnTargetMachinesV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PowerShellOnTargetMachinesV3/task.json
+  - task: PublishSymbols@1
+    guid: "0675668a-7bba-4ccb-901d-5ad6554ca653"
+    replacement:
+      - PublishSymbols@2
+    action: "Replace PublishSymbols@1 with PublishSymbols@2 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/381a7076fe7cc76cad1a2daaf4709d09455e30ef/Tasks/PublishSymbols/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PublishSymbolsV2/task.json
+    verify:
+      - V9
+  - task: PublishToAzureServiceBus@0
+    guid: "ba761f24-cbd6-48cb-92f3-fc13396405b1"
+    replacement:
+      - PublishToAzureServiceBus@2
+    action: "Migrate this step manually to PublishToAzureServiceBus@2, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/5e9c0132fcc9f080d71b71e6836f779d07a3e774/Tasks/PublishToAzureServiceBus/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PublishToAzureServiceBusV2/task.json
+  - task: PyPIPublisher@0
+    guid: "2d8a1d60-8ccd-11e7-a792-11ac56e9f553"
+    replacement:
+      - TwineAuthenticate@1
+    action: "Migrate this step manually to TwineAuthenticate@1, followed by a script step that runs twine upload."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PyPIPublisherV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/TwineAuthenticateV1/task.json
+  - task: QuickPerfTest@1
+    guid: "9648625c-1523-4eb5-b015-dfe7c685840c"
+    replacement:
+      - AzureLoadTest@1
+    action: "Migrate this step manually to AzureLoadTest@1, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/QuickPerfTestV1/task.json
+      - https://learn.microsoft.com/en-us/azure/load-testing/how-to-configure-load-test-cicd
+  - task: RunVisualStudioTestsusingTestAgent@1
+    guid: ""
+    replacement:
+      - VSTest@3
+    action: "Migrate this step manually to VSTest@3, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/VsTestV3/task.json
+    verify:
+      - V18
+  - task: ServiceFabricComposeDeploy@0
+    guid: "19c02b15-d377-40e0-9efa-3168506e0933"
+    replacement:
+      - ServiceFabricDeploy@1
+    action: "Migrate this step manually to either ServiceFabricDeploy@1 or a currently supported container deployment workflow."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ServiceFabricComposeDeployV0/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ServiceFabricDeployV1/task.json
+  - task: ServiceFabricUpdateAppVersions@1
+    guid: "97ef6e59-b8cc-48aa-9937-1a01e35e7584"
+    replacement:
+      - ServiceFabricUpdateManifests@2
+    action: "Replace ServiceFabricUpdateAppVersions@1 with ServiceFabricUpdateManifests@2."
+    class: A
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/b14807826a74714e040d5d95a4de4e770ddb95ee/Tasks/ServiceFabricUpdateAppVersions/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/ServiceFabricUpdateManifestsV2/task.json
+  - task: SonarQubePostTest@1
+    guid: "730d8de1-7a4f-424c-9542-fe7cc02604eb"
+    replacement: []
+    action: "Move to the supported SonarQube extension from Visual Studio Marketplace."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/80e0bb7a5d0be07dbb32fc4f24e6955b1bb8e82d/Tasks/SonarQubePostTest/task.json
+  - task: SonarQubePreBuild@1
+    guid: "eae5b2cc-ac5e-4cba-b022-a06621f9c01f"
+    replacement: []
+    action: "Move to the supported SonarQube extension from Visual Studio Marketplace."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/80e0bb7a5d0be07dbb32fc4f24e6955b1bb8e82d/Tasks/SonarQubePreBuild/task.json
+  - task: VSMobileCenterTest@0
+    guid: "ad5cd22a-be4e-48bb-adce-181a32432da5"
+    replacement: []
+    action: "Move device testing to BrowserStack App Automate or another supported service."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/293e0ac84f088bf9eb91f92ff6b0d3f71c5c137b/Tasks/VSMobileCenterTest/task.json
+  - task: XamarinAndroid@1
+    guid: "27edd013-36fd-43aa-96a3-7d73e1e35285"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Migrate the project to SDK-style .NET or .NET MAUI before using DotNetCoreCLI@2."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XamarinAndroidV1/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+  - task: XamarinComponentRestore@0
+    guid: "ff50fc97-da8c-4683-b014-34c15315ee5f"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Migrate the project to SDK-style .NET or .NET MAUI before using DotNetCoreCLI@2."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/cc4b3496fd41883b1d17bd1368b942c79e3e6a4d/Tasks/XamarinComponentRestore/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+  - task: XamariniOS@1
+    guid: "0f077e3a-af59-496d-81bc-ad971b7464e0"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Migrate the project to SDK-style .NET or .NET MAUI before using DotNetCoreCLI@2."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/e8ea8601024cf802603715a7b11730cdb1062118/Tasks/XamariniOS/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+  - task: XamariniOS@2
+    guid: "0f077e3a-af59-496d-81bc-ad971b7464e0"
+    replacement:
+      - DotNetCoreCLI@2
+    action: "Migrate the project to SDK-style .NET or .NET MAUI before using DotNetCoreCLI@2."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XamariniOSV2/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+  - task: XamarinLicense@1
+    guid: "6237827d-6244-4d52-b93e-47d8610fbd8a"
+    replacement: []
+    action: "Remove this task and migrate the application from Xamarin to .NET or .NET MAUI."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/77d4e3df659c945bdcd465278bca26d87b8f3542/Tasks/XamarinLicense/task.json
+  - task: XamarinTestCloud@1
+    guid: "049918cb-1488-48eb-85e8-c318eccaaa74"
+    replacement: []
+    action: "Move device testing to BrowserStack App Automate or another supported service."
+    class: D
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XamarinTestCloudV1/task.json
+  - task: Xcode@2
+    guid: "1e78dc1b-9132-4b18-9c75-0e7ecc634b74"
+    replacement:
+      - Xcode@5
+    action: "Migrate this step manually to Xcode@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/8cfb5a37ecfac0160988e0f145a8994b7736c0f6/Tasks/Xcode/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XcodeV5/task.json
+  - task: Xcode@3
+    guid: "1e78dc1b-9132-4b18-9c75-0e7ecc634b74"
+    replacement:
+      - Xcode@5
+    action: "Migrate this step manually to Xcode@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/667ce6d3e29bc60afc3d8361417da7be055eb96d/Tasks/Xcode/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XcodeV5/task.json
+  - task: Xcode@4
+    guid: "1e78dc1b-9132-4b18-9c75-0e7ecc634b74"
+    replacement:
+      - Xcode@5
+    action: "Replace Xcode@4 with Xcode@5 and review the replacement inputs before updating the pipeline."
+    class: B
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/dc4388de8062b62a9cb5f034fe0cb471871882a4/Tasks/Xcode/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XcodeV5/task.json
+    verify:
+      - V10
+  - task: XcodePackageiOS@0
+    guid: "f54d001c-999f-408a-9867-0400c1838c5e"
+    replacement:
+      - Xcode@5
+    action: "Migrate this step manually to Xcode@5, reviewing the documented behavior and input differences."
+    class: C
+    sources:
+      - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/cc4b3496fd41883b1d17bd1368b942c79e3e6a4d/Tasks/XcodePackageiOS/task.json
+      - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/XcodeV5/task.json
