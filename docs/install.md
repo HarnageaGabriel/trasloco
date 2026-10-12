@@ -184,9 +184,10 @@ steps:
 ```
 
 Set `fail-on-findings: false` to report findings without `--check`. The optional
-`version` input selects an explicit release tag. With its default empty value,
-an exact action ref such as `@v0.1.0` downloads that release. A major alias such
-as `@v0` resolves the highest non-prerelease `v0.x.y` release through the
-unauthenticated GitHub releases API; a branch or commit SHA resolves the latest
-release. The action fails if none is found. The `@v0` major alias
-moves to each non-prerelease v0 release, while `@v0.1.0` is immutable.
+`version` input selects an exact `vMAJOR.MINOR.PATCH` tag or a `vMAJOR` alias.
+With its default empty value, the action uses its own ref: `@v0.1.0` downloads
+that exact release, while `@v0` resolves the highest non-prerelease, non-draft
+`v0.x.y` release through the GitHub Releases API. Branches, commit SHAs,
+prerelease tags, and other refs are rejected unless `version` is set, so
+when you pin the action by commit SHA also set `version: v0.1.0`. The moving `@v0` alias points to
+the highest released v0 version, while `@v0.1.0` is immutable.

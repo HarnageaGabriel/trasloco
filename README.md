@@ -80,7 +80,10 @@ trasloco modernize --check --format text -- .
 
 Exit status 5 means actionable retired tasks remain; 0 means the check passed.
 See [installation and CI examples](docs/install.md), including the reusable
-GitHub Action and SARIF upload.
+GitHub Action and SARIF upload. The Action and Azure Pipelines snippet verify
+the archive against `checksums.txt` from the same release only; the full Linux,
+macOS, and Windows recipes also verify the signed checksum bundle and require
+an authenticated GitHub CLI for `gh attestation verify`.
 
 ## Design goals
 

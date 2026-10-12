@@ -18,7 +18,7 @@ inputs:
     required: false
     default: 'true'
   version:
-    description: Release tag to download; defaults to the exact action tag or latest release.
+    description: Release to download (vMAJOR.MINOR.PATCH or vMAJOR); defaults to the action's own tag. Required when the action is pinned by commit SHA.
     required: false
     default: ''
   upload-sarif:
@@ -36,6 +36,7 @@ runs:
         TRASLOCO_ACTION_PATH: ${{ github.action_path }}
         TRASLOCO_ACTION_REF: ${{ github.action_ref }}
         TRASLOCO_ACTION_REPOSITORY: ${{ github.action_repository }}
+        TRASLOCO_GITHUB_TOKEN: ${{ github.token }}
         TRASLOCO_INPUT_PATH: ${{ inputs.path }}
         TRASLOCO_INPUT_FORMAT: ${{ inputs.format }}
         TRASLOCO_FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
