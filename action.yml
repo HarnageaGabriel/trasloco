@@ -18,9 +18,9 @@ inputs:
     required: false
     default: 'true'
   version:
-    description: Release tag to download; defaults to the action release.
+    description: Release tag to download; defaults to the exact action tag or latest release.
     required: false
-    default: v0.1.0
+    default: ''
   upload-sarif:
     description: Upload SARIF to GitHub code scanning (requires security-events write).
     required: false
@@ -33,6 +33,7 @@ runs:
       shell: bash
       env:
         TRASLOCO_ACTION_PATH: ${{ github.action_path }}
+        TRASLOCO_ACTION_REF: ${{ github.action_ref }}
         TRASLOCO_ACTION_REPOSITORY: ${{ github.action_repository }}
         TRASLOCO_INPUT_PATH: ${{ inputs.path }}
         TRASLOCO_INPUT_FORMAT: ${{ inputs.format }}

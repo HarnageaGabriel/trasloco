@@ -41,3 +41,18 @@ jobs:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
+      - name: Move major release tag
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must have the form vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          major_tag="v${BASH_REMATCH[1]}"
+          auth_header=$(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)
+          git tag -f "${major_tag}" "${GITHUB_SHA}"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
+            push -f origin "refs/tags/${major_tag}"

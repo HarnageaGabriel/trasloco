@@ -9,13 +9,29 @@ case "${TRASLOCO_FAIL_ON_FINDINGS}" in
   true|false) ;;
   *) echo "fail-on-findings must be true or false" >&2; exit 64 ;;
 esac
-if [[ ! "${TRASLOCO_VERSION}" =~ ^v[0-9]+(\.[0-9]+){0,2}([+-][0-9A-Za-z.-]+)?$ ]]; then
-  echo "version must be a release tag such as v0.1.0" >&2
-  exit 64
-fi
 if [[ ! "${TRASLOCO_ACTION_REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
   echo "invalid action repository" >&2
   exit 1
+fi
+if [[ "${TRASLOCO_INPUT_PATH}" == -* ]]; then
+  echo "path must not start with '-'" >&2
+  exit 64
+fi
+
+version=${TRASLOCO_VERSION}
+if [[ -z "${version}" ]]; then
+  if [[ "${TRASLOCO_ACTION_REF:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+    version=${TRASLOCO_ACTION_REF}
+  else
+    latest_release_url=$(curl --fail --location --silent --show-error --retry 3 \
+      --output /dev/null --write-out '%{url_effective}' \
+      "https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/latest")
+    version=${latest_release_url##*/}
+  fi
+fi
+if [[ ! "${version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "version must resolve to a release tag such as v0.1.0" >&2
+  exit 64
 fi
 
 case "$(uname -s)" in
@@ -30,12 +46,13 @@ case "$(uname -m)" in
   *) echo "unsupported runner architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-release_version=${TRASLOCO_VERSION#v}
+release_version=${version#v}
 archive="trasloco_${release_version}_${os}_${arch}.tar.gz"
 if [[ "${os}" == windows ]]; then archive="trasloco_${release_version}_${os}_${arch}.zip"; fi
-base_url="https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/download/${TRASLOCO_VERSION}"
-work_dir="${RUNNER_TEMP}/trasloco-${release_version}-${os}-${arch}"
-mkdir -p "${work_dir}"
+base_url="https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/download/${version}"
+work_dir=$(mktemp -d "${RUNNER_TEMP%/}/trasloco.XXXXXX")
+cleanup() { rm -rf -- "${work_dir}"; }
+trap cleanup EXIT
 curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/${archive}" "${base_url}/${archive}"
 curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
 
@@ -63,8 +80,9 @@ else
   executable="${work_dir}/bin/trasloco"
 fi
 
-args=(modernize "${TRASLOCO_INPUT_PATH}" --format "${TRASLOCO_INPUT_FORMAT}")
+args=(modernize --format "${TRASLOCO_INPUT_FORMAT}")
 if [[ "${TRASLOCO_FAIL_ON_FINDINGS}" == true ]]; then args+=(--check); fi
+args+=(-- "${TRASLOCO_INPUT_PATH}")
 if [[ "${TRASLOCO_INPUT_FORMAT}" == sarif ]]; then
   "${executable}" "${args[@]}" > "${TRASLOCO_SARIF_FILE}"
 else
