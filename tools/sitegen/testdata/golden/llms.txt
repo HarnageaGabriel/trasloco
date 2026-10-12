@@ -7,6 +7,7 @@ Each task page answers: when it is removed, what replaces it, and whether traslo
 ## Start here
 
 - [All retired tasks](https://example.test/site/): table of every task and its replacement
+- [Atom feed](https://example.test/site/feed.xml): updates for every retired task page
 - [Official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement): Microsoft task retirement page
 
 ## Retired tasks

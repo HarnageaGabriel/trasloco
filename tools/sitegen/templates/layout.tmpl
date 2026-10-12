@@ -5,19 +5,32 @@
 <meta name="description" content="{{h .Description}}">
 {{- if .NoIndex}}
 <meta name="robots" content="noindex">
+{{- else}}
+<meta name="robots" content="index,follow,max-snippet:-1">
+{{- end}}
+{{- if .GoogleVerification}}
+<meta name="google-site-verification" content="{{h .GoogleVerification}}">
+{{- end}}
+{{- if .BingVerification}}
+<meta name="msvalidate.01" content="{{h .BingVerification}}">
 {{- end}}
 {{- if .Canonical}}
 <link rel="canonical" href="{{h .Canonical}}">
 {{- end}}
 <link rel="icon" type="image/svg+xml" href="{{h .Base}}/favicon.svg">
 <link rel="stylesheet" href="{{h .Base}}/style.css">
+<link rel="alternate" type="application/atom+xml" title="trasloco retired task updates" href="{{h .Base}}/feed.xml">
 {{- if .Canonical}}
 <meta property="og:site_name" content="trasloco">
+<meta property="og:locale" content="en_US">
 <meta property="og:type" content="{{h .OGType}}">
 <meta property="og:title" content="{{h .Title}}">
 <meta property="og:description" content="{{h .Description}}">
 <meta property="og:url" content="{{h .Canonical}}">
 <meta property="og:image" content="{{h .OGImage}}">
+{{- if eq .OGType "article"}}
+<meta property="article:modified_time" content="{{h .Modified}}">
+{{- end}}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{h .Title}}">
 <meta name="twitter:description" content="{{h .Description}}">

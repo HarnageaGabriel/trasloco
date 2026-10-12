@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Azure Pipelines task retirement: all 4 tasks</title>
 <meta name="description" content="Azure Pipelines tasks retire on 2026-10-15 and are removed on 2027-03-15. Look up each of the 4 tasks, its replacement and how to find it.">
+<meta name="robots" content="index,follow,max-snippet:-1">
 <link rel="canonical" href="https://example.test/site/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
+<link rel="alternate" type="application/atom+xml" title="trasloco retired task updates" href="/site/feed.xml">
 <meta property="og:site_name" content="trasloco">
+<meta property="og:locale" content="en_US">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Azure Pipelines task retirement: all 4 tasks">
 <meta property="og:description" content="Azure Pipelines tasks retire on 2026-10-15 and are removed on 2027-03-15. Look up each of the 4 tasks, its replacement and how to find it.">
@@ -57,6 +60,19 @@
 <tr><th scope="row"><a href="/site/tasks/invokerestapi-0/">InvokeRESTAPI@0</a></th><td>InvokeRESTAPI@1</td><td>replacement with input changes</td></tr>
 </tbody>
 </table>
+<h2 id="by-replacement">Grouped by replacement</h2>
+<h3>Tasks replaced by <code>CopyFiles@2</code></h3>
+<ul class="cols">
+<li><a href="/site/tasks/copyfiles-1/">CopyFiles@1</a></li>
+</ul>
+<h3>Tasks replaced by <code>Gradle@4</code></h3>
+<ul class="cols">
+<li><a href="/site/tasks/androidbuild-1/">AndroidBuild@1</a></li>
+</ul>
+<h3>Tasks replaced by <code>InvokeRESTAPI@1</code></h3>
+<ul class="cols">
+<li><a href="/site/tasks/invokerestapi-0/">InvokeRESTAPI@0</a></li>
+</ul>
 <h2 id="by-kind">Grouped by kind of migration</h2>
 <h3 id="drop-in-replacement">drop-in replacement (1)</h3>
 <ul class="cols">
@@ -82,7 +98,7 @@
 <h3>Can trasloco fix it automatically?</h3>
 <p>Not available yet. Use the plain grep command on each task page.</p>
 <h2 id="about">About trasloco</h2>
-<p>trasloco is an open-source command-line tool that migrates CI/CD pipelines between platforms and finds retired Azure Pipelines tasks. This site is generated from its catalog. Machine-readable versions: <a href="/site/llms.txt">llms.txt</a>, <a href="/site/llms-full.txt">llms-full.txt</a> and <a href="/site/data/modernize.json">modernize.json</a>.</p>
+<p>trasloco is an open-source command-line tool that migrates CI/CD pipelines between platforms and finds retired Azure Pipelines tasks. This site is generated from its catalog. Machine-readable versions: <a href="/site/feed.xml">Atom feed</a>, <a href="/site/llms.txt">llms.txt</a>, <a href="/site/llms-full.txt">llms-full.txt</a> and <a href="/site/data/modernize.json">modernize.json</a>.</p>
 </main>
 <footer class="site">
 <p>Last verified: <time datetime="2026-10-12">2026-10-12</time>. Facts are generated from the trasloco catalog; the full data is in <a href="/site/data/modernize.json">modernize.json</a>.</p>
