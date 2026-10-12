@@ -18,6 +18,7 @@ These specifications define contracts shared by every dialect and platform adapt
 | `script-protocol.md` | Portable operations embedded in scripts |
 | `events.md` | Versioned engine event stream |
 | `exit-codes.md` | Process exit status contract |
+| `emit-gha.md` | IR to GitHub Actions workflow emission, M2-A walking-skeleton subset, with vectors `EMITV-001`..`EMITV-083` |
 
 ## Normative language
 
