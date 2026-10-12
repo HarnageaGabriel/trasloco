@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"flag"
+	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -71,7 +73,7 @@ func generateFixture(t *testing.T, cfg Config) map[string][]byte {
 
 func TestGolden(t *testing.T) {
 	site := generateFixture(t, testConfig())
-	for _, name := range []string{"index.html", "tasks/copyfiles-1/index.html", "tasks/androidbuild-1/index.html", "tasks/chef-1/index.html", "llms.txt", "sitemap.xml"} {
+	for _, name := range []string{"index.html", "tasks/copyfiles-1/index.html", "tasks/androidbuild-1/index.html", "tasks/chef-1/index.html", "feed.xml", "llms.txt", "sitemap.xml"} {
 		t.Run(name, func(t *testing.T) {
 			got, ok := site[name]
 			if !ok {
@@ -119,13 +121,16 @@ func TestEveryRowHasPageSitemapAndLLMS(t *testing.T) {
 			t.Errorf("llms-full.txt has no block for %s", row.Task)
 		}
 	}
-	for _, name := range []string{"404.html", "robots.txt", "data/modernize.json", "style.css", "llms-full.txt"} {
+	for _, name := range []string{"404.html", "robots.txt", "data/modernize.json", "style.css", "llms-full.txt", "feed.xml", indexNowKey + ".txt"} {
 		if len(site[name]) == 0 {
 			t.Errorf("missing %s", name)
 		}
 	}
 	if !strings.Contains(string(site["robots.txt"]), "Sitemap: "+testBase+"/sitemap.xml") {
 		t.Errorf("robots.txt has no sitemap line: %q", site["robots.txt"])
+	}
+	if got := string(site[indexNowKey+".txt"]); got != indexNowKey {
+		t.Errorf("IndexNow key file = %q, want %q", got, indexNowKey)
 	}
 }
 
@@ -149,6 +154,9 @@ func TestRealCatalog(t *testing.T) {
 	}
 	if len(cat.Modernizations) == 0 {
 		t.Fatal("catalog has no modernization rows")
+	}
+	if got := len(cat.Modernizations); got != 73 {
+		t.Fatalf("catalog has %d task pages, want 73", got)
 	}
 	descriptions := map[string]string{}
 	for _, row := range cat.Modernizations {
@@ -192,6 +200,57 @@ func TestRealCatalog(t *testing.T) {
 		}
 	}
 	checkPages(t, site)
+	checkFeed(t, site["feed.xml"], 73)
+	checkRelatedLinks(t, site)
+}
+
+func checkFeed(t *testing.T, data []byte, wantEntries int) {
+	t.Helper()
+	var feed struct {
+		XMLName xml.Name `xml:"feed"`
+		Entries []struct {
+			ID      string `xml:"id"`
+			Updated string `xml:"updated"`
+		} `xml:"entry"`
+	}
+	if err := xml.Unmarshal(data, &feed); err != nil {
+		t.Fatalf("feed.xml is not well-formed: %v", err)
+	}
+	if feed.XMLName.Space != "http://www.w3.org/2005/Atom" || len(feed.Entries) != wantEntries {
+		t.Fatalf("feed = namespace %q, %d entries; want Atom and %d", feed.XMLName.Space, len(feed.Entries), wantEntries)
+	}
+	for _, entry := range feed.Entries {
+		if entry.ID == "" || entry.Updated == "" {
+			t.Errorf("feed entry is missing id or updated: %+v", entry)
+		}
+	}
+}
+
+func checkRelatedLinks(t *testing.T, site map[string][]byte) {
+	t.Helper()
+	linkPattern := regexp.MustCompile(`href="[^"]*/tasks/([^/]+)/"`)
+	for name, data := range site {
+		if !strings.HasPrefix(name, "tasks/") || !strings.HasSuffix(name, "/index.html") {
+			continue
+		}
+		page := string(data)
+		start := strings.Index(page, `<h2 id="related">Related retired tasks</h2>`)
+		if start < 0 {
+			t.Errorf("%s has no related tasks section", name)
+			continue
+		}
+		end := strings.Index(page[start:], "</section>")
+		if end < 0 {
+			t.Errorf("%s has an unterminated related tasks section", name)
+			continue
+		}
+		for _, match := range linkPattern.FindAllStringSubmatch(page[start:start+end], -1) {
+			target := "tasks/" + match[1] + "/index.html"
+			if _, ok := site[target]; !ok {
+				t.Errorf("%s links to missing related page %s", name, target)
+			}
+		}
+	}
 }
 
 var (
@@ -264,6 +323,99 @@ func TestHTMLAndJSON(t *testing.T) {
 	}
 	if !strings.Contains(string(site["tasks/chef-1/index.html"]), "the &#34;Chef&#34; extension") {
 		t.Error("catalog text is not HTML-escaped")
+	}
+}
+
+func TestFeedAndRelatedLinksAreDeterministic(t *testing.T) {
+	first := generateFixture(t, testConfig())
+	second := generateFixture(t, testConfig())
+	checkFeed(t, first["feed.xml"], len(fixtureCatalog().Modernizations))
+	checkRelatedLinks(t, first)
+	if !bytes.Equal(first["feed.xml"], second["feed.xml"]) {
+		t.Error("feed.xml differs between runs")
+	}
+	for name := range first {
+		if strings.HasPrefix(name, "tasks/") && !bytes.Equal(first[name], second[name]) {
+			t.Errorf("related links in %s differ between runs", name)
+		}
+	}
+}
+
+func TestRelatedSelection(t *testing.T) {
+	entries := []*entry{
+		{Task: "Alpha@1", Name: "Alpha", Slug: "alpha-1", Class: "A", Replacement: []string{"Next@1"}},
+		{Task: "Alpha@2", Name: "Alpha", Slug: "alpha-2", Class: "B", Replacement: []string{"Other@1"}},
+		{Task: "Bravo@1", Name: "Bravo", Slug: "bravo-1", Class: "A", Replacement: []string{"Next@1"}},
+		{Task: "Charlie@1", Name: "Charlie", Slug: "charlie-1", Class: "A"},
+		{Task: "Delta@1", Name: "Delta", Slug: "delta-1", Class: "A"},
+		{Task: "Echo@1", Name: "Echo", Slug: "echo-1", Class: "A"},
+		{Task: "Foxtrot@1", Name: "Foxtrot", Slug: "foxtrot-1", Class: "A"},
+		{Task: "Golf@1", Name: "Golf", Slug: "golf-1", Class: "A"},
+		{Task: "Hotel@1", Name: "Hotel", Slug: "hotel-1", Class: "A"},
+	}
+	addRelated(entries)
+	got := make([]string, 0, len(entries[0].Related))
+	for _, related := range entries[0].Related {
+		got = append(got, related.Task)
+	}
+	want := []string{"Alpha@2", "Bravo@1", "Charlie@1", "Delta@1", "Echo@1", "Foxtrot@1", "Golf@1"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("related tasks differ (-want +got):\n%s", diff)
+	}
+}
+
+func TestFAQJSONLDMatchesVisibleText(t *testing.T) {
+	sectionPattern := regexp.MustCompile(`(?s)<h2 id="faq">.*?</h2>(.*?)</section>`)
+	pairPattern := regexp.MustCompile(`(?s)<h3>(.*?)</h3>\s*<p>(.*?)</p>`)
+	for name, data := range generateFixture(t, testConfig()) {
+		if !strings.HasPrefix(name, "tasks/") {
+			continue
+		}
+		section := sectionPattern.FindStringSubmatch(string(data))
+		if section == nil {
+			t.Fatalf("%s has no visible FAQ", name)
+		}
+		visible := make([]faq, 0, 3)
+		for _, pair := range pairPattern.FindAllStringSubmatch(section[1], -1) {
+			visible = append(visible, faq{Question: html.UnescapeString(pair[1]), Answer: html.UnescapeString(pair[2])})
+		}
+		structured := make([]faq, 0, len(visible))
+		for _, match := range ldPattern.FindAllStringSubmatch(string(data), -1) {
+			var value map[string]any
+			if err := json.Unmarshal([]byte(match[1]), &value); err != nil || value["@type"] != "FAQPage" {
+				continue
+			}
+			for _, raw := range value["mainEntity"].([]any) {
+				question := raw.(map[string]any)
+				answer := question["acceptedAnswer"].(map[string]any)
+				structured = append(structured, faq{Question: question["name"].(string), Answer: answer["text"].(string)})
+			}
+		}
+		if diff := cmp.Diff(visible, structured, cmp.AllowUnexported(faq{})); diff != "" {
+			t.Errorf("%s visible and JSON-LD FAQ differ (-visible +structured):\n%s", name, diff)
+		}
+	}
+}
+
+func TestVerificationMeta(t *testing.T) {
+	without := generateFixture(t, testConfig())
+	for name, data := range without {
+		if strings.Contains(string(data), "site-verification") || strings.Contains(string(data), "msvalidate.01") {
+			t.Errorf("%s has verification metadata without flags", name)
+		}
+	}
+	cfg := testConfig()
+	cfg.GoogleVerification = `google-token-&quot;`
+	cfg.BingVerification = `bing-token-&quot;`
+	with := generateFixture(t, cfg)
+	index := string(with["index.html"])
+	for _, want := range []string{`name="google-site-verification" content="google-token-&amp;quot;"`, `name="msvalidate.01" content="bing-token-&amp;quot;"`} {
+		if !strings.Contains(index, want) {
+			t.Errorf("index does not contain %q", want)
+		}
+	}
+	if strings.Contains(string(with["tasks/copyfiles-1/index.html"]), "site-verification") || strings.Contains(string(with["tasks/copyfiles-1/index.html"]), "msvalidate.01") {
+		t.Error("task page contains index-only verification metadata")
 	}
 }
 
@@ -439,13 +591,22 @@ func TestInvalidInput(t *testing.T) {
 func TestRun(t *testing.T) {
 	out := t.TempDir()
 	var stderr bytes.Buffer
-	args := []string{"-out", out, "-catalog", "../../catalog", "-assets", "../../docs/assets", "-date", "2026-10-12"}
+	args := []string{"-out", out, "-catalog", "../../catalog", "-assets", "../../docs/assets", "-date", "2026-10-12", "-google-site-verification", "google-cli", "-bing-site-verification", "bing-cli"}
 	if err := run(context.Background(), args, &stderr); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	for _, name := range []string{"index.html", "og-image.png", "favicon.svg", "data/modernize.json", "tasks/azurecli-0/index.html"} {
 		if _, err := os.Stat(filepath.Join(out, filepath.FromSlash(name))); err != nil {
 			t.Errorf("missing %s: %v", name, err)
+		}
+	}
+	index, err := os.ReadFile(filepath.Join(out, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`name="google-site-verification" content="google-cli"`, `name="msvalidate.01" content="bing-cli"`} {
+		if !bytes.Contains(index, []byte(want)) {
+			t.Errorf("CLI verification flag did not render %q", want)
 		}
 	}
 	for name, args := range map[string][]string{

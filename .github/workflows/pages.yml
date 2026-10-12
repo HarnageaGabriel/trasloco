@@ -2,6 +2,9 @@ name: Pages
 
 env:
   TRASLOCO_TOOL_AVAILABLE: "false"
+  # Optional repository variables; leave unset until search-console ownership is configured.
+  GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+  BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
 
 on:
   push:
@@ -36,7 +39,7 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Generate site
         run: |
-          go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)" -tool-available="${TRASLOCO_TOOL_AVAILABLE}"
+          go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)" -tool-available="${TRASLOCO_TOOL_AVAILABLE}" -google-site-verification="${GOOGLE_SITE_VERIFICATION}" -bing-site-verification="${BING_SITE_VERIFICATION}"
           # upload-pages-artifact preserves modes; Pages needs every generated path readable/traversable.
           chmod -R a+rX _site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
@@ -56,3 +59,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Notify IndexNow
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          INDEXNOW_KEY: 8f62c194d7304e5ab0182f79c356a4de
+        run: |
+          sitemap_url="${PAGE_URL%/}/sitemap.xml"
+          if ! sitemap="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "${sitemap_url}")"; then
+            echo "warning: could not download ${sitemap_url}; skipping IndexNow ping"
+            exit 0
+          fi
+          url_list="$(printf '%s' "${sitemap}" | sed -n 's:.*<loc>\(.*\)</loc>.*:\1:p' | jq --raw-input --slurp 'split("\n") | map(select(length > 0))')"
+          payload="$(jq --null-input --compact-output \
+            --arg host "harnageagabriel.github.io" \
+            --arg key "${INDEXNOW_KEY}" \
+            --arg keyLocation "${PAGE_URL%/}/${INDEXNOW_KEY}.txt" \
+            --argjson urlList "${url_list}" \
+            '{host: $host, key: $key, keyLocation: $keyLocation, urlList: $urlList}')"
+          if ! curl --fail --silent --show-error \
+            --header 'Content-Type: application/json; charset=utf-8' \
+            --data "${payload}" \
+            https://api.indexnow.org/indexnow; then
+            echo "warning: IndexNow ping failed; deployment remains successful"
+          fi

@@ -5,21 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AndroidBuild@1 retired: use Gradle@4</title>
 <meta name="description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
+<meta name="robots" content="index,follow,max-snippet:-1">
 <link rel="canonical" href="https://example.test/site/tasks/androidbuild-1/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
+<link rel="alternate" type="application/atom+xml" title="trasloco retired task updates" href="/site/feed.xml">
 <meta property="og:site_name" content="trasloco">
+<meta property="og:locale" content="en_US">
 <meta property="og:type" content="article">
 <meta property="og:title" content="AndroidBuild@1 retired: use Gradle@4">
 <meta property="og:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
 <meta property="og:url" content="https://example.test/site/tasks/androidbuild-1/">
 <meta property="og:image" content="https://example.test/site/og-image.png">
+<meta property="article:modified_time" content="2026-10-12">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AndroidBuild@1 retired: use Gradle@4">
 <meta name="twitter:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
 <meta name="twitter:image" content="https://example.test/site/og-image.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.","headline":"AndroidBuild@1 is retired: replace it with Gradle@4","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/androidbuild-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"AndroidBuild@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is AndroidBuild@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace AndroidBuild@1 with Gradle@4."},"name":"What replaces AndroidBuild@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix AndroidBuild@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Yes. AndroidBuild@1 is retired on 2026-10-15. Azure Pipelines shows a retirement error, but the run does not fail until removal."},"name":"Is AndroidBuild@1 deprecated?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"AndroidBuild@1 is removed on 2027-03-15. Pipelines that still use it fail after removal."},"name":"When does AndroidBuild@1 stop working?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace AndroidBuild@1 with Gradle@4."},"name":"What should I use instead of AndroidBuild@1?"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/androidbuild-1/","name":"AndroidBuild@1","position":2}]}</script>
 </head>
 <body>
@@ -64,6 +68,10 @@
 </ul>
 <p>Last verified: <time datetime="2026-10-12">2026-10-12</time></p>
 </section>
+<section aria-labelledby="warning">
+<h2 id="warning">Why does my pipeline warn about AndroidBuild@1?</h2>
+<p>On <time datetime="2026-10-15">2026-10-15</time>, Azure Pipelines shows a retirement error for <code>AndroidBuild@1</code>, but the run does not fail. On <time datetime="2027-03-15">2027-03-15</time>, pipelines that still use <code>AndroidBuild@1</code> fail.</p>
+</section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
 <p>With plain grep, nothing to install:</p>
@@ -75,13 +83,18 @@
 <p>The task definition of the replacement is linked under official sources above.</p>
 </section>
 <section aria-labelledby="faq">
-<h2 id="faq">Questions</h2>
-<h3>When is AndroidBuild@1 removed?</h3>
-<p>AndroidBuild@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal.</p>
-<h3>What replaces AndroidBuild@1?</h3>
+<h2 id="faq">AndroidBuild@1 retirement FAQ</h2>
+<h3>Is AndroidBuild@1 deprecated?</h3>
+<p>Yes. AndroidBuild@1 is retired on 2026-10-15. Azure Pipelines shows a retirement error, but the run does not fail until removal.</p>
+<h3>When does AndroidBuild@1 stop working?</h3>
+<p>AndroidBuild@1 is removed on 2027-03-15. Pipelines that still use it fail after removal.</p>
+<h3>What should I use instead of AndroidBuild@1?</h3>
 <p>Replace AndroidBuild@1 with Gradle@4.</p>
-<h3>Can trasloco fix AndroidBuild@1 automatically?</h3>
-<p>Not available yet.</p>
+</section>
+<section aria-labelledby="related">
+<h2 id="related">Related retired tasks</h2>
+<ul class="cols">
+</ul>
 </section>
 </main>
 <footer class="site">
