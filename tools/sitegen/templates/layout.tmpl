@@ -1,0 +1,44 @@
+{{define "head"}}<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{h .Title}}</title>
+<meta name="description" content="{{h .Description}}">
+{{- if .NoIndex}}
+<meta name="robots" content="noindex">
+{{- end}}
+{{- if .Canonical}}
+<link rel="canonical" href="{{h .Canonical}}">
+{{- end}}
+<link rel="icon" type="image/svg+xml" href="{{h .Base}}/favicon.svg">
+<link rel="stylesheet" href="{{h .Base}}/style.css">
+{{- if .Canonical}}
+<meta property="og:site_name" content="trasloco">
+<meta property="og:type" content="{{h .OGType}}">
+<meta property="og:title" content="{{h .Title}}">
+<meta property="og:description" content="{{h .Description}}">
+<meta property="og:url" content="{{h .Canonical}}">
+<meta property="og:image" content="{{h .OGImage}}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{h .Title}}">
+<meta name="twitter:description" content="{{h .Description}}">
+<meta name="twitter:image" content="{{h .OGImage}}">
+{{- end}}
+{{- range .LD}}
+<script type="application/ld+json">{{.}}</script>
+{{- end}}
+</head>{{end}}
+
+{{define "header"}}<header class="site">
+<a class="brand" href="{{h .Base}}/">trasloco</a>
+<nav aria-label="Site">
+<a href="{{h .Base}}/">All retired tasks</a>
+<a href="{{h .Base}}/llms.txt">llms.txt</a>
+<a href="{{h .Base}}/data/modernize.json">JSON data</a>
+<a href="https://github.com/HarnageaGabriel/trasloco">GitHub</a>
+</nav>
+</header>{{end}}
+
+{{define "footer"}}<footer class="site">
+<p>Last verified: <time datetime="{{h .Cfg.Generated}}">{{h .Cfg.Generated}}</time>. Facts are generated from the trasloco catalog; the full data is in <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
+<p>trasloco is an open-source project. <a href="https://github.com/HarnageaGabriel/trasloco">Source code and issues</a>.</p>
+</footer>{{end}}
