@@ -47,7 +47,7 @@ The grammar is that of `ado-yaml-structure.md` section 12: `Name@Version` or `GU
 
 1. **Name form.** The name is compared case-insensitively with the `task` column of section 8. `copyfiles@1`, `COPYFILES@1` and `CopyFiles@1` are the same reference. The replacement is written in the canonical spelling of section 8.
 2. **Full version.** `CopyFiles@1.1.4` is treated as major 1. The replacement is written as a major only (`CopyFiles@2`) and `TRL-MOD-0011` is added. VERIFY: V15 (whether a full version pins exactly that version).
-3. **GUID form.** A GUID is compared case-insensitively. The identity is resolved with the pair (GUID, major): the candidates are the entries of section 8 whose GUID column equals the GUID and whose major equals `N`. Exactly one candidate means a retired reference. More than one, or none, means no rewrite and `TRL-MOD-0005` only when at least one entry of section 8 has that GUID. Several tasks share a GUID: `333b11bd-d341-40d9-afcf-b32d5ce6f23b` is `NuGetInstaller@0`, `NuGetRestore@1` and the live `NuGetCommand@2`; a bare-GUID lookup by "lexically first name" (`catalog.md`) is therefore insufficient and MUST NOT be used for retirement. The rewritten reference keeps the GUID and changes only `@N` when the replacement has the same GUID (true for the replacement in 60 of the 73 rows whose replacement is a single task and whose GUID is known; the implementation compares the catalog `id` of the replacement with the row's GUID); otherwise it is written in name form and `TRL-MOD-0008` is added.
+3. **GUID form.** A GUID is compared case-insensitively. The identity is resolved with the pair (GUID, major): the candidates are the entries of section 8 whose GUID column equals the GUID and whose major equals `N`. Exactly one candidate means a retired reference. No candidate means the reference is not a retired task (for example `5bfb729a-a7c8-4a78-a7c3-8d717bb7c13c@2` is the live `CopyFiles@2`): there is no rewrite and no diagnostic, so the replacement written by a rewrite is never reported again. Two or more candidates (several retired tasks with the same GUID and major) mean no rewrite and `TRL-MOD-0005`. Several tasks share a GUID: `333b11bd-d341-40d9-afcf-b32d5ce6f23b` is `NuGetInstaller@0`, `NuGetRestore@1` and the live `NuGetCommand@2`; a bare-GUID lookup by "lexically first name" (`catalog.md`) is therefore insufficient and MUST NOT be used for retirement. The rewritten reference keeps the GUID and changes only `@N` when the replacement has the same GUID (true for the replacement in 60 of the 73 rows whose replacement is a single task and whose GUID is known; the implementation compares the catalog `id` of the replacement with the row's GUID); otherwise it is written in name form and `TRL-MOD-0008` is added.
 4. **Namespaced names.** A name that contains a `.` (for example `publisher.extension.CopyFiles@1`) is an extension-contributed task, not the built-in. It is never rewritten. If its last segment equals a retired name (case-insensitive), `TRL-MOD-0010` (info) is reported. VERIFY: V14 (the naming scheme of extension task references is not described on [TASKS]; the page only says a custom task whose name equals a built-in one resolves to the built-in, and that a custom task can be referenced by its GUID).
 5. **Dynamic references.** A value that contains `${{`, `$(` or `$[` is not static: no edit, `TRL-MOD-0005`. A reference without `@`, with an empty name or a malformed version is the parser's `TRL-PARSE-0015`; the file is not modified.
 6. **Strings that look like references.** A scalar in `parameters` (pipeline-level, template declarations including `default` and `values`, template call sites) or in `variables` whose whole trimmed text is a retired reference (name or GUID form) is not edited and is reported with `TRL-MOD-0005`, because the tool cannot know where the string is used (for example `task: ${{ parameters.taskName }}`). Mappings that are steps by 3.1 are not strings and are rewritten.
@@ -56,16 +56,25 @@ The grammar is that of `ado-yaml-structure.md` section 12: `Name@Version` or `GU
 
 For each recognised retired step the tool looks up its row in section 8 and applies the class rules of section 4. Two retired steps in one file are independent (S7). Order of evaluation is source order.
 
+### 3.4 Output of `modernize --check`
+
+`--check` only reports; it never edits. Files are first classified: a YAML file is examined only if it parses and has one of `task`, `steps`, `jobs`, `stages`, `extends`, `template`, `trigger`, `pool`, `pr`, `resources`, `variables`, `parameters`, or a directive key (`${{ ... }}`) at the top level, or has a `task:` key anywhere. A document whose top level has `on` or `apiVersion` is excluded even when it contains a nested `task:` key, because those keys mark GitHub workflows and Kubernetes manifests. A file that does not parse is examined only if a line looks like a `task:` key. Other YAML files are skipped silently. A step is any mapping with a scalar `task` key (the key allowlist of 3.1 applies only to free-form `parameters` values); a step whose `task` key comes from an expression is reported with `TRL-MOD-0005`.
+
+- **Exit codes.** 0 when there is nothing actionable (or `--check` is absent), 5 when `--check` finds an actionable result, 64 for a usage error, 1 when a named path cannot be read or, with `--strict`, when an examined file does not parse. Parse problems of examined files are warnings and do not change the exit code otherwise. Only results of severity `warning` or `error` are actionable; `info` results (`TRL-MOD-0010`) are listed as notes.
+- **Text.** One block per result: `path:line:col  Retired -> Replacement  [label]`, the action, and `More: <page>`. Labels: `drop-in replacement` (A), `replacement with input changes` (B), `manual migration` (C), `no replacement` (D), `manual check` (`TRL-MOD-0005`). Notes come last, then one summary line. Paths are relative to the current directory.
+- **JSON.** `{"findings": [...], "warnings": [...], "filesScanned": n, "filesSkipped": n}`; the arrays are never null. A finding has `code`, `severity`, `path`, `line`, `column`, `retiredTask`, `class`, `replacements`, `action`, `sourceUrl`, `help` (the documentation page of the task) and `diagnostics`. A warning has `code`, `severity`, `path`, `line`, `column`, `message`.
+- **SARIF 2.1.0.** `artifactLocation.uri` is a percent-encoded relative reference with `uriBaseId` `%SRCROOT%`. Level: `error` for class D, `warning` for other actionable results, `note` for info. Parse warnings are `toolExecutionNotifications`.
+
 ## 4. Classes
 
 Classes are data (column "Class" of section 8). The implementation MUST NOT recompute them. The criteria below explain how they were assigned from the cited `task.json` files.
 
 | Class | Meaning | Action | Diagnostic | Fidelity |
 |---|---|---|---|---|
-| A | Same task family (the replacement is the same task at a newer major), every input of the retired version exists in the replacement with the same name or alias, the same type, the same value domain (the replacement may add options) and the same default; every input that is new in the replacement is optional and its default is a no-op or has no effect on a pipeline that does not use it. | Change only the task reference (E1). | `TRL-MOD-0001` (info) | exact |
+| A | Same task family (the replacement is the same task at a newer major), every input of the retired version exists in the replacement with the same name or alias, the same type, the same value domain (the replacement may add options) and the same default; every input that is new in the replacement is optional and its default is a no-op or has no effect on a pipeline that does not use it. | Change only the task reference (E1). | `TRL-MOD-0001` (warning) | exact |
 | B | The replacement is a single task (same family, or a documented single-task successor), but at least one input is renamed, translated, removed, or has a different default, or a new input has a default that changes what the task does. Every such difference is listed in the mapping column. | Apply the mapping (section 5), then E1. | `TRL-MOD-0002` (warning) with the changes and the `review` items in `params` | approximated |
 | C | The documented replacement is a different task, more than one task (the tool never splits a step into several), a task with a different input surface, or the old `task.json` is not public so that no mapping can be documented. | No edit. | `TRL-MOD-0003` (warning) with the official replacement and the reason | needs-manual |
-| D | There is no replacement task: the platform or product is retired (Xamarin, App Center, Azure Cloud Services), the project is archived, or Microsoft points to an external tool or a script. | No edit. | `TRL-MOD-0004` (warning) with the summarized official guidance | needs-manual |
+| D | There is no replacement task: the platform or product is retired (Xamarin, App Center, Azure Cloud Services), the project is archived, or Microsoft points to an external tool or a script. | No edit. | `TRL-MOD-0004` (error) with the summarized official guidance | needs-manual |
 
 Class A and B rows never need a human decision when no guard fires; a guard failure (section 5.4) turns the step into needs-manual with `TRL-MOD-0006` and no edit.
 
@@ -123,12 +132,12 @@ Constant `K1` (a three-line string, no trailing newline): `{`, `"Content-Type":"
 
 ## 7. Diagnostics
 
-Diagnostics use the model of `diagnostics.md`. Positions refer to the input file. The codes are **proposed** in section 13 and do not exist in the registry yet; `TRL-CAT-0002` (retired task, replacement used) remains the code of `convert`. Ordering is `(line, column, code)`. `modernize` exits 0 with warnings unless `--fail-on` says otherwise (`diagnostics.md` section 8, last paragraph).
+Diagnostics use the model of `diagnostics.md`. Positions refer to the input file. The codes are registered in `internal/diag/registry.yaml`; `TRL-CAT-0002` (retired task, replacement used) remains the code of `convert`. Ordering is `(line, column, code)`. `modernize --check` treats warning and error findings as actionable.
 
 | Code | Emitted when | Anchor | `params` |
 |---|---|---|---|
-| `TRL-MOD-0001` | class A rewrite | task value | `from`, `to` |
-| `TRL-MOD-0002` | class B rewrite | task value | `from`, `to`, `changes[]`, `review[]` |
+| `TRL-MOD-0001` | a retired task with a drop-in replacement is detected (warning) | task value | `from`, `to` |
+| `TRL-MOD-0002` | a retired task whose replacement needs input changes is detected (warning) | task value | `from`, `to`, `changes[]`, `review[]` |
 | `TRL-MOD-0003` | class C step | task value | `from`, `replacements[]`, `reason` |
 | `TRL-MOD-0004` | class D step | task value | `from`, `guidance` |
 | `TRL-MOD-0005` | dynamic reference, ambiguous GUID, or string that names a retired task | the value | `value` |
@@ -356,16 +365,16 @@ There are 67 vectors. They cover every class (A: 001..023 and 018, B: 024..059, 
 7. The plan sentence for M2-B ("AST rewrite + existing printer") conflicts with `ado-yaml-structure.md` section 15, which says the printer does not preserve comments. Section 6 uses byte-range splices.
 8. `tasks.retirement.yaml` stores replacements alphabetically (`AzureCLI@3` before `AzurePowerShell@5` for `AzureNLBManagement@1`); the page lists `AzurePowerShell@5` first. Immaterial because the row is class C.
 
-## 13. Proposed diagnostic codes
+## 13. Diagnostic codes
 
-These codes are **proposals**; they are not in `internal/diag/registry.yaml` or `diagnostics.md` section 7. A new area `MOD` would also have to be added to the regular expression of section 1 of `diagnostics.md`. Alternatively the codes can be placed in the existing `CAT` area, using its next free numbers (eleven codes); the meanings are what matters.
+These codes are registered in `internal/diag/registry.yaml` and generated into `diagnostics.md`.
 
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
-| `TRL-MOD-0001` | info | ex | - | Retired task reference rewritten to the same task family | None; the inputs are identical. |
-| `TRL-MOD-0002` | warning | ap | - | Retired task reference rewritten with an input mapping | Review `params.changes` and `params.review`; test the pipeline. |
-| `TRL-MOD-0003` | warning | nm | - | Retired task needs a manual migration | Follow `params.replacements`; no automatic mapping is documented. |
-| `TRL-MOD-0004` | warning | nm | - | Retired task has no replacement task | Follow the official guidance in `params.guidance`. |
+| `TRL-MOD-0001` | warning | ex | - | Retired task with a drop-in replacement | Use the replacement task named in the report; the inputs are identical. |
+| `TRL-MOD-0002` | warning | ap | - | Retired task whose replacement needs input changes | Use the replacement task and change its inputs as described in the report; test the pipeline. |
+| `TRL-MOD-0003` | warning | nm | - | Retired task needs a manual migration | Use `replacements` and follow `action`; no automatic mapping is documented. |
+| `TRL-MOD-0004` | error | nm | - | Retired task has no replacement task | Follow the official guidance in `action`. |
 | `TRL-MOD-0005` | warning | nm | - | Task reference is not static or names a retired task as a string | Replace the retired task by hand where the value is used. |
 | `TRL-MOD-0006` | warning | nm | - | Input cannot be migrated automatically | Change the input named in `params.input` by hand, then re-run. |
 | `TRL-MOD-0007` | warning | ap | - | Input unknown to the retired task preserved | Check the input name for typos. |
