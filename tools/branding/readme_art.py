@@ -15,6 +15,11 @@ import os
 import sys
 from xml.sax.saxutils import escape
 
+
+def term_text(text):
+    """Escape terminal text; no-break spaces keep indentation where SVG collapses spaces."""
+    return escape(text).replace(" ", "\u00a0")
+
 OUT = sys.argv[1]
 SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif"
 MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace"
@@ -144,7 +149,7 @@ def hero(t):
 
 
 # ---------------------------------------------------------------- terminal
-TW, LINE, PAD, CHAR = 1200, 20, 22, 6.63   # CHAR = advance of 11px monospace
+TW, LINE, PAD, CHAR = 1240, 20, 22, 6.63   # CHAR = advance of 11px monospace
 SCRIPT = [  # (kind, text)
     ("cmd", "trasloco modernize --check --format text -- ."),
     ("out", "azure-pipelines.yml:11:11  DotNetCoreCLI@1 -> DotNetCoreCLI@2  [replacement with input changes]"),
@@ -160,12 +165,17 @@ SCRIPT = [  # (kind, text)
     ("out", "    More: https://harnageagabriel.github.io/trasloco/tasks/copyfiles-1/"),
     ("blank", ""),
     ("out", "Found 3 retired task reference(s) in 3 file(s): 1 drop-in, 1 with input changes, 1 manual, 0 no replacement. Retired 2026-10-15, removed 2027-03-15 (pipelines fail after removal)."),
-    ("status", "exit status 5"),
+    ("cmd", "echo $?"),
+    ("status", "5"),
 ]
 CYCLE = 12.0
 
 
 def terminal():
+    for kind, text in SCRIPT:
+        rendered = "$ " + text if kind == "cmd" else text
+        assert PAD + len(rendered) * CHAR < TW - 16, rendered
+    assert PAD + len("$ ") * CHAR < TW - 16
     th = 44 + PAD + LINE * (len(SCRIPT) + 1) + PAD
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TW} {th}" width="{TW}" height="{th}" '
          f'role="img" aria-label="Terminal: trasloco finds three retired Azure Pipelines tasks and exits with status 5">',
@@ -179,7 +189,7 @@ def terminal():
          # master clock
          f'<rect width="0" height="0"><animate id="clk" attributeName="x" from="0" to="0" dur="{CYCLE}s" '
          'begin="0s;clk.end"/></rect>',
-         f'<g font-family="{MONO}" font-size="11" xml:space="preserve">']
+         f'<g font-family="{MONO}" font-size="11" xml:space="preserve" style="white-space:pre">']
     t = 0.6
     y = 44 + PAD
     defs = []
@@ -193,12 +203,12 @@ def terminal():
                         f'begin="clk.begin+{t:.2f}s" fill="freeze" calcMode="discrete" '
                         f'values="{";".join(f"{k * CHAR:.0f}" for k in range(0, n + 1))}"/></rect></clipPath>')
             p.append(f'<text x="{PAD}" y="{y}" clip-path="url(#c{i})">'
-                     f'<tspan fill="{TAPE}">$ </tspan><tspan fill="#E6EDF3">{escape(text)}</tspan></text>')
+                     f'<tspan fill="{TAPE}">$ </tspan><tspan fill="#E6EDF3">{term_text(text)}</tspan></text>')
             t += dur + 0.45
         elif kind != "blank":
             color = "#FF7B72" if kind == "status" else "#E6EDF3"
             weight = ' font-weight="700"' if kind == "status" else ""
-            body = f'<tspan fill="{color}"{weight}>{escape(text)}</tspan>'
+            body = f'<tspan fill="{color}"{weight}>{term_text(text)}</tspan>'
             p.append(f'<text x="{PAD}" y="{y}">{body}'
                      f'<set attributeName="opacity" to="0" begin="clk.begin"/>'
                      f'<set attributeName="opacity" to="1" begin="clk.begin+{t:.2f}s"/></text>')

@@ -471,22 +471,33 @@ func TestRewriteFlag(t *testing.T) {
 }
 
 func TestToolAvailabilityFlag(t *testing.T) {
-	for name, data := range generateFixture(t, testConfig()) {
+	without := generateFixture(t, testConfig())
+	for name, data := range without {
 		if strings.Contains(string(data), "trasloco modernize") {
 			t.Errorf("%s mentions the unreleased command", name)
+		}
+		if strings.HasPrefix(name, "tasks/") && strings.HasSuffix(name, "/index.html") && strings.Contains(string(data), releasesURL) {
+			t.Errorf("%s links to releases while the tool is unavailable", name)
 		}
 	}
 	cfg := testConfig()
 	cfg.ToolAvailable = true
-	var combined strings.Builder
-	for _, data := range generateFixture(t, cfg) {
-		combined.Write(data)
+	taskPages := 0
+	for name, data := range generateFixture(t, cfg) {
+		if !strings.HasPrefix(name, "tasks/") || !strings.HasSuffix(name, "/index.html") {
+			continue
+		}
+		taskPages++
+		page := string(data)
+		if !strings.Contains(page, "trasloco modernize --check") {
+			t.Errorf("%s does not mention the released command", name)
+		}
+		if !strings.Contains(page, releasesURL) {
+			t.Errorf("%s has no installation link", name)
+		}
 	}
-	if !strings.Contains(combined.String(), "trasloco modernize --check") {
-		t.Error("released command is not mentioned")
-	}
-	if !strings.Contains(combined.String(), releasesURL) {
-		t.Error("released command has no installation link")
+	if taskPages == 0 {
+		t.Fatal("generated site has no task pages")
 	}
 }
 
