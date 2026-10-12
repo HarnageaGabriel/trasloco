@@ -1,7 +1,7 @@
 name: Pages
 
 env:
-  TRASLOCO_TOOL_AVAILABLE: "false"
+  TRASLOCO_TOOL_AVAILABLE: "true"
   # Optional repository variables; leave unset until search-console ownership is configured.
   GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
   BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
