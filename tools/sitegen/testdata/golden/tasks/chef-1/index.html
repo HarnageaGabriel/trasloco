@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chef@1 retired: what to do</title>
+<meta name="description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
+<link rel="canonical" href="https://example.test/site/tasks/chef-1/">
+<link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
+<link rel="stylesheet" href="/site/style.css">
+<meta property="og:site_name" content="trasloco">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chef@1 retired: what to do">
+<meta property="og:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
+<meta property="og:url" content="https://example.test/site/tasks/chef-1/">
+<meta property="og:image" content="https://example.test/site/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chef@1 retired: what to do">
+<meta name="twitter:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
+<meta name="twitter:image" content="https://example.test/site/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.","headline":"Chef@1 is retired: migrate off its platform or external tool","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/chef-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is Chef@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"There is no drop-in replacement task for Chef@1. Use the \"Chef\" extension or a script step."},"name":"What replaces Chef@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix Chef@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/chef-1/","name":"Chef@1","position":2}]}</script>
+</head>
+<body>
+<header class="site">
+<a class="brand" href="/site/">trasloco</a>
+<nav aria-label="Site">
+<a href="/site/">All retired tasks</a>
+<a href="/site/llms.txt">llms.txt</a>
+<a href="/site/data/modernize.json">JSON data</a>
+<a href="https://github.com/HarnageaGabriel/trasloco">GitHub</a>
+</nav>
+</header>
+<main>
+<nav aria-label="Breadcrumb">
+<ol class="crumbs">
+<li><a href="/site/">All retired tasks</a></li>
+<li aria-current="page">Chef@1</li>
+</ol>
+</nav>
+<h1>Chef@1 is retired: migrate off its platform or external tool</h1>
+<section aria-labelledby="answer">
+<h2 id="answer">The short answer</h2>
+<dl class="facts">
+<dt>Retirement date</dt>
+<dd><time datetime="2026-10-15">2026-10-15</time></dd>
+<dt>Removal date</dt>
+<dd><time datetime="2027-03-15">2027-03-15</time>. Pipelines that still use it fail after removal.</dd>
+<dt>Replacement</dt>
+<dd>No replacement task.</dd>
+<dt>Kind of migration</dt>
+<dd>retired platform or external tool: no drop-in replacement</dd>
+<dt>Automatic rewrite</dt>
+<dd>Not available yet.</dd>
+<dt>Recommended action</dt>
+<dd>Use the &#34;Chef&#34; extension or a script step.</dd>
+</dl>
+<h3>Official sources</h3>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement">Official task retirement announcement</a></li>
+<li><a href="https://github.com/microsoft/azure-pipelines-tasks/blob/abc123/Tasks/Chef/task.json">Task definition: Chef (task.json)</a></li>
+</ul>
+<p>Last verified: <time datetime="2026-10-12">2026-10-12</time></p>
+</section>
+<section aria-labelledby="find">
+<h2 id="find">Find it in your pipelines</h2>
+<p>With plain grep, nothing to install:</p>
+<pre><code>grep -rniwF &#39;Chef@1&#39; --include=&#39;*.yml&#39; --include=&#39;*.yaml&#39; .</code></pre>
+</section>
+<section aria-labelledby="migrate">
+<h2 id="migrate">How to migrate</h2>
+<p>Use the &#34;Chef&#34; extension or a script step.</p>
+</section>
+<section aria-labelledby="faq">
+<h2 id="faq">Questions</h2>
+<h3>When is Chef@1 removed?</h3>
+<p>Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal.</p>
+<h3>What replaces Chef@1?</h3>
+<p>There is no drop-in replacement task for Chef@1. Use the &#34;Chef&#34; extension or a script step.</p>
+<h3>Can trasloco fix Chef@1 automatically?</h3>
+<p>Not available yet.</p>
+</section>
+</main>
+<footer class="site">
+<p>Last verified: <time datetime="2026-10-12">2026-10-12</time>. Facts are generated from the trasloco catalog; the full data is in <a href="/site/data/modernize.json">modernize.json</a>.</p>
+<p>trasloco is an open-source project. <a href="https://github.com/HarnageaGabriel/trasloco">Source code and issues</a>.</p>
+</footer>
+</body>
+</html>
