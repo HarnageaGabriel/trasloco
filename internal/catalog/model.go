@@ -79,6 +79,33 @@ type RetiredTask struct {
 	Replacements    []string `yaml:"replacements,omitempty"`
 }
 
+// ModernizationFile is the reviewed modernization guidance for retired tasks.
+type ModernizationFile struct {
+	SchemaVersion  int                 `yaml:"schemaVersion"`
+	Kind           string              `yaml:"kind"`
+	Source         ModernizationSource `yaml:"source"`
+	RetirementDate string              `yaml:"retirementDate"`
+	RemovalDate    string              `yaml:"removalDate"`
+	Tasks          []Modernization     `yaml:"tasks"`
+}
+
+// ModernizationSource identifies the specification and official retirement page.
+type ModernizationSource struct {
+	Spec          string `yaml:"spec"`
+	RetirementURL string `yaml:"retirementUrl"`
+}
+
+// Modernization records reviewed guidance for one retired task major.
+type Modernization struct {
+	Task        string   `yaml:"task"`
+	GUID        string   `yaml:"guid"`
+	Replacement []string `yaml:"replacement"`
+	Action      string   `yaml:"action"`
+	Class       string   `yaml:"class"`
+	Sources     []string `yaml:"sources"`
+	Verify      []string `yaml:"verify,omitempty"`
+}
+
 // Mapping describes a hand-written conversion for one task major.
 type Mapping struct {
 	SchemaVersion int           `yaml:"schemaVersion"`
