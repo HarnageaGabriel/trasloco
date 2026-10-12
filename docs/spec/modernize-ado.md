@@ -356,7 +356,7 @@ There are 67 vectors. They cover every class (A: 001..023 and 018, B: 024..059, 
 
 ## 13. Proposed diagnostic codes
 
-These codes are **proposals**; they are not in `internal/diag/registry.yaml` or `diagnostics.md` section 7. A new area `MOD` would also have to be added to the regular expression of section 1 of `diagnostics.md`. Alternatively the codes can be placed in the existing `CAT` area, starting at its next free number..`0017`; the meanings are what matters.
+These codes are **proposals**; they are not in `internal/diag/registry.yaml` or `diagnostics.md` section 7. A new area `MOD` would also have to be added to the regular expression of section 1 of `diagnostics.md`. Alternatively the codes can be placed in the existing `CAT` area, using its next free numbers (eleven codes); the meanings are what matters.
 
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
