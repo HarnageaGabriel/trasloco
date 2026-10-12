@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-13
+
+### Changed
+
+- `PackerBuild@0` and `ServiceFabricUpdateAppVersions@1` are now reported as
+  replacements with input changes instead of manual migration and drop-in
+  replacement, following the approved rewrite rules.
+
+### Fixed
+
+- The GitHub Action resolves `@vMAJOR` across every page of releases.
+- `modernize --check` reads UTF-16 YAML files without a byte order mark
+  (Latin-range text) instead of skipping them.
+
 ## [0.1.0] - 2026-10-12
 
 ### Added
