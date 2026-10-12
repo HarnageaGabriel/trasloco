@@ -119,6 +119,11 @@ func writeTextFinding(builder *strings.Builder, finding modernize.Finding) {
 		replacement, label = "no replacement", classLabels[finding.Class]
 		if len(finding.Replacements) > 0 {
 			replacement = strings.Join(finding.Replacements, ", ")
+			if finding.Class == "D" {
+				// Class D has no drop-in replacement; the catalog task is only the
+				// closest one after migrating the project or platform.
+				replacement = "closest task " + replacement + " after migration"
+			}
 		}
 	}
 	fmt.Fprintf(builder, "%s:%d:%d  %s -> %s  [%s]\n    %s\n    More: %s\n",
