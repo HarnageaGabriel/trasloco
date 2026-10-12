@@ -19,17 +19,17 @@ curl -fLO "$base/$archive"
 curl -fLO "$base/checksums.txt"
 curl -fLO "$base/checksums.txt.sig"
 curl -fLO "$base/checksums.txt.pem"
-checksum_line=$(awk -v file="$archive" '
-  ($2 == file || $2 == "*" file) { count++; line = $1 "  " file }
-  END { if (count == 1) print line; else exit 1 }
-' checksums.txt)
-printf '%s\n' "$checksum_line" | sha256sum -c -
 cosign verify-blob \
   --certificate checksums.txt.pem \
   --signature checksums.txt.sig \
   --certificate-identity "https://github.com/HarnageaGabriel/trasloco/.github/workflows/release.yml@refs/tags/$version" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
+checksum_line=$(awk -v file="$archive" '
+  ($2 == file || $2 == "*" file) { count++; line = $1 "  " file }
+  END { if (count == 1) print line; else exit 1 }
+' checksums.txt)
+printf '%s\n' "$checksum_line" | sha256sum -c -
 gh attestation verify "$archive" --repo HarnageaGabriel/trasloco
 tar -xzf "$archive"
 ./trasloco version
