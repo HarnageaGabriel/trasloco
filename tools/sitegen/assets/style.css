@@ -1,0 +1,170 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1b2433;
+  --muted: #536074;
+  --accent: #8a4b00;
+  --line: #d6dbe3;
+  --code: #f2f4f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11161f;
+    --fg: #e6eaf0;
+    --muted: #9aa6b8;
+    --accent: #f0a83a;
+    --line: #2a3344;
+    --code: #1b2433;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1rem/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+header.site,
+footer.site,
+main {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+header.site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+header.site nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+}
+
+h2 {
+  margin-top: 2rem;
+  font-size: 1.35rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+}
+
+.crumbs li + li::before {
+  content: "/";
+  margin-right: 0.5rem;
+}
+
+dl.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+dl.facts dt {
+  font-weight: 700;
+}
+
+dl.facts dd {
+  margin: 0;
+}
+
+code,
+pre {
+  background: var(--code);
+  font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border-radius: 0.25rem;
+}
+
+code {
+  padding: 0.1rem 0.3rem;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+}
+
+pre code {
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+caption {
+  padding: 0.5rem 0;
+  text-align: left;
+  color: var(--muted);
+}
+
+th,
+td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cols {
+  columns: 14rem;
+}
+
+footer.site {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 40rem) {
+  dl.facts {
+    grid-template-columns: 1fr;
+  }
+}

@@ -63,6 +63,9 @@ stay free.
 
 ## Try it now: find retired Azure Pipelines tasks
 
+Look up any retired task and its replacement on the
+[task retirement site](https://harnageagabriel.github.io/trasloco/).
+
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail

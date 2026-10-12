@@ -24,15 +24,17 @@ const schemaURL = "https://github.com/HarnageaGabriel/trasloco/schemas/catalog/v
 
 // Catalog is an immutable loaded catalog.
 type Catalog struct {
-	Tasks       []Task
-	Retirements []RetiredTask
-	Mappings    []Mapping
-	Actions     []LockedAction
-	taskByName  map[string]*Task
-	taskByID    map[string]*Task
-	retired     map[string]*RetiredTask
-	mapping     map[string]*Mapping
-	action      map[string]*LockedAction
+	Tasks          []Task
+	Retirements    []RetiredTask
+	Modernizations []Modernization
+	Mappings       []Mapping
+	Actions        []LockedAction
+	taskByName     map[string]*Task
+	taskByID       map[string]*Task
+	retired        map[string]*RetiredTask
+	modernization  map[string]*Modernization
+	mapping        map[string]*Mapping
+	action         map[string]*LockedAction
 }
 
 // Load reads all optional catalog files from fsys, validates them, and builds indexes.
@@ -68,6 +70,10 @@ func Load(ctx context.Context, fsys fs.FS, collector *diag.Collector) (*Catalog,
 	var retirement RetirementFile
 	if loadOne("azure-pipelines/tasks.retirement.yaml", &retirement) {
 		c.Retirements = retirement.Tasks
+	}
+	var modernization ModernizationFile
+	if loadOne("azure-pipelines/modernize.yaml", &modernization) {
+		c.Modernizations = modernization.Tasks
 	}
 	var lock ActionsLock
 	if loadOne("github-actions/actions.lock.yaml", &lock) {
@@ -186,6 +192,7 @@ func (c *Catalog) buildIndexes(collector *diag.Collector) []error {
 	c.taskByName = make(map[string]*Task, len(c.Tasks))
 	c.taskByID = make(map[string]*Task, len(c.Tasks))
 	c.retired = make(map[string]*RetiredTask, len(c.Retirements))
+	c.modernization = make(map[string]*Modernization, len(c.Modernizations))
 	c.mapping = make(map[string]*Mapping, len(c.Mappings))
 	c.action = make(map[string]*LockedAction, len(c.Actions))
 	var failures []error
@@ -212,13 +219,32 @@ func (c *Catalog) buildIndexes(collector *diag.Collector) []error {
 	}
 	for i := range c.Retirements {
 		entry := &c.Retirements[i]
-		key := refKey(entry.Name, entry.Major)
+		name, major, ok := splitRef(entry.Task)
+		if !ok || !strings.EqualFold(entry.Task, entry.Name+"@"+strconv.Itoa(entry.Major)) {
+			failures = append(failures, catalogError("azure-pipelines/tasks.retirement.yaml", "retirement task disagrees with name and major: "+entry.Task, collector))
+			continue
+		}
+		key := refKey(name, major)
 		if _, exists := c.retired[key]; exists {
 			failures = append(failures, catalogError("azure-pipelines/tasks.retirement.yaml", "duplicate retirement "+entry.Task, collector))
 		} else {
 			c.retired[key] = entry
 		}
 	}
+	for i := range c.Modernizations {
+		entry := &c.Modernizations[i]
+		name, major, ok := splitRef(entry.Task)
+		if !ok {
+			continue
+		}
+		key := refKey(name, major)
+		if _, exists := c.modernization[key]; exists {
+			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "duplicate modernization "+entry.Task, collector))
+		} else {
+			c.modernization[key] = entry
+		}
+	}
+	failures = append(failures, c.checkModernizations(collector)...)
 	for i := range c.Mappings {
 		mapping := &c.Mappings[i]
 		name, major, ok := splitRef(mapping.Task)
@@ -260,6 +286,78 @@ func (c *Catalog) buildIndexes(collector *diag.Collector) []error {
 		}
 	}
 	return failures
+}
+
+func (c *Catalog) checkModernizations(collector *diag.Collector) []error {
+	if len(c.Retirements) == 0 && len(c.Modernizations) == 0 {
+		return nil
+	}
+	var failures []error
+	retiredKeys := make([]string, 0, len(c.retired))
+	for key := range c.retired {
+		retiredKeys = append(retiredKeys, key)
+	}
+	sort.Strings(retiredKeys)
+	for _, key := range retiredKeys {
+		retired := c.retired[key]
+		modernization, ok := c.modernization[key]
+		if !ok {
+			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "missing modernization for "+retired.Task, collector))
+			continue
+		}
+		if !equalFoldRefs(modernization.Replacement, retired.Replacements) {
+			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "replacement disagrees with retirement for "+retired.Task, collector))
+		}
+	}
+	modernizationKeys := make([]string, 0, len(c.modernization))
+	for key := range c.modernization {
+		modernizationKeys = append(modernizationKeys, key)
+	}
+	sort.Strings(modernizationKeys)
+	for _, key := range modernizationKeys {
+		modernization := c.modernization[key]
+		if _, ok := c.retired[key]; !ok {
+			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "modernization is not retired: "+modernization.Task, collector))
+		}
+		for _, replacement := range modernization.Replacement {
+			name, major, ok := splitRef(replacement)
+			if !ok {
+				continue
+			}
+			task, found := c.ResolveTask(name)
+			if !found {
+				// AzureLoadTest is an extension task cited by the approved spec and is
+				// intentionally absent from the pinned built-in task catalog.
+				if key == "quickperftest@1" && fold(replacement) == "azureloadtest@1" {
+					continue
+				}
+				failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "replacement task does not exist: "+replacement, collector))
+				continue
+			}
+			if _, found := task.Version(major); !found {
+				failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "replacement task major does not exist: "+replacement, collector))
+			}
+		}
+	}
+	return failures
+}
+
+func equalFoldRefs(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	want := make(map[string]int, len(right))
+	for _, ref := range right {
+		want[fold(ref)]++
+	}
+	for _, ref := range left {
+		key := fold(ref)
+		if want[key] == 0 {
+			return false
+		}
+		want[key]--
+	}
+	return true
 }
 
 func catalogError(file, message string, collector *diag.Collector) error {
@@ -342,6 +440,12 @@ func (c *Catalog) LatestMajor(name string) (int, bool) {
 // Retirement returns retirement metadata for a task major.
 func (c *Catalog) Retirement(name string, major int) (*RetiredTask, bool) {
 	entry, ok := c.retired[refKey(name, major)]
+	return entry, ok
+}
+
+// Modernization returns modernization guidance for a task major.
+func (c *Catalog) Modernization(name string, major int) (*Modernization, bool) {
+	entry, ok := c.modernization[refKey(name, major)]
 	return entry, ok
 }
 

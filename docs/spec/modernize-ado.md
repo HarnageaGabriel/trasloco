@@ -141,6 +141,8 @@ Diagnostics use the model of `diagnostics.md`. Positions refer to the input file
 
 ## 8. The 73 retired task versions
 
+The machine-readable source of truth for this classification is `catalog/azure-pipelines/modernize.yaml`.
+
 Columns: `#`; the retired task and its GUID (the GUID is the `id` of the task; it is the same for every version of a task); the replacement named by [RET]; the class (section 4); the input mapping (section 5) or, for C and D, the reason or the official guidance; sources. Old input sets that are not in the catalog are in Appendix A. "VERIFY: Vn" refers to section 11.
 
 Class counts: A = 3, B = 22, C = 28, D = 20.

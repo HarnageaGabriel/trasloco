@@ -6,12 +6,13 @@
   "required": ["schemaVersion", "kind"],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "kind": { "enum": ["tasks-generated", "task-retirement", "task-mapping", "actions-lock"] }
+    "kind": { "enum": ["tasks-generated", "task-retirement", "task-modernization", "task-mapping", "actions-lock"] }
   },
   "unevaluatedProperties": false,
   "allOf": [
     { "if": { "properties": { "kind": { "const": "tasks-generated" } } }, "then": { "$ref": "#/$defs/tasksGenerated" } },
     { "if": { "properties": { "kind": { "const": "task-retirement" } } }, "then": { "$ref": "#/$defs/taskRetirement" } },
+    { "if": { "properties": { "kind": { "const": "task-modernization" } } }, "then": { "$ref": "#/$defs/taskModernization" } },
     { "if": { "properties": { "kind": { "const": "task-mapping" } } }, "then": { "$ref": "#/$defs/taskMapping" } },
     { "if": { "properties": { "kind": { "const": "actions-lock" } } }, "then": { "$ref": "#/$defs/actionsLock" } }
   ],
@@ -110,6 +111,40 @@
               "legacyBuiltin": { "type": "boolean" },
               "replacementKind": { "enum": ["task", "external", "none"] },
               "replacements": { "type": "array", "items": { "$ref": "#/$defs/taskRef" } }
+            }
+          }
+        }
+      }
+    },
+    "taskModernization": {
+      "required": ["source", "retirementDate", "removalDate", "tasks"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["spec", "retirementUrl"],
+          "additionalProperties": false,
+          "properties": {
+            "spec": { "const": "docs/spec/modernize-ado.md" },
+            "retirementUrl": { "$ref": "#/$defs/httpURL" }
+          }
+        },
+        "retirementDate": { "$ref": "#/$defs/date" },
+        "removalDate": { "$ref": "#/$defs/date" },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["task", "guid", "replacement", "action", "class", "sources"],
+            "additionalProperties": false,
+            "properties": {
+              "task": { "$ref": "#/$defs/taskRef" },
+              "guid": { "type": "string", "pattern": "^$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+              "replacement": { "type": "array", "items": { "$ref": "#/$defs/taskRef" } },
+              "action": { "type": "string", "minLength": 1 },
+              "class": { "enum": ["A", "B", "C", "D"] },
+              "sources": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/httpURL" } },
+              "verify": { "type": "array", "items": { "type": "string", "pattern": "^V[0-9]+$" } }
             }
           }
         }
