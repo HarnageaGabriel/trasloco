@@ -19,7 +19,7 @@
 <dt>Removal date</dt>
 <dd><time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>. Pipelines that still use it fail after removal.</dd>
 <dt>Replacement</dt>
-<dd>{{if .E.Replacement}}{{range $i, $r := .E.Replacement}}{{if $i}} and {{end}}<code>{{h $r}}</code>{{end}}{{else}}No replacement task.{{end}}</dd>
+<dd>{{if and (eq .E.Class "D") .E.Replacement}}Closest task: {{range $i, $r := .E.Replacement}}{{if $i}} and {{end}}<code>{{h $r}}</code>{{end}} (after the migration described below).{{else if .E.Replacement}}{{range $i, $r := .E.Replacement}}{{if $i}} and {{end}}<code>{{h $r}}</code>{{end}}{{else}}No replacement task.{{end}}</dd>
 <dt>Kind of migration</dt>
 <dd>{{h .E.ClassLabel}}</dd>
 <dt>Automatic rewrite</dt>
@@ -37,8 +37,11 @@
 </section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
+{{- if .Cfg.ToolAvailable}}
 <p>With trasloco:</p>
 <pre><code>trasloco modernize --check</code></pre>
+<p><a href="https://github.com/HarnageaGabriel/trasloco/releases/latest">Install trasloco from the latest release</a>.</p>
+{{- end}}
 <p>With plain grep, nothing to install:</p>
 <pre><code>{{h .E.Grep}}</code></pre>
 </section>

@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CopyFiles@1 is retired: replace it with CopyFiles@2 | trasloco</title>
-<meta name="description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2 (drop-in replacement). Find it with trasloco modernize --check.">
+<title>CopyFiles@1 retired: use CopyFiles@2</title>
+<meta name="description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2.">
 <link rel="canonical" href="https://example.test/site/tasks/copyfiles-1/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
 <meta property="og:site_name" content="trasloco">
 <meta property="og:type" content="article">
-<meta property="og:title" content="CopyFiles@1 is retired: replace it with CopyFiles@2 | trasloco">
-<meta property="og:description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2 (drop-in replacement). Find it with trasloco modernize --check.">
+<meta property="og:title" content="CopyFiles@1 retired: use CopyFiles@2">
+<meta property="og:description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2.">
 <meta property="og:url" content="https://example.test/site/tasks/copyfiles-1/">
 <meta property="og:image" content="https://example.test/site/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="CopyFiles@1 is retired: replace it with CopyFiles@2 | trasloco">
-<meta name="twitter:description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2 (drop-in replacement). Find it with trasloco modernize --check.">
+<meta name="twitter:title" content="CopyFiles@1 retired: use CopyFiles@2">
+<meta name="twitter:description" content="CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2.">
 <meta name="twitter:image" content="https://example.test/site/og-image.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","datePublished":"2026-10-12","description":"CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2 (drop-in replacement). Find it with trasloco modernize --check.","headline":"CopyFiles@1 is retired: replace it with CopyFiles@2","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/copyfiles-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"CopyFiles@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is CopyFiles@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace CopyFiles@1 with CopyFiles@2."},"name":"What replaces CopyFiles@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not yet. Automatic rewrite is planned for this kind of task (drop-in replacement). Today, trasloco modernize --check finds the step and you change it by hand."},"name":"Can trasloco fix CopyFiles@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"CopyFiles@1 retired 2026-10-15, removed 2027-03-15. Replace it with CopyFiles@2.","headline":"CopyFiles@1 is retired: replace it with CopyFiles@2","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/copyfiles-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"CopyFiles@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is CopyFiles@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace CopyFiles@1 with CopyFiles@2."},"name":"What replaces CopyFiles@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix CopyFiles@1 automatically?"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/copyfiles-1/","name":"CopyFiles@1","position":2}]}</script>
 </head>
 <body>
@@ -52,7 +52,7 @@
 <dt>Kind of migration</dt>
 <dd>drop-in replacement</dd>
 <dt>Automatic rewrite</dt>
-<dd>Not yet. Automatic rewrite is planned for this kind of task (drop-in replacement). Today, trasloco modernize --check finds the step and you change it by hand.</dd>
+<dd>Not available yet.</dd>
 <dt>Recommended action</dt>
 <dd>Replace CopyFiles@1 with CopyFiles@2.</dd>
 </dl>
@@ -66,8 +66,6 @@
 </section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
-<p>With trasloco:</p>
-<pre><code>trasloco modernize --check</code></pre>
 <p>With plain grep, nothing to install:</p>
 <pre><code>grep -rniwF &#39;CopyFiles@1&#39; --include=&#39;*.yml&#39; --include=&#39;*.yaml&#39; .</code></pre>
 </section>
@@ -86,7 +84,7 @@
 <h3>What replaces CopyFiles@1?</h3>
 <p>Replace CopyFiles@1 with CopyFiles@2.</p>
 <h3>Can trasloco fix CopyFiles@1 automatically?</h3>
-<p>Not yet. Automatic rewrite is planned for this kind of task (drop-in replacement). Today, trasloco modernize --check finds the step and you change it by hand.</p>
+<p>Not available yet.</p>
 </section>
 </main>
 <footer class="site">

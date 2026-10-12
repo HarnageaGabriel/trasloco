@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chef@1 is retired: what to do | trasloco</title>
-<meta name="description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. No replacement task: read what to do. Find it with trasloco modernize --check.">
+<title>Chef@1 retired: what to do</title>
+<meta name="description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
 <link rel="canonical" href="https://example.test/site/tasks/chef-1/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
 <meta property="og:site_name" content="trasloco">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Chef@1 is retired: what to do | trasloco">
-<meta property="og:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. No replacement task: read what to do. Find it with trasloco modernize --check.">
+<meta property="og:title" content="Chef@1 retired: what to do">
+<meta property="og:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
 <meta property="og:url" content="https://example.test/site/tasks/chef-1/">
 <meta property="og:image" content="https://example.test/site/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Chef@1 is retired: what to do | trasloco">
-<meta name="twitter:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. No replacement task: read what to do. Find it with trasloco modernize --check.">
+<meta name="twitter:title" content="Chef@1 retired: what to do">
+<meta name="twitter:description" content="Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.">
 <meta name="twitter:image" content="https://example.test/site/og-image.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","datePublished":"2026-10-12","description":"Chef@1 retired 2026-10-15, removed 2027-03-15. No replacement task: read what to do. Find it with trasloco modernize --check.","headline":"Chef@1 is retired: what to do","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/chef-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is Chef@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"There is no replacement task for Chef@1. Use the \"Chef\" extension or a script step."},"name":"What replaces Chef@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"No. This task needs a manual migration. trasloco modernize --check still finds the step."},"name":"Can trasloco fix Chef@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"Chef@1 retired 2026-10-15, removed 2027-03-15. Retired platform or external tool: migrate off it using the guidance on this page.","headline":"Chef@1 is retired: migrate off its platform or external tool","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/chef-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is Chef@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"There is no drop-in replacement task for Chef@1. Use the \"Chef\" extension or a script step."},"name":"What replaces Chef@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix Chef@1 automatically?"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/chef-1/","name":"Chef@1","position":2}]}</script>
 </head>
 <body>
@@ -39,7 +39,7 @@
 <li aria-current="page">Chef@1</li>
 </ol>
 </nav>
-<h1>Chef@1 is retired: what to do</h1>
+<h1>Chef@1 is retired: migrate off its platform or external tool</h1>
 <section aria-labelledby="answer">
 <h2 id="answer">The short answer</h2>
 <dl class="facts">
@@ -50,9 +50,9 @@
 <dt>Replacement</dt>
 <dd>No replacement task.</dd>
 <dt>Kind of migration</dt>
-<dd>no replacement: platform retired or external tool</dd>
+<dd>retired platform or external tool: no drop-in replacement</dd>
 <dt>Automatic rewrite</dt>
-<dd>No. This task needs a manual migration. trasloco modernize --check still finds the step.</dd>
+<dd>Not available yet.</dd>
 <dt>Recommended action</dt>
 <dd>Use the &#34;Chef&#34; extension or a script step.</dd>
 </dl>
@@ -65,8 +65,6 @@
 </section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
-<p>With trasloco:</p>
-<pre><code>trasloco modernize --check</code></pre>
 <p>With plain grep, nothing to install:</p>
 <pre><code>grep -rniwF &#39;Chef@1&#39; --include=&#39;*.yml&#39; --include=&#39;*.yaml&#39; .</code></pre>
 </section>
@@ -79,9 +77,9 @@
 <h3>When is Chef@1 removed?</h3>
 <p>Chef@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal.</p>
 <h3>What replaces Chef@1?</h3>
-<p>There is no replacement task for Chef@1. Use the &#34;Chef&#34; extension or a script step.</p>
+<p>There is no drop-in replacement task for Chef@1. Use the &#34;Chef&#34; extension or a script step.</p>
 <h3>Can trasloco fix Chef@1 automatically?</h3>
-<p>No. This task needs a manual migration. trasloco modernize --check still finds the step.</p>
+<p>Not available yet.</p>
 </section>
 </main>
 <footer class="site">

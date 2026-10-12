@@ -5,7 +5,7 @@
 {{template "header" .}}
 <main>
 <h1>{{h .Head.Title}}</h1>
-<p>Azure Pipelines tasks are retired on <time datetime="{{h .Cfg.RetirementDate}}">{{h .Cfg.RetirementDate}}</time> and removed on <time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>. Pipelines that still use a removed task fail. Find your task below, open its page for the replacement, and run <code>trasloco modernize --check</code> to list every affected step in your repositories.</p>
+<p>Azure Pipelines tasks are retired on <time datetime="{{h .Cfg.RetirementDate}}">{{h .Cfg.RetirementDate}}</time> and removed on <time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>. Pipelines that still use a removed task fail. Find your task below and open its page for migration guidance.{{if .Cfg.ToolAvailable}} Install trasloco from the <a href="https://github.com/HarnageaGabriel/trasloco/releases/latest">latest release</a>, then run <code>trasloco modernize --check</code> to list every affected step in your repositories.{{end}}</p>
 <p>Official source: <a href="{{h .Cfg.AnnouncementURL}}">Azure DevOps task retirement announcement</a>. Last verified: <time datetime="{{h .Cfg.Generated}}">{{h .Cfg.Generated}}</time>.</p>
 <h2 id="classes">Tasks by kind of migration</h2>
 <ul>
@@ -21,7 +21,7 @@
 </thead>
 <tbody>
 {{- range .Entries}}
-<tr><th scope="row"><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a></th><td>{{if .Replacement}}{{h (join .Replacement ", ")}}{{else}}none{{end}}</td><td>{{h .ClassLabel}}</td></tr>
+<tr><th scope="row"><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a></th><td>{{if and (eq .Class "D") .Replacement}}Closest task: {{h (join .Replacement ", ")}} (after migration){{else if .Replacement}}{{h (join .Replacement ", ")}}{{else}}none{{end}}</td><td>{{h .ClassLabel}}</td></tr>
 {{- end}}
 </tbody>
 </table>

@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AndroidBuild@1 is retired: replace it with Gradle@4 | trasloco</title>
-<meta name="description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4 (manual migration). Find it with trasloco modernize --check.">
+<title>AndroidBuild@1 retired: use Gradle@4</title>
+<meta name="description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
 <link rel="canonical" href="https://example.test/site/tasks/androidbuild-1/">
 <link rel="icon" type="image/svg+xml" href="/site/favicon.svg">
 <link rel="stylesheet" href="/site/style.css">
 <meta property="og:site_name" content="trasloco">
 <meta property="og:type" content="article">
-<meta property="og:title" content="AndroidBuild@1 is retired: replace it with Gradle@4 | trasloco">
-<meta property="og:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4 (manual migration). Find it with trasloco modernize --check.">
+<meta property="og:title" content="AndroidBuild@1 retired: use Gradle@4">
+<meta property="og:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
 <meta property="og:url" content="https://example.test/site/tasks/androidbuild-1/">
 <meta property="og:image" content="https://example.test/site/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="AndroidBuild@1 is retired: replace it with Gradle@4 | trasloco">
-<meta name="twitter:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4 (manual migration). Find it with trasloco modernize --check.">
+<meta name="twitter:title" content="AndroidBuild@1 retired: use Gradle@4">
+<meta name="twitter:description" content="AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.">
 <meta name="twitter:image" content="https://example.test/site/og-image.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","datePublished":"2026-10-12","description":"AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4 (manual migration). Find it with trasloco modernize --check.","headline":"AndroidBuild@1 is retired: replace it with Gradle@4","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/androidbuild-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"AndroidBuild@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is AndroidBuild@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace AndroidBuild@1 with Gradle@4."},"name":"What replaces AndroidBuild@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"No. This task needs a manual migration. trasloco modernize --check still finds the step."},"name":"Can trasloco fix AndroidBuild@1 automatically?"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","author":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"},"dateModified":"2026-10-12","description":"AndroidBuild@1 retired 2026-10-15, removed 2027-03-15. Replace it with Gradle@4.","headline":"AndroidBuild@1 is retired: replace it with Gradle@4","inLanguage":"en","mainEntityOfPage":"https://example.test/site/tasks/androidbuild-1/","publisher":{"@type":"Organization","name":"trasloco","url":"https://github.com/HarnageaGabriel/trasloco"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"AndroidBuild@1: retirement date 2026-10-15, removal date 2027-03-15. Pipelines that still use it fail after removal."},"name":"When is AndroidBuild@1 removed?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Replace AndroidBuild@1 with Gradle@4."},"name":"What replaces AndroidBuild@1?"},{"@type":"Question","acceptedAnswer":{"@type":"Answer","text":"Not available yet."},"name":"Can trasloco fix AndroidBuild@1 automatically?"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://example.test/site/","name":"Retired Azure Pipelines tasks","position":1},{"@type":"ListItem","item":"https://example.test/site/tasks/androidbuild-1/","name":"AndroidBuild@1","position":2}]}</script>
 </head>
 <body>
@@ -52,7 +52,7 @@
 <dt>Kind of migration</dt>
 <dd>manual migration</dd>
 <dt>Automatic rewrite</dt>
-<dd>No. This task needs a manual migration. trasloco modernize --check still finds the step.</dd>
+<dd>Not available yet.</dd>
 <dt>Recommended action</dt>
 <dd>Migrate this step manually to Gradle@4.</dd>
 </dl>
@@ -66,8 +66,6 @@
 </section>
 <section aria-labelledby="find">
 <h2 id="find">Find it in your pipelines</h2>
-<p>With trasloco:</p>
-<pre><code>trasloco modernize --check</code></pre>
 <p>With plain grep, nothing to install:</p>
 <pre><code>grep -rniwF &#39;AndroidBuild@1&#39; --include=&#39;*.yml&#39; --include=&#39;*.yaml&#39; .</code></pre>
 </section>
@@ -83,7 +81,7 @@
 <h3>What replaces AndroidBuild@1?</h3>
 <p>Replace AndroidBuild@1 with Gradle@4.</p>
 <h3>Can trasloco fix AndroidBuild@1 automatically?</h3>
-<p>No. This task needs a manual migration. trasloco modernize --check still finds the step.</p>
+<p>Not available yet.</p>
 </section>
 </main>
 <footer class="site">

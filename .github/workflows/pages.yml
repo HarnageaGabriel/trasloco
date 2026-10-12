@@ -1,11 +1,17 @@
 name: Pages
 
+env:
+  TRASLOCO_TOOL_AVAILABLE: "false"
+
 on:
   push:
     branches: [main]
     paths:
       - 'catalog/**'
       - 'tools/sitegen/**'
+      - 'docs/assets/**'
+      - 'go.mod'
+      - 'go.sum'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -22,12 +28,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Generate site
-        run: go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)"
+        run: |
+          go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)" -tool-available="${TRASLOCO_TOOL_AVAILABLE}"
+          # upload-pages-artifact preserves modes; Pages needs every generated path readable/traversable.
+          chmod -R a+rX _site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site

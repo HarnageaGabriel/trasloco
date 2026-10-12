@@ -24,6 +24,7 @@ var embedded embed.FS
 
 const (
 	repoURL        = "https://github.com/HarnageaGabriel/trasloco"
+	releasesURL    = repoURL + "/releases/latest"
 	siteName       = "trasloco"
 	maxDescription = 155
 	dateLayout     = "2006-01-02"
@@ -37,6 +38,8 @@ type Config struct {
 	// Generated is the data generation date (YYYY-MM-DD), the only date the output depends on.
 	Generated string
 	BaseURL   string
+	// ToolAvailable states whether the trasloco modernization command has been released.
+	ToolAvailable bool
 	// RewriteAvailable states whether "trasloco modernize --write" ships; pages say "planned" until it does.
 	RewriteAvailable bool
 
@@ -59,7 +62,7 @@ func classList() []classInfo {
 		{"A", "drop-in-replacement", "drop-in replacement"},
 		{"B", "replacement-with-input-changes", "replacement with input changes"},
 		{"C", "manual-migration", "manual migration"},
-		{"D", "no-replacement", "no replacement: platform retired or external tool"},
+		{"D", "no-replacement", "retired platform or external tool: no drop-in replacement"},
 	}
 }
 
@@ -102,7 +105,6 @@ type entry struct {
 	Replacement     []string
 	ReplacementKind string
 	Sources         []sourceLink
-	Verify          []string
 	Auto            string
 	AutoText        string
 	RemovedText     string
@@ -204,7 +206,6 @@ func buildEntries(cat *catalog.Catalog, cfg *Config) ([]*entry, error) {
 			Action:          row.Action,
 			Replacement:     append([]string{}, row.Replacement...),
 			ReplacementKind: kinds[strings.ToLower(row.Task)],
-			Verify:          append([]string{}, row.Verify...),
 		}
 		e.URL = cfg.abs(e.Path)
 		for _, source := range row.Sources {
@@ -239,17 +240,32 @@ func joinAnd(items []string) string { return strings.Join(items, " and ") }
 func fillFacts(e *entry, cfg *Config) {
 	repl := joinAnd(e.Replacement)
 	e.RemovedText = fmt.Sprintf("%s: retirement date %s, removal date %s. Pipelines that still use it fail after removal.", e.Task, cfg.RetirementDate, cfg.RemovalDate)
-	if repl != "" {
+	switch {
+	case e.Class == "D":
+		e.Title = e.Task + " retired: what to do"
+		e.Heading = e.Task + " is retired: migrate off its platform or external tool"
+		if repl != "" {
+			e.ReplacementText = repl + " is the closest task, after the platform or tool migration described on this page."
+		} else {
+			e.ReplacementText = "There is no drop-in replacement task for " + e.Task + ". " + e.Action
+		}
+	case repl != "":
 		e.ReplacementText = "Replace " + e.Task + " with " + repl + "."
-		e.Title = fmt.Sprintf("%s is retired: replace it with %s | %s", e.Task, repl, siteName)
+		e.Title = fmt.Sprintf("%s retired: use %s", e.Task, repl)
+		if utf8.RuneCountInString(e.Title) > 60 {
+			e.Title = e.Task + " retired: what to do"
+		}
 		e.Heading = fmt.Sprintf("%s is retired: replace it with %s", e.Task, repl)
-	} else {
+	default:
 		e.ReplacementText = "There is no replacement task for " + e.Task + ". " + e.Action
-		e.Title = fmt.Sprintf("%s is retired: what to do | %s", e.Task, siteName)
+		e.Title = fmt.Sprintf("%s retired: what to do", e.Task)
 		e.Heading = e.Task + " is retired: what to do"
 	}
-	switch e.Class {
-	case "A", "B":
+	switch {
+	case !cfg.ToolAvailable:
+		e.Auto = "unavailable"
+		e.AutoText = "Not available yet."
+	case e.Class == "A" || e.Class == "B":
 		if cfg.RewriteAvailable {
 			e.Auto = "available"
 			e.AutoText = "Yes. trasloco modernize --write rewrites this step to " + repl + "."
@@ -276,18 +292,25 @@ func fillFacts(e *entry, cfg *Config) {
 func describe(e *entry, cfg *Config) string {
 	base := fmt.Sprintf("%s retired %s, removed %s.", e.Task, cfg.RetirementDate, cfg.RemovalDate)
 	var candidates []string
-	if len(e.Replacement) > 0 {
+	switch {
+	case e.Class == "D":
+		candidates = []string{
+			fmt.Sprintf("%s Retired platform or external tool: migrate off it using the guidance on this page.", base),
+			fmt.Sprintf("%s Migrate off its retired platform or external tool.", base),
+		}
+	case len(e.Replacement) > 0:
 		repl := joinAnd(e.Replacement)
-		candidates = []string{
-			fmt.Sprintf("%s Replace it with %s (%s). Find it with trasloco modernize --check.", base, repl, e.ClassLabel),
-			fmt.Sprintf("%s Replace it with %s. Find it with trasloco.", base, repl),
+		if cfg.ToolAvailable {
+			candidates = append(candidates, fmt.Sprintf("%s Replace it with %s (%s). Find it with trasloco modernize --check.", base, repl, e.ClassLabel))
+		}
+		candidates = append(candidates,
 			fmt.Sprintf("%s Replace it with %s.", base, repl),
+		)
+	default:
+		if cfg.ToolAvailable {
+			candidates = append(candidates, fmt.Sprintf("%s No replacement task: read what to do. Find it with trasloco modernize --check.", base))
 		}
-	} else {
-		candidates = []string{
-			fmt.Sprintf("%s No replacement task: read what to do. Find it with trasloco modernize --check.", base),
-			fmt.Sprintf("%s No replacement task: read what to do.", base),
-		}
+		candidates = append(candidates, fmt.Sprintf("%s No replacement task: read what to do.", base))
 	}
 	for _, candidate := range candidates {
 		if utf8.RuneCountInString(candidate) <= maxDescription {
@@ -353,7 +376,6 @@ func (c *Config) article(headline, description, canonical string) map[string]any
 		"headline":         headline,
 		"description":      description,
 		"inLanguage":       "en",
-		"datePublished":    c.Generated,
 		"dateModified":     c.Generated,
 		"mainEntityOfPage": canonical,
 		"author":           c.person(),
@@ -374,17 +396,24 @@ func faqLD(items []faq) map[string]any {
 }
 
 func (c *Config) application() map[string]any {
-	return map[string]any{
+	description := "Open-source command-line tool for CI/CD pipeline migrations and retired Azure Pipelines task guidance."
+	application := map[string]any{
 		"@context":            "https://schema.org",
 		"@type":               "SoftwareApplication",
 		"name":                siteName,
 		"applicationCategory": "DeveloperApplication",
 		"operatingSystem":     "Windows, macOS, Linux",
-		"description":         "Open-source command-line tool that migrates CI/CD pipelines between platforms and finds Azure Pipelines tasks that are being retired.",
+		"description":         description,
 		"url":                 c.abs("/"),
 		"codeRepository":      repoURL,
 		"license":             "https://www.apache.org/licenses/LICENSE-2.0",
+		"offers":              map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "USD"},
 	}
+	if c.ToolAvailable {
+		application["description"] = "Open-source command-line tool for CI/CD migrations. Run trasloco modernize --check to find retired Azure Pipelines tasks."
+		application["downloadUrl"] = releasesURL
+	}
+	return application
 }
 
 func buildLD(values ...map[string]any) ([]string, error) {
@@ -417,11 +446,12 @@ func generate(cat *catalog.Catalog, cfg Config) ([]file, error) {
 	ogImage := cfg.abs("/og-image.png")
 
 	groups := groupEntries(entries)
-	indexTitle := fmt.Sprintf("Azure Pipelines task retirement (%s) and removal (%s): all %d tasks and replacements", cfg.RetirementDate, cfg.RemovalDate, len(entries))
+	indexTitle := fmt.Sprintf("Azure Pipelines task retirement: all %d tasks", len(entries))
 	indexDesc := fmt.Sprintf("Azure Pipelines tasks retire on %s and are removed on %s. Look up each of the %d tasks, its replacement and how to find it.", cfg.RetirementDate, cfg.RemovalDate, len(entries))
 	indexFAQ := []faq{
 		{"When are the Azure Pipelines tasks retired and removed?", fmt.Sprintf("They are retired on %s and removed on %s. Pipelines that still use a removed task fail.", cfg.RetirementDate, cfg.RemovalDate)},
 		{"How many task versions does this site cover?", fmt.Sprintf("%d task versions, one page each, with their replacement and the migration effort.", len(entries))},
+		{"Can trasloco fix it automatically?", toolAvailabilityAnswer(&cfg)},
 	}
 	indexLD, err := buildLD(
 		cfg.article(indexTitle, indexDesc, cfg.abs("/")),
@@ -509,7 +539,6 @@ type jsonTask struct {
 	Action           string       `json:"action"`
 	AutomaticRewrite string       `json:"automaticRewrite"`
 	Sources          []sourceLink `json:"sources"`
-	Verify           []string     `json:"verify"`
 	Page             string       `json:"page"`
 }
 
@@ -537,7 +566,7 @@ func dataJSON(entries []*entry, cfg *Config) ([]byte, error) {
 		doc.Tasks = append(doc.Tasks, jsonTask{
 			Task: e.Task, Name: e.Name, Major: e.Major, GUID: e.GUID, Class: e.Class, ClassLabel: e.ClassLabel,
 			Replacement: e.Replacement, ReplacementKind: e.ReplacementKind, Action: e.Action, AutomaticRewrite: e.Auto,
-			Sources: e.Sources, Verify: e.Verify, Page: e.URL,
+			Sources: e.Sources, Page: e.URL,
 		})
 	}
 	data, err := json.MarshalIndent(doc, "", "  ")
@@ -567,6 +596,12 @@ func llmsTxt(entries []*entry, cfg *Config) string {
 }
 
 func oneLine(e *entry) string {
+	if e.Class == "D" {
+		if len(e.Replacement) > 0 {
+			return e.ClassLabel + "; closest task after migration: " + joinAnd(e.Replacement)
+		}
+		return e.ClassLabel
+	}
 	if len(e.Replacement) > 0 {
 		return "replace with " + joinAnd(e.Replacement) + " (" + e.ClassLabel + ")"
 	}
@@ -582,21 +617,34 @@ func llmsFull(entries []*entry, cfg *Config) string {
 		b.WriteString("- Page: " + e.URL + "\n")
 		b.WriteString("- Retired: " + cfg.RetirementDate + "\n")
 		b.WriteString("- Removed: " + cfg.RemovalDate + "\n")
-		if len(e.Replacement) > 0 {
+		switch {
+		case e.Class == "D" && len(e.Replacement) > 0:
+			b.WriteString("- Closest task after migration: " + joinAnd(e.Replacement) + "\n")
+		case len(e.Replacement) > 0:
 			b.WriteString("- Replacement: " + joinAnd(e.Replacement) + "\n")
-		} else {
+		default:
 			b.WriteString("- Replacement: none\n")
 		}
 		b.WriteString("- Migration: " + e.ClassLabel + "\n")
 		b.WriteString("- Automatic rewrite by trasloco: " + e.AutoText + "\n")
 		b.WriteString("- Action: " + e.Action + "\n")
 		b.WriteString("- Find it: `" + e.Grep + "`\n")
+		if cfg.ToolAvailable {
+			b.WriteString("- Find it with trasloco: `trasloco modernize --check` (install: " + releasesURL + ")\n")
+		}
 		b.WriteString("- Sources:\n")
 		for _, source := range e.Sources {
 			b.WriteString("  - " + source.URL + "\n")
 		}
 	}
 	return b.String()
+}
+
+func toolAvailabilityAnswer(cfg *Config) string {
+	if !cfg.ToolAvailable {
+		return "Not available yet. Use the plain grep command on each task page."
+	}
+	return "Run trasloco modernize --check to find affected steps. Install it from " + releasesURL + ". Automatic rewriting depends on the task's migration class."
 }
 
 func sitemap(entries []*entry, cfg *Config) string {

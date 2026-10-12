@@ -3,7 +3,7 @@
 //
 // Usage: sitegen [-out _site] [-catalog catalog] [-assets docs/assets] -date YYYY-MM-DD
 //
-//	[-base-url URL] [-rewrite-available]
+//	[-base-url URL] [-tool-available] [-rewrite-available]
 package main
 
 import (
@@ -38,6 +38,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	assets := flags.String("assets", "docs/assets", "directory with trasloco-social-preview.png and trasloco-favicon.svg")
 	date := flags.String("date", "", "data generation date, YYYY-MM-DD (required; no wall clock is used)")
 	base := flags.String("base-url", defaultBaseURL, "public base URL of the site")
+	tool := flags.Bool("tool-available", false, "state that the trasloco modernization command is released")
 	rewrite := flags.Bool("rewrite-available", false, "state that trasloco modernize --write ships (pages say 'planned' when false)")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -60,6 +61,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		AnnouncementURL:  header.Source.RetirementURL,
 		Generated:        *date,
 		BaseURL:          *base,
+		ToolAvailable:    *tool,
 		RewriteAvailable: *rewrite,
 	}
 	files, err := generate(cat, cfg)

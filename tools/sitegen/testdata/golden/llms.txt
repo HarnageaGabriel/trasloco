@@ -12,7 +12,7 @@ Each task page answers: when it is removed, what replaces it, and whether traslo
 ## Retired tasks
 
 - [AndroidBuild@1](https://example.test/site/tasks/androidbuild-1/): replace with Gradle@4 (manual migration)
-- [Chef@1](https://example.test/site/tasks/chef-1/): no replacement: platform retired or external tool
+- [Chef@1](https://example.test/site/tasks/chef-1/): retired platform or external tool: no drop-in replacement
 - [CopyFiles@1](https://example.test/site/tasks/copyfiles-1/): replace with CopyFiles@2 (drop-in replacement)
 - [InvokeRESTAPI@0](https://example.test/site/tasks/invokerestapi-0/): replace with InvokeRESTAPI@1 (replacement with input changes)
 

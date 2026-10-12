@@ -175,6 +175,21 @@ func TestRealCatalog(t *testing.T) {
 			t.Errorf("%s and %s share a description", row.Task, other)
 		}
 		descriptions[desc] = row.Task
+		titleMatch := regexp.MustCompile(`<title>([^<]*)</title>`).FindSubmatch(page)
+		if titleMatch == nil {
+			t.Fatalf("%s: no title", row.Task)
+		}
+		if n := utf8.RuneCount(titleMatch[1]); n > 65 {
+			t.Errorf("%s: title is %d characters: %s", row.Task, n, titleMatch[1])
+		}
+		if row.Class == "D" && strings.Contains(strings.ToLower(string(page)), "replace it with") {
+			t.Errorf("%s: class D page says replace it with", row.Task)
+		}
+	}
+	for name, data := range site {
+		if strings.Contains(string(data), "trasloco modernize") {
+			t.Errorf("%s mentions the unreleased command", name)
+		}
 	}
 	checkPages(t, site)
 }
@@ -224,6 +239,9 @@ func checkPages(t *testing.T, site map[string][]byte) {
 			if err := json.Unmarshal([]byte(m[1]), &value); err != nil {
 				t.Errorf("%s: invalid JSON-LD: %v", name, err)
 			}
+			if _, exists := value["datePublished"]; exists {
+				t.Errorf("%s: JSON-LD contains datePublished", name)
+			}
 		}
 		if name != "404.html" && len(ldPattern.FindAllString(page, -1)) < 3 {
 			t.Errorf("%s: want at least 3 JSON-LD blocks", name)
@@ -240,6 +258,9 @@ func TestHTMLAndJSON(t *testing.T) {
 	}
 	if doc.Count != 4 || len(doc.Tasks) != 4 || doc.Tasks[0].Task != "AndroidBuild@1" {
 		t.Errorf("unexpected data: %+v", doc)
+	}
+	if bytes.Contains(site["data/modernize.json"], []byte(`"verify"`)) {
+		t.Error("modernize.json contains the opaque verify field")
 	}
 	if !strings.Contains(string(site["tasks/chef-1/index.html"]), "the &#34;Chef&#34; extension") {
 		t.Error("catalog text is not HTML-escaped")
@@ -278,6 +299,7 @@ func TestDeterministic(t *testing.T) {
 
 func TestRewriteFlag(t *testing.T) {
 	cfg := testConfig()
+	cfg.ToolAvailable = true
 	planned := string(generateFixture(t, cfg)["tasks/copyfiles-1/index.html"])
 	if !strings.Contains(planned, "Automatic rewrite is planned") {
 		t.Error("class A page does not say rewrite is planned")
@@ -290,6 +312,82 @@ func TestRewriteFlag(t *testing.T) {
 	if !strings.Contains(string(site["tasks/androidbuild-1/index.html"]), "needs a manual migration") {
 		t.Error("class C page must stay manual")
 	}
+}
+
+func TestToolAvailabilityFlag(t *testing.T) {
+	for name, data := range generateFixture(t, testConfig()) {
+		if strings.Contains(string(data), "trasloco modernize") {
+			t.Errorf("%s mentions the unreleased command", name)
+		}
+	}
+	cfg := testConfig()
+	cfg.ToolAvailable = true
+	var combined strings.Builder
+	for _, data := range generateFixture(t, cfg) {
+		combined.Write(data)
+	}
+	if !strings.Contains(combined.String(), "trasloco modernize --check") {
+		t.Error("released command is not mentioned")
+	}
+	if !strings.Contains(combined.String(), releasesURL) {
+		t.Error("released command has no installation link")
+	}
+}
+
+func TestClassDWithReplacement(t *testing.T) {
+	cat := fixtureCatalog()
+	cat.Modernizations = append(cat.Modernizations, catalog.Modernization{
+		Task: "AzureCloudPowerShellDeployment@2", GUID: "g-cloud", Class: "D",
+		Replacement: []string{"AzurePowerShell@5"}, Action: "Move the deployment to a supported platform.", Sources: []string{testAnnouncement},
+	})
+	files, err := generate(cat, testConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	site := make(map[string][]byte, len(files))
+	for _, file := range files {
+		site[file.Path] = file.Data
+	}
+	page := string(site["tasks/azurecloudpowershelldeployment-2/index.html"])
+	if strings.Contains(strings.ToLower(page), "replace it with") {
+		t.Error("class D page presents its closest task as a replacement")
+	}
+	for name, text := range map[string]string{
+		"page": page, "index": string(site["index.html"]), "llms": string(site["llms.txt"]),
+		"llms-full": string(site["llms-full.txt"]), "json": string(site["data/modernize.json"]),
+	} {
+		if !strings.Contains(text, "retired platform or external tool: no drop-in replacement") {
+			t.Errorf("%s does not use the class D label", name)
+		}
+	}
+	if !strings.Contains(page, "Closest task:") || !strings.Contains(string(site["llms-full.txt"]), "Closest task after migration:") {
+		t.Error("class D closest task is not qualified by the migration")
+	}
+}
+
+func TestApplicationStructuredData(t *testing.T) {
+	page := string(generateFixture(t, testConfig())["index.html"])
+	for _, match := range ldPattern.FindAllStringSubmatch(page, -1) {
+		var value map[string]any
+		if err := json.Unmarshal([]byte(match[1]), &value); err != nil {
+			t.Fatal(err)
+		}
+		if value["@type"] != "SoftwareApplication" {
+			continue
+		}
+		offers, ok := value["offers"].(map[string]any)
+		if !ok || offers["price"] != "0" || offers["priceCurrency"] != "USD" {
+			t.Fatalf("invalid offers: %#v", value["offers"])
+		}
+		if value["applicationCategory"] != "DeveloperApplication" || value["operatingSystem"] != "Windows, macOS, Linux" {
+			t.Fatalf("invalid application metadata: %#v", value)
+		}
+		if _, exists := value["datePublished"]; exists {
+			t.Error("SoftwareApplication contains datePublished")
+		}
+		return
+	}
+	t.Fatal("no SoftwareApplication JSON-LD")
 }
 
 func TestDescriptionLimit(t *testing.T) {
