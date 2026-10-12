@@ -6,21 +6,24 @@ import "strings"
 // (pool.vmImage) to their operating system. Names are lower case; matching is
 // case-insensitive, as Azure Pipelines treats vmImage names.
 //
-// VERIFY: the list follows the hosted-agents page
-// (learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted) and must be
-// rechecked against it when images are added or retired.
+// Source: the YAML VM Image Label column of
+// https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted
+// (page updated 2026-10-05). Retired images (windows-2019, ubuntu-20.04,
+// macOS-13) are deliberately absent and stay unknown. Recheck the page when
+// images are added or retired.
 var hostedImageOS = map[string]string{
-	"ubuntu-latest":  AgentOSLinux,
-	"ubuntu-22.04":   AgentOSLinux,
-	"ubuntu-24.04":   AgentOSLinux,
-	"windows-latest": AgentOSWindows,
-	"windows-2019":   AgentOSWindows,
-	"windows-2022":   AgentOSWindows,
-	"windows-2025":   AgentOSWindows,
-	"macos-latest":   AgentOSMacOS,
-	"macos-13":       AgentOSMacOS,
-	"macos-14":       AgentOSMacOS,
-	"macos-15":       AgentOSMacOS,
+	"ubuntu-latest":       AgentOSLinux,
+	"ubuntu-26.04":        AgentOSLinux,
+	"ubuntu-24.04":        AgentOSLinux,
+	"ubuntu-22.04":        AgentOSLinux,
+	"windows-latest":      AgentOSWindows,
+	"windows-2025-vs2026": AgentOSWindows,
+	"windows-2025":        AgentOSWindows,
+	"windows-2022":        AgentOSWindows,
+	"macos-latest":        AgentOSMacOS,
+	"macos-26":            AgentOSMacOS,
+	"macos-15":            AgentOSMacOS,
+	"macos-14":            AgentOSMacOS,
 }
 
 // AgentOSForVMImage returns the agent operating system for a Microsoft-hosted
