@@ -15,7 +15,6 @@ func stubCommands() []stub {
 	return []stub{
 		{"audit", "Inventory the source platform and assess migration readiness", true},
 		{"convert", "Convert pipeline definitions to the target dialect", true},
-		{"modernize", "Upgrade pipelines in place: replace retired tasks, actions and runner images", true},
 		{"plan", "Compute the migration plan without changing anything", true},
 		{"apply", "Execute a migration plan", true},
 		{"resume", "Resume an interrupted apply", true},
