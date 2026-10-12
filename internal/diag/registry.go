@@ -8,7 +8,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-var codePattern = regexp.MustCompile(`^TRL-(CFG|SEL|AUTH|HTTP|SRC|PARSE|EXPR|TPL|VAR|NAME|CONV|CAT|EMIT|VAL|PLAN|APPLY|SECRET|IDENT|REPO|CUTOVER|LLM|INT)-[0-9]{4}$`)
+var codePattern = regexp.MustCompile(`^TRL-(CFG|SEL|AUTH|HTTP|SRC|PARSE|EXPR|TPL|VAR|NAME|CONV|CAT|MOD|EMIT|VAL|PLAN|APPLY|SECRET|IDENT|REPO|CUTOVER|LLM|INT)-[0-9]{4}$`)
 
 func parseRegistry(data []byte) ([]Entry, map[string]Entry, error) {
 	var raw struct {

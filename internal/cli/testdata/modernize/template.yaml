@@ -1,0 +1,5 @@
+parameters:
+- name: injected
+  type: step
+  default:
+    task: AppCenterDistribute@2
