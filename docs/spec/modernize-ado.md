@@ -1,6 +1,11 @@
 # Azure Pipelines `modernize`: retired task versions
 
-Status: draft for approval (M2-B). Normative for `internal/dialect/azurepipelines/modernize`.
+> **Status:** detection is approved (sections 1-4, 7 and the task, replacement and class columns of section 8): `trasloco modernize --check` is built from it.
+> The rewrite rules (section 5, section 6, the "Input mapping" column and the rewrite vectors) are **draft**: open review findings are tracked in
+> [issue #25](https://github.com/HarnageaGabriel/trasloco/issues/25) and must be resolved before `--write` is implemented.
+
+
+Normative for `internal/dialect/azurepipelines/modernize`.
 
 This specification defines how `trasloco modernize` rewrites references to retired Azure Pipelines task versions in YAML pipelines and templates. It was authored independently of the implementation: the tables in section 8 and the vectors in section 10 are the oracle. Keywords MUST, MUST NOT, SHOULD and MAY are used as in `README.md`; `VERIFY:` marks a fact that no cited official source confirms (section 11).
 
