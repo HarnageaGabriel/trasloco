@@ -27,7 +27,7 @@ import (
 
 var update = flag.Bool("update", false, "update canonical IR golden files")
 
-const normalizedCount = 228
+const normalizedCount = 229
 
 // resolveFailures pins the positive corpus fixtures whose template resolution
 // reports error diagnostics. They are not normalized; the reason is the
@@ -36,10 +36,6 @@ var resolveFailures = map[string]struct {
 	codes  []string
 	reason string
 }{
-	"expressions/collection-functions.yml": {
-		codes:  []string{"TRL-EXPR-0005"},
-		reason: "fixture likely invalid: contains() on an array; Microsoft docs use containsValue (VERIFY)",
-	},
 	"templates/cross-repo/parts/local-wrapper.yml": {
 		codes:  []string{"TRL-TPL-0007"},
 		reason: "template fragment is resolved as a root but declares no resources.repositories alias 'common'; the alias comes from its caller",
