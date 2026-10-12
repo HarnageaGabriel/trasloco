@@ -133,7 +133,7 @@ tasks:
     replacement:
       - AzurePowerShell@5
       - AzureCLI@3
-    action: "Migrate this step manually to AzurePowerShell@5 and AzureCLI@3, reviewing the documented behavior and input differences."
+    action: "Migrate this step manually to either AzurePowerShell@5 or AzureCLI@3, and write the replacement script."
     class: C
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -229,7 +229,7 @@ tasks:
     guid: "5bfb729a-a7c8-4a78-a7c3-8d717bb7c13c"
     replacement:
       - CopyFiles@2
-    action: "Replace CopyFiles@1 with CopyFiles@2 and review the replacement inputs before updating the pipeline."
+    action: "Replace CopyFiles@1 with CopyFiles@2."
     class: A
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -400,7 +400,7 @@ tasks:
     guid: "0f9f66ca-250e-40fd-9678-309bcd439d5e"
     replacement:
       - InstallAppleProvisioningProfile@1
-    action: "Replace InstallAppleProvisioningProfile@0 with InstallAppleProvisioningProfile@1 and review the replacement inputs before updating the pipeline."
+    action: "Replace InstallAppleProvisioningProfile@0 with InstallAppleProvisioningProfile@1."
     class: A
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -482,7 +482,7 @@ tasks:
     guid: "333b11bd-d341-40d9-afcf-b32d5ce6f24b"
     replacement:
       - NuGetCommand@2
-    action: "Migrate this step manually to NuGetCommand@2, reviewing the documented behavior and input differences."
+    action: "Migrate this step manually to NuGetCommand@2 with the pack command."
     class: C
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -492,7 +492,7 @@ tasks:
     guid: "333b11bd-d341-40d9-afcf-b32d5ce6f25b"
     replacement:
       - NuGetCommand@2
-    action: "Migrate this step manually to NuGetCommand@2, reviewing the documented behavior and input differences."
+    action: "Migrate this step manually to NuGetCommand@2 with the push command."
     class: C
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -563,7 +563,7 @@ tasks:
     guid: "2d8a1d60-8ccd-11e7-a792-11ac56e9f553"
     replacement:
       - TwineAuthenticate@1
-    action: "Migrate this step manually to TwineAuthenticate@1, reviewing the documented behavior and input differences."
+    action: "Migrate this step manually to TwineAuthenticate@1, followed by a script step that runs twine upload."
     class: C
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -594,7 +594,7 @@ tasks:
     guid: "19c02b15-d377-40e0-9efa-3168506e0933"
     replacement:
       - ServiceFabricDeploy@1
-    action: "Migrate this step manually to ServiceFabricDeploy@1, reviewing the documented behavior and input differences."
+    action: "Migrate this step manually to either ServiceFabricDeploy@1 or a currently supported container deployment workflow."
     class: C
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
@@ -604,7 +604,7 @@ tasks:
     guid: "97ef6e59-b8cc-48aa-9937-1a01e35e7584"
     replacement:
       - ServiceFabricUpdateManifests@2
-    action: "Replace ServiceFabricUpdateAppVersions@1 with ServiceFabricUpdateManifests@2 and review the replacement inputs before updating the pipeline."
+    action: "Replace ServiceFabricUpdateAppVersions@1 with ServiceFabricUpdateManifests@2."
     class: A
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement

@@ -219,7 +219,12 @@ func (c *Catalog) buildIndexes(collector *diag.Collector) []error {
 	}
 	for i := range c.Retirements {
 		entry := &c.Retirements[i]
-		key := refKey(entry.Name, entry.Major)
+		name, major, ok := splitRef(entry.Task)
+		if !ok || !strings.EqualFold(entry.Task, entry.Name+"@"+strconv.Itoa(entry.Major)) {
+			failures = append(failures, catalogError("azure-pipelines/tasks.retirement.yaml", "retirement task disagrees with name and major: "+entry.Task, collector))
+			continue
+		}
+		key := refKey(name, major)
 		if _, exists := c.retired[key]; exists {
 			failures = append(failures, catalogError("azure-pipelines/tasks.retirement.yaml", "duplicate retirement "+entry.Task, collector))
 		} else {
@@ -288,7 +293,13 @@ func (c *Catalog) checkModernizations(collector *diag.Collector) []error {
 		return nil
 	}
 	var failures []error
-	for key, retired := range c.retired {
+	retiredKeys := make([]string, 0, len(c.retired))
+	for key := range c.retired {
+		retiredKeys = append(retiredKeys, key)
+	}
+	sort.Strings(retiredKeys)
+	for _, key := range retiredKeys {
+		retired := c.retired[key]
 		modernization, ok := c.modernization[key]
 		if !ok {
 			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "missing modernization for "+retired.Task, collector))
@@ -298,7 +309,13 @@ func (c *Catalog) checkModernizations(collector *diag.Collector) []error {
 			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "replacement disagrees with retirement for "+retired.Task, collector))
 		}
 	}
-	for key, modernization := range c.modernization {
+	modernizationKeys := make([]string, 0, len(c.modernization))
+	for key := range c.modernization {
+		modernizationKeys = append(modernizationKeys, key)
+	}
+	sort.Strings(modernizationKeys)
+	for _, key := range modernizationKeys {
+		modernization := c.modernization[key]
 		if _, ok := c.retired[key]; !ok {
 			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "modernization is not retired: "+modernization.Task, collector))
 		}
@@ -311,7 +328,7 @@ func (c *Catalog) checkModernizations(collector *diag.Collector) []error {
 			if !found {
 				// AzureLoadTest is an extension task cited by the approved spec and is
 				// intentionally absent from the pinned built-in task catalog.
-				if fold(replacement) == "azureloadtest@1" {
+				if key == "quickperftest@1" && fold(replacement) == "azureloadtest@1" {
 					continue
 				}
 				failures = append(failures, catalogError("azure-pipelines/modernize.yaml", "replacement task does not exist: "+replacement, collector))

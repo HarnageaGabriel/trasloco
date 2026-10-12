@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -190,6 +192,11 @@ func TestModernizationConsistencyFailures(t *testing.T) {
 		},
 		"replacement mismatch": withModernization(strings.Replace(modernizationFixture, "replacement: [Build@4]", "replacement: [Build@1]", 1)),
 		"missing replacement":  withModernization(strings.Replace(modernizationFixture, "replacement: [Build@4]", "replacement: [Missing@1]", 1)),
+		"retirement task mismatch": func() fstest.MapFS {
+			fsys := fullFS()
+			fsys["azure-pipelines/tasks.retirement.yaml"] = &fstest.MapFile{Data: []byte(strings.Replace(retirementFixture, "task: Build@3", "task: Build@2", 1))}
+			return fsys
+		}(),
 	}
 	for name, fsys := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -197,6 +204,34 @@ func TestModernizationConsistencyFailures(t *testing.T) {
 				t.Fatal("Load() error = nil")
 			}
 		})
+	}
+}
+
+func TestAzureLoadTestReplacementExemption(t *testing.T) {
+	quickRetirement := strings.NewReplacer(
+		"task: Build@3", "task: QuickPerfTest@1",
+		"name: Build", "name: QuickPerfTest",
+		"major: 3", "major: 1",
+		"Build@4", "AzureLoadTest@1",
+	).Replace(retirementFixture)
+	quickModernization := strings.NewReplacer(
+		"task: Build@3", "task: QuickPerfTest@1",
+		"Build@4", "AzureLoadTest@1",
+	).Replace(modernizationFixture)
+	fsys := fullFS()
+	fsys["azure-pipelines/tasks.retirement.yaml"] = &fstest.MapFile{Data: []byte(quickRetirement)}
+	fsys["azure-pipelines/modernize.yaml"] = &fstest.MapFile{Data: []byte(quickModernization)}
+	if _, err := Load(context.Background(), fsys, nil); err != nil {
+		t.Fatalf("Load(QuickPerfTest@1 -> AzureLoadTest@1) error = %v", err)
+	}
+
+	otherRetirement := strings.Replace(retirementFixture, "Build@4", "AzureLoadTest@1", 1)
+	otherModernization := strings.Replace(modernizationFixture, "Build@4", "AzureLoadTest@1", 1)
+	fsys = fullFS()
+	fsys["azure-pipelines/tasks.retirement.yaml"] = &fstest.MapFile{Data: []byte(otherRetirement)}
+	fsys["azure-pipelines/modernize.yaml"] = &fstest.MapFile{Data: []byte(otherModernization)}
+	if _, err := Load(context.Background(), fsys, nil); err == nil {
+		t.Fatal("Load(Build@3 -> AzureLoadTest@1) error = nil")
 	}
 }
 
@@ -220,38 +255,103 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	file, err := os.Open("../../docs/spec/modernize-ado.md")
+	specification, err := os.ReadFile("../../docs/spec/modernize-ado.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = file.Close() }()
-	rowPattern := regexp.MustCompile(`^\| \d+ \| ` + "`" + `([^` + "`" + `]+)@([0-9]+)` + "`" + `<br>.*? \| (.*?) \| ([ABCD]) \|`)
+	rowPattern := regexp.MustCompile(`^\| ([0-9]+) \| (.*?) \| (.*?) \| ([ABCD]) \| (.*?) \| (.*?) \|$`)
 	refPattern := regexp.MustCompile("`([A-Za-z0-9_.-]+@[0-9]+)`")
+	guidPattern := regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+	linkPattern := regexp.MustCompile(`(?m)^\[([^]]+)\]: (https?://\S+)$`)
+	linkUsePattern := regexp.MustCompile(`\[([^]]+)\]`)
+	verifyGroupPattern := regexp.MustCompile(`VERIFY: (V[0-9]+(?:, V[0-9]+)*)`)
+	verifyPattern := regexp.MustCompile(`V[0-9]+`)
 	type tableEntry struct {
+		Task        string
+		GUID        string
 		Replacement []string
 		Class       string
+		Sources     []string
+		Verify      []string
 	}
-	want := make(map[string]tableEntry)
-	scanner := bufio.NewScanner(file)
+	links := make(map[string]string)
+	for _, match := range linkPattern.FindAllStringSubmatch(string(specification), -1) {
+		links[match[1]] = match[2]
+	}
+	want := make([]tableEntry, 0, 73)
+	seen := make(map[string]struct{}, 73)
+	inSection := false
+	scanner := bufio.NewScanner(strings.NewReader(string(specification)))
 	for scanner.Scan() {
-		match := rowPattern.FindStringSubmatch(scanner.Text())
+		line := scanner.Text()
+		if line == "## 8. The 73 retired task versions" {
+			inSection = true
+			continue
+		}
+		if inSection && strings.HasPrefix(line, "## ") {
+			break
+		}
+		if !inSection {
+			continue
+		}
+		match := rowPattern.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
+		row, err := strconv.Atoi(match[1])
+		if err != nil || row != len(want)+1 {
+			t.Fatalf("specification row number = %q; want %d", match[1], len(want)+1)
+		}
+		taskMatch := refPattern.FindStringSubmatch(match[2])
+		if taskMatch == nil {
+			t.Fatalf("specification row %d has no task reference", row)
+		}
+		task := taskMatch[1]
+		if _, duplicate := seen[strings.ToLower(task)]; duplicate {
+			t.Fatalf("specification row %d duplicates %s", row, task)
+		}
+		seen[strings.ToLower(task)] = struct{}{}
 		refs := refPattern.FindAllStringSubmatch(match[3], -1)
 		replacements := make([]string, 0, len(refs))
 		for _, ref := range refs {
 			replacements = append(replacements, ref[1])
 		}
-		want[match[1]+"@"+match[2]] = tableEntry{Replacement: replacements, Class: match[4]}
+		sort.Strings(replacements)
+		linkUses := linkUsePattern.FindAllStringSubmatch(match[6], -1)
+		sources := make([]string, 0, len(linkUses))
+		for _, linkUse := range linkUses {
+			url, ok := links[linkUse[1]]
+			if !ok {
+				t.Fatalf("specification row %d has unresolved link %s", row, linkUse[0])
+			}
+			sources = append(sources, url)
+		}
+		verifyGroups := verifyGroupPattern.FindAllStringSubmatch(line, -1)
+		verify := make([]string, 0, len(verifyGroups))
+		for _, group := range verifyGroups {
+			verify = append(verify, verifyPattern.FindAllString(group[1], -1)...)
+		}
+		want = append(want, tableEntry{
+			Task: task, GUID: guidPattern.FindString(match[2]), Replacement: replacements,
+			Class: match[4], Sources: sources, Verify: verify,
+		})
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
-	got := make(map[string]tableEntry, len(document.Tasks))
+	if len(want) != 73 {
+		t.Fatalf("specification row count = %d; want 73", len(want))
+	}
+	got := make([]tableEntry, 0, len(document.Tasks))
 	counts := map[string]int{}
 	for _, entry := range document.Tasks {
-		got[entry.Task] = tableEntry{Replacement: entry.Replacement, Class: entry.Class}
+		replacements := append(make([]string, 0, len(entry.Replacement)), entry.Replacement...)
+		sort.Strings(replacements)
+		verify := append(make([]string, 0, len(entry.Verify)), entry.Verify...)
+		got = append(got, tableEntry{
+			Task: entry.Task, GUID: entry.GUID, Replacement: replacements,
+			Class: entry.Class, Sources: entry.Sources, Verify: verify,
+		})
 		counts[entry.Class]++
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
