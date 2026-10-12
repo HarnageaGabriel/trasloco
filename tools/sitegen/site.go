@@ -759,9 +759,10 @@ func atomFeed(entries []*entry, cfg *Config) string {
 	b.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom">` + "\n")
 	fmt.Fprintf(&b, "  <title>%s</title>\n", html.EscapeString("trasloco: retired Azure Pipelines tasks"))
 	fmt.Fprintf(&b, "  <id>%s</id>\n", html.EscapeString(cfg.abs("/")))
-	fmt.Fprintf(&b, "  <link href=\"%s\"/>\n", html.EscapeString(cfg.abs("/feed.xml")))
-	fmt.Fprintf(&b, "  <link rel=\"alternate\" href=\"%s\"/>\n", html.EscapeString(cfg.abs("/")))
+	fmt.Fprintf(&b, "  <link rel=\"self\" type=\"application/atom+xml\" href=\"%s\"/>\n", html.EscapeString(cfg.abs("/feed.xml")))
+	fmt.Fprintf(&b, "  <link rel=\"alternate\" type=\"text/html\" href=\"%s\"/>\n", html.EscapeString(cfg.abs("/")))
 	fmt.Fprintf(&b, "  <updated>%s</updated>\n", updated)
+	b.WriteString("  <author><name>trasloco</name><uri>https://github.com/HarnageaGabriel/trasloco</uri></author>\n")
 	for _, e := range entries {
 		b.WriteString("  <entry>\n")
 		fmt.Fprintf(&b, "    <title>%s</title>\n", html.EscapeString(e.Title))

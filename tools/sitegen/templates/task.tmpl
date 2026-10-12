@@ -36,7 +36,7 @@
 <p>Last verified: <time datetime="{{h .Cfg.Generated}}">{{h .Cfg.Generated}}</time></p>
 </section>
 <section aria-labelledby="warning">
-<h2 id="warning">Why does my pipeline warn about {{h .E.Task}}?</h2>
+<h2 id="warning">Why does my pipeline show a retirement error for {{h .E.Task}}?</h2>
 <p>On <time datetime="{{h .Cfg.RetirementDate}}">{{h .Cfg.RetirementDate}}</time>, Azure Pipelines shows a retirement error for <code>{{h .E.Task}}</code>, but the run does not fail. On <time datetime="{{h .Cfg.RemovalDate}}">{{h .Cfg.RemovalDate}}</time>, pipelines that still use <code>{{h .E.Task}}</code> fail.</p>
 </section>
 <section aria-labelledby="find">

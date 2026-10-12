@@ -216,6 +216,10 @@ func checkFeed(t *testing.T, data []byte, wantEntries int) {
 	if err := xml.Unmarshal(data, &feed); err != nil {
 		t.Fatalf("feed.xml is not well-formed: %v", err)
 	}
+	// RFC 4287: a feed-level author and a single rel="self" link.
+	if !bytes.Contains(data, []byte("<author><name>")) || !bytes.Contains(data, []byte(`rel="self"`)) {
+		t.Fatalf("feed.xml lacks a feed-level author or a rel=self link")
+	}
 	if feed.XMLName.Space != "http://www.w3.org/2005/Atom" || len(feed.Entries) != wantEntries {
 		t.Fatalf("feed = namespace %q, %d entries; want Atom and %d", feed.XMLName.Space, len(feed.Entries), wantEntries)
 	}
