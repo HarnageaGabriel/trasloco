@@ -77,6 +77,17 @@
 | [TRL-LLM-0002](TRL-LLM-0002.md) | warning | LLM output not accepted | active |
 | [TRL-LLM-0003](TRL-LLM-0003.md) | error | LLM output failed validation | active |
 | [TRL-LLM-0004](TRL-LLM-0004.md) | error | LLM provider error | active |
+| [TRL-MOD-0001](TRL-MOD-0001.md) | info | Retired task reference rewritten to the same task family | active |
+| [TRL-MOD-0002](TRL-MOD-0002.md) | warning | Retired task reference rewritten with an input mapping | active |
+| [TRL-MOD-0003](TRL-MOD-0003.md) | warning | Retired task needs a manual migration | active |
+| [TRL-MOD-0004](TRL-MOD-0004.md) | warning | Retired task has no replacement task | active |
+| [TRL-MOD-0005](TRL-MOD-0005.md) | warning | Task reference is not static or names a retired task as a string | active |
+| [TRL-MOD-0006](TRL-MOD-0006.md) | warning | Input cannot be migrated automatically | active |
+| [TRL-MOD-0007](TRL-MOD-0007.md) | warning | Input unknown to the retired task preserved | active |
+| [TRL-MOD-0008](TRL-MOD-0008.md) | info | GUID task reference replaced by a task name | active |
+| [TRL-MOD-0009](TRL-MOD-0009.md) | warning | Step layout cannot be edited safely | active |
+| [TRL-MOD-0010](TRL-MOD-0010.md) | info | Extension task with a retired built-in name not rewritten | active |
+| [TRL-MOD-0011](TRL-MOD-0011.md) | info | Full task version replaced by a major version | active |
 | [TRL-NAME-0001](TRL-NAME-0001.md) | info | Name normalized for target | active |
 | [TRL-NAME-0002](TRL-NAME-0002.md) | warning | Name collision resolved by suffix | active |
 | [TRL-NAME-0003](TRL-NAME-0003.md) | error | Name collision could not be resolved | active |
