@@ -290,6 +290,9 @@ tasks:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
       - https://github.com/microsoft/azure-pipelines-tasks/blob/8f51d167932725e1b5ee4052e9a6247aaf0d3624/Tasks/DotNetCoreCLI/task.json
       - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/DotNetCoreCLIV2/task.json
+    verify:
+      - V3
+      - V4
   - task: DotNetCoreInstaller@0
     guid: "b0ce7256-7898-45d3-9cb5-176b752bfea6"
     replacement:
@@ -512,8 +515,8 @@ tasks:
     guid: "845fd4f4-642d-4694-8514-047948a5a556"
     replacement:
       - PackerBuild@1
-    action: "Migrate this step manually to PackerBuild@1, reviewing the documented behavior and input differences."
-    class: C
+    action: "Replace PackerBuild@0 with PackerBuild@1 and review the replacement inputs before updating the pipeline."
+    class: B
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
       - https://github.com/microsoft/azure-pipelines-tasks/blob/f1962f12fac2899b5d689967dda0d25523cc3ec4/Tasks/PackerBuildV0/task.json
@@ -604,8 +607,8 @@ tasks:
     guid: "97ef6e59-b8cc-48aa-9937-1a01e35e7584"
     replacement:
       - ServiceFabricUpdateManifests@2
-    action: "Replace ServiceFabricUpdateAppVersions@1 with ServiceFabricUpdateManifests@2."
-    class: A
+    action: "Replace ServiceFabricUpdateAppVersions@1 with ServiceFabricUpdateManifests@2 and review the replacement inputs before updating the pipeline."
+    class: B
     sources:
       - https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement
       - https://github.com/microsoft/azure-pipelines-tasks/blob/b14807826a74714e040d5d95a4de4e770ddb95ee/Tasks/ServiceFabricUpdateAppVersions/task.json

@@ -357,7 +357,7 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("specification table mismatch (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff(map[string]int{"A": 3, "B": 22, "C": 28, "D": 20}, counts); diff != "" {
+	if diff := cmp.Diff(map[string]int{"A": 2, "B": 24, "C": 27, "D": 20}, counts); diff != "" {
 		t.Fatalf("class counts mismatch (-want +got):\n%s", diff)
 	}
 }
