@@ -100,7 +100,12 @@ func hasError(diagnostics []diag.Diagnostic) bool {
 	return false
 }
 
-var fallbackTask = regexp.MustCompile(`(?im)(?:^|[,{])\s*-?\s*["']?task["']?\s*:\s*["']?([^\s,}\]"']+)`)
+// fallbackTask is the line-based scan used for files the YAML parser rejects.
+// Accepted trade-off: without a parse tree it cannot tell a real step from
+// text inside a block scalar, so a `task: X@1` line within a script body of a
+// broken file is also reported. A false positive on an already-broken file is
+// preferred to silently missing a retired task.
+var fallbackTask =regexp.MustCompile(`(?im)(?:^|[,{])\s*-?\s*["']?task["']?\s*:\s*["']?([^\s,}\]"']+)`)
 
 // fallbackTaskStrings conservatively scans parser-rejected documents. These
 // values are manual findings because the surrounding step shape is invalid.
