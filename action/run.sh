@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${TRASLOCO_INPUT_FORMAT}" in
+  text|sarif) ;;
+  *) echo "format must be text or sarif" >&2; exit 64 ;;
+esac
+case "${TRASLOCO_FAIL_ON_FINDINGS}" in
+  true|false) ;;
+  *) echo "fail-on-findings must be true or false" >&2; exit 64 ;;
+esac
+if [[ ! "${TRASLOCO_VERSION}" =~ ^v[0-9]+(\.[0-9]+){0,2}([+-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "version must be a release tag such as v0.1.0" >&2
+  exit 64
+fi
+if [[ ! "${TRASLOCO_ACTION_REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+  echo "invalid action repository" >&2
+  exit 1
+fi
+
+case "$(uname -s)" in
+  Linux*) os=linux ;;
+  Darwin*) os=darwin ;;
+  MINGW*|MSYS*|CYGWIN*) os=windows ;;
+  *) echo "unsupported runner OS: $(uname -s)" >&2; exit 1 ;;
+esac
+case "$(uname -m)" in
+  x86_64|amd64) arch=amd64 ;;
+  arm64|aarch64) arch=arm64 ;;
+  *) echo "unsupported runner architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+
+release_version=${TRASLOCO_VERSION#v}
+archive="trasloco_${release_version}_${os}_${arch}.tar.gz"
+if [[ "${os}" == windows ]]; then archive="trasloco_${release_version}_${os}_${arch}.zip"; fi
+base_url="https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/download/${TRASLOCO_VERSION}"
+work_dir="${RUNNER_TEMP}/trasloco-${release_version}-${os}-${arch}"
+mkdir -p "${work_dir}"
+curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/${archive}" "${base_url}/${archive}"
+curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
+
+expected=$(awk -v file="${archive}" '$2 == file || $2 == "*" file { print $1 }' "${work_dir}/checksums.txt")
+if [[ ! "${expected}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+  echo "checksums.txt has no unique SHA-256 entry for ${archive}" >&2
+  exit 1
+fi
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "${work_dir}/${archive}" | awk '{print $1}')
+else
+  actual=$(shasum -a 256 "${work_dir}/${archive}" | awk '{print $1}')
+fi
+if [[ "${actual}" != "${expected}" ]]; then
+  echo "SHA-256 verification failed for ${archive}" >&2
+  exit 1
+fi
+
+if [[ "${os}" == windows ]]; then
+  unzip -q "${work_dir}/${archive}" -d "${work_dir}/bin"
+  executable="${work_dir}/bin/trasloco.exe"
+else
+  mkdir -p "${work_dir}/bin"
+  tar -xzf "${work_dir}/${archive}" -C "${work_dir}/bin"
+  executable="${work_dir}/bin/trasloco"
+fi
+
+args=(modernize "${TRASLOCO_INPUT_PATH}" --format "${TRASLOCO_INPUT_FORMAT}")
+if [[ "${TRASLOCO_FAIL_ON_FINDINGS}" == true ]]; then args+=(--check); fi
+if [[ "${TRASLOCO_INPUT_FORMAT}" == sarif ]]; then
+  "${executable}" "${args[@]}" > "${TRASLOCO_SARIF_FILE}"
+else
+  "${executable}" "${args[@]}"
+fi

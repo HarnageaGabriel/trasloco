@@ -6,7 +6,7 @@ COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || printf unknown)
 DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X $(MODULE)/internal/version.Version=$(VERSION) -X $(MODULE)/internal/version.Commit=$(COMMIT) -X $(MODULE)/internal/version.Date=$(DATE)
 
-.PHONY: build test lint orderlint vuln cover tidy fmt
+.PHONY: build test lint orderlint vuln cover tidy fmt release-check release-snapshot
 
 build:
 	mkdir -p bin
@@ -32,6 +32,12 @@ tidy:
 
 fmt:
 	gofmt -w $$(find cmd internal schemas -type f -name '*.go')
+
+release-check:
+	goreleaser check
+
+release-snapshot:
+	goreleaser release --snapshot --clean
 
 .PHONY: fuzz bench docs docs-check cover-floors
 

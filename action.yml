@@ -1,0 +1,47 @@
+name: trasloco modernize
+description: Block retired Azure Pipelines tasks with trasloco modernize.
+branding:
+  icon: refresh-cw
+  color: blue
+
+inputs:
+  path:
+    description: File or directory to inspect.
+    required: false
+    default: .
+  format:
+    description: Output format (text or sarif).
+    required: false
+    default: text
+  fail-on-findings:
+    description: Fail when actionable retired tasks remain.
+    required: false
+    default: 'true'
+  version:
+    description: Release tag to download; defaults to the action release.
+    required: false
+    default: v0.1.0
+  upload-sarif:
+    description: Upload SARIF to GitHub code scanning (requires security-events write).
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify, and run trasloco
+      shell: bash
+      env:
+        TRASLOCO_ACTION_PATH: ${{ github.action_path }}
+        TRASLOCO_ACTION_REPOSITORY: ${{ github.action_repository }}
+        TRASLOCO_INPUT_PATH: ${{ inputs.path }}
+        TRASLOCO_INPUT_FORMAT: ${{ inputs.format }}
+        TRASLOCO_FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
+        TRASLOCO_VERSION: ${{ inputs.version }}
+        TRASLOCO_SARIF_FILE: ${{ runner.temp }}/trasloco-results.sarif
+      run: bash "$TRASLOCO_ACTION_PATH/action/run.sh"
+    - name: Upload SARIF
+      if: ${{ always() && inputs.format == 'sarif' && inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      with:
+        sarif_file: ${{ runner.temp }}/trasloco-results.sarif

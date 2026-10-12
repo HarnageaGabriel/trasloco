@@ -67,42 +67,16 @@ Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail
 ([official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement)).
-trasloco ships that list as data,
-[`catalog/azure-pipelines/tasks.retirement.yaml`](catalog/azure-pipelines/tasks.retirement.yaml),
-with the recommended replacements. Three lines of shell find the candidates in
-any checked-out repository, with nothing to install (the recording also counts
-the list with `wc -l`):
-
-<p align="center">
-  <img src="docs/assets/readme-retired-check.svg" width="880"
-    alt="Terminal: the retired task list is downloaded, then grep finds DotNetCoreCLI@1, CopyFiles@1 and AzureCLI@0 in a sample repository">
-</p>
+trasloco ships that list as data and checks pipeline YAML with its full parser.
+Install a release, then block actionable retired tasks locally or in CI:
 
 ```sh
-url=https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml
-curl -fsSL "$url" | sed -n 's/^ *- task: //p' > retired-tasks.txt
-grep -rniwF -f retired-tasks.txt --include='*.yml' --include='*.yaml' .
+trasloco modernize . --check --format text
 ```
 
-<details>
-<summary>PowerShell</summary>
-
-```powershell
-$url = 'https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml'
-$retired = (Invoke-RestMethod $url) -split "`n" |
-  Select-String '^\s*- task: (\S+)' |
-  ForEach-Object { $_.Matches[0].Groups[1].Value }
-$names = ($retired | ForEach-Object { [regex]::Escape($_) }) -join '|'
-$pattern = '(?<![A-Za-z0-9_])(?:' + $names + ')(?![A-Za-z0-9_])'
-Get-ChildItem -Recurse -Include *.yml, *.yaml | Select-String -Pattern $pattern
-```
-
-</details>
-
-This is a plain-text search: it can match comments, and it does not see
-classic (UI-defined) pipelines or task names built from template parameters.
-The planned `modernize` command is designed to read pipelines with the full
-parser and template expansion and rewrite supported tasks for you.
+Exit status 5 means actionable retired tasks remain; 0 means the check passed.
+See [installation and CI examples](docs/install.md), including the reusable
+GitHub Action and SARIF upload.
 
 ## Design goals
 
@@ -222,8 +196,9 @@ Migration tools fail on the edge cases, so trasloco is tested against them:
 
 ## Getting started
 
-There is no release yet. Build from source with Go 1.26 or newer (see
-[go.mod](go.mod)):
+Download a verified Linux, macOS, or Windows release using the
+[installation guide](docs/install.md), or build from source with Go 1.26 or
+newer (see [go.mod](go.mod)):
 
 ```sh
 git clone https://github.com/HarnageaGabriel/trasloco.git
