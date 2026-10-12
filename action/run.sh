@@ -23,6 +23,44 @@ select_major_release() {
   ' "${major}"
 }
 
+# fetch_all_releases follows pagination (per_page=100, at most 20 pages) and
+# prints one JSON array holding every page's releases.
+fetch_all_releases() {
+  local repository=$1
+  local curl_headers=()
+  local page=1 max_pages=20 body page_state combined='[]'
+  if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
+    curl_headers+=(--header "Authorization: Bearer ${TRASLOCO_GITHUB_TOKEN}")
+  fi
+  while [[ "${page}" -le "${max_pages}" ]]; do
+    body=$(curl --fail --location --silent --show-error --retry 3 \
+      ${curl_headers[@]+"${curl_headers[@]}"} \
+      "https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}") || return 1
+    page_state=$(printf '%s' "${body}" | node -e '
+      const pageData = JSON.parse(require("fs").readFileSync(0, "utf8"));
+      if (!Array.isArray(pageData)) process.exit(2);
+      process.stdout.write(pageData.length === 0 ? "empty" : pageData.length < 100 ? "last" : "more");
+    ') || { echo "unexpected GitHub releases API response" >&2; return 1; }
+    if [[ "${page_state}" == empty ]]; then
+      break
+    fi
+    combined=$(printf '%s\n%s' "${combined}" "${body}" | node -e '
+      const parts = require("fs").readFileSync(0, "utf8").split("\n");
+      const first = JSON.parse(parts[0]);
+      const rest = JSON.parse(parts.slice(1).join("\n"));
+      process.stdout.write(JSON.stringify(first.concat(rest)));
+    ') || { echo "failed to merge GitHub release pages" >&2; return 1; }
+    if [[ "${page_state}" == last ]]; then
+      break
+    fi
+    page=$((page + 1))
+  done
+  if [[ "${page}" -gt "${max_pages}" ]]; then
+    echo "warning: stopped after ${max_pages} pages of releases" >&2
+  fi
+  printf '%s' "${combined}"
+}
+
 verify_archive_checksum() {
   local archive_path=$1
   local checksums_path=$2
@@ -82,13 +120,7 @@ if [[ "${requested_version}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9
   version=${requested_version}
 elif [[ "${requested_version}" =~ ^v(0|[1-9][0-9]*)$ ]]; then
   major=${BASH_REMATCH[1]}
-  curl_headers=()
-  if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
-    curl_headers+=(--header "Authorization: Bearer ${TRASLOCO_GITHUB_TOKEN}")
-  fi
-  releases=$(curl --fail --location --silent --show-error --retry 3 \
-    "${curl_headers[@]}" \
-    "https://api.github.com/repos/${TRASLOCO_ACTION_REPOSITORY}/releases?per_page=100")
+  releases=$(fetch_all_releases "${TRASLOCO_ACTION_REPOSITORY}")
   version=$(printf '%s' "${releases}" | select_major_release "${major}")
   if [[ -z "${version}" ]]; then
     echo "no non-prerelease v${major}.x.y release found" >&2

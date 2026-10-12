@@ -40,10 +40,17 @@ Only files that look like Azure Pipelines files are examined; GitHub
 workflows, Kubernetes manifests and other YAML are skipped silently.
 Directory scans skip .git, node_modules and vendor directories.
 
+UTF-16 files are decoded when they start with a byte order mark, or without
+one when their first characters are in the Latin range.
+
 Exit codes: 0 nothing to fix (or --check not given), 5 retired tasks found
 with --check, 64 usage error, 1 a named path cannot be read (or, with
 --strict, an Azure Pipelines file has parser errors, including constructs the
-parser rejects).`,
+parser rejects).
+
+Precedence: exit 1 wins over exit 5. If a named path cannot be read and
+retired tasks are also found, the report still lists every finding but the
+command exits 1.`,
 		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -256,14 +263,20 @@ func decodeModernizeData(data []byte) ([]byte, error) {
 	}
 	littleEndian := data[0] == 0xff && data[1] == 0xfe
 	bigEndian := data[0] == 0xfe && data[1] == 0xff
+	start := 2
 	if !littleEndian && !bigEndian {
-		return data, nil
+		littleEndian, bigEndian = sniffBOMlessUTF16(data)
+		if (!littleEndian && !bigEndian) || len(data)%2 != 0 {
+			// Not recognisably UTF-16: leave it to the normal (skipped) path.
+			return data, nil
+		}
+		start = 0
 	}
-	if (len(data)-2)%2 != 0 {
+	if (len(data)-start)%2 != 0 {
 		return nil, errors.New("malformed UTF-16 file")
 	}
-	units := make([]uint16, 0, (len(data)-2)/2)
-	for offset := 2; offset < len(data); offset += 2 {
+	units := make([]uint16, 0, (len(data)-start)/2)
+	for offset := start; offset < len(data); offset += 2 {
 		value := uint16(data[offset])<<8 | uint16(data[offset+1])
 		if littleEndian {
 			value = uint16(data[offset+1])<<8 | uint16(data[offset])
@@ -271,6 +284,35 @@ func decodeModernizeData(data []byte) ([]byte, error) {
 		units = append(units, value)
 	}
 	return []byte(string(utf16.Decode(units))), nil
+}
+
+// sniffBOMlessUTF16 recognises the common BOM-less UTF-16 case: Latin-range
+// text where, within the first 64 bytes, every byte at one parity is 0x00 and
+// the bytes at the other parity are not all zero. Text using characters above
+// U+00FF is not detected and is left to the normal (skipped) path.
+func sniffBOMlessUTF16(data []byte) (littleEndian, bigEndian bool) {
+	window := len(data)
+	if window > 64 {
+		window = 64
+	}
+	window -= window % 2
+	if window < 4 {
+		return false, false
+	}
+	oddZero, evenZero, oddAny, evenAny := true, true, false, false
+	for i := 0; i < window; i++ {
+		if i%2 == 0 {
+			if data[i] != 0 {
+				evenAny = true
+				evenZero = false
+			}
+		} else if data[i] != 0 {
+			oddAny = true
+			oddZero = false
+		}
+	}
+	// Little-endian ASCII has zero high (odd) bytes; big-endian has zero even bytes.
+	return oddZero && evenAny, evenZero && oddAny
 }
 
 // displayPath is the path shown in reports: relative to the current
