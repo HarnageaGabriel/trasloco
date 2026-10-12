@@ -480,7 +480,7 @@ func faqLD(items []faq) map[string]any {
 }
 
 func (c *Config) application() map[string]any {
-	description := "Open-source command-line tool for CI/CD pipeline migrations and retired Azure Pipelines task guidance."
+	description := "Open-source command-line tool for retired Azure Pipelines task guidance; CI/CD pipeline migration is planned."
 	application := map[string]any{
 		"@context":            "https://schema.org",
 		"@type":               "SoftwareApplication",
@@ -494,7 +494,7 @@ func (c *Config) application() map[string]any {
 		"offers":              map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "USD"},
 	}
 	if c.ToolAvailable {
-		application["description"] = "Open-source command-line tool for CI/CD migrations. Run trasloco modernize --check to find retired Azure Pipelines tasks."
+		application["description"] = "Open-source command-line tool that finds retired Azure Pipelines tasks with trasloco modernize --check. Automatic upgrades are planned."
 		application["downloadUrl"] = releasesURL
 	}
 	return application

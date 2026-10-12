@@ -522,7 +522,9 @@ func TestClassDWithReplacement(t *testing.T) {
 }
 
 func TestApplicationStructuredData(t *testing.T) {
-	page := string(generateFixture(t, testConfig())["index.html"])
+	cfg := testConfig()
+	cfg.ToolAvailable = true
+	page := string(generateFixture(t, cfg)["index.html"])
 	for _, match := range ldPattern.FindAllStringSubmatch(page, -1) {
 		var value map[string]any
 		if err := json.Unmarshal([]byte(match[1]), &value); err != nil {
@@ -537,6 +539,13 @@ func TestApplicationStructuredData(t *testing.T) {
 		}
 		if value["applicationCategory"] != "DeveloperApplication" || value["operatingSystem"] != "Windows, macOS, Linux" {
 			t.Fatalf("invalid application metadata: %#v", value)
+		}
+		if value["downloadUrl"] != releasesURL {
+			t.Fatalf("invalid release metadata: %#v", value)
+		}
+		description, _ := value["description"].(string)
+		if !strings.Contains(description, "modernize --check") || !strings.Contains(description, "Automatic upgrades are planned") {
+			t.Fatalf("description overstates the released tool: %q", description)
 		}
 		if _, exists := value["datePublished"]; exists {
 			t.Error("SoftwareApplication contains datePublished")

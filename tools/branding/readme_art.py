@@ -4,13 +4,12 @@ Usage: python tools/branding/readme_art.py docs/assets
 
 Writes:
   readme-hero-light.svg / readme-hero-dark.svg  any-to-any architecture
-  readme-retired-check.svg                       terminal run of the retired tasks check
+  readme-retired-check.svg                       terminal run of modernize --check
   readme-lifecycle-light.svg / -dark.svg         plan/apply/resume/verify/rollback lifecycle
 
-Animations use SMIL, which GitHub renders in <img> SVGs. The terminal shows the
-real output of the README commands run against a two-file sample repository
-(azure-pipelines.yml and templates/publish.yml); regenerate it if the commands
-or the catalog change.
+Animations use SMIL, which GitHub renders in <img> SVGs. The terminal replays
+the real v0.1.0 output from a three-file sample repository; regenerate it if
+the command or catalog changes.
 """
 import os
 import sys
@@ -145,37 +144,42 @@ def hero(t):
 
 
 # ---------------------------------------------------------------- terminal
-TW, LINE, PAD, CHAR = 960, 22, 22, 7.23   # CHAR = advance of 12px monospace
-URL = "https://raw.githubusercontent.com/HarnageaGabriel/trasloco/main/catalog/azure-pipelines/tasks.retirement.yaml"
-SCRIPT = [  # (kind, text, typing seconds or pause before)
-    ("cmd", f"url={URL}"),
-    ("cmd", "curl -fsSL \"$url\" | sed -n 's/^ *- task: //p' > retired-tasks.txt"),
-    ("cmd", "wc -l < retired-tasks.txt"),
-    ("out", "73"),
-    ("cmd", "grep -rniwF -f retired-tasks.txt --include='*.yml' --include='*.yaml' ."),
-    ("hit", ("./azure-pipelines.yml", "11", "- task: ", "DotNetCoreCLI@1")),
-    ("hit", ("./templates/publish.yml", "2", "- task: ", "CopyFiles@1")),
-    ("hit", ("./templates/publish.yml", "5", "- task: ", "AzureCLI@0")),
+TW, LINE, PAD, CHAR = 1200, 20, 22, 6.63   # CHAR = advance of 11px monospace
+SCRIPT = [  # (kind, text)
+    ("cmd", "trasloco modernize --check --format text -- ."),
+    ("out", "azure-pipelines.yml:11:11  DotNetCoreCLI@1 -> DotNetCoreCLI@2  [replacement with input changes]"),
+    ("out", "    Replace DotNetCoreCLI@1 with DotNetCoreCLI@2 and review the replacement inputs before updating the pipeline."),
+    ("out", "    More: https://harnageagabriel.github.io/trasloco/tasks/dotnetcorecli-1/"),
+    ("blank", ""),
+    ("out", "templates/azurecli.yml:11:11  AzureCLI@0 -> AzureCLI@3  [manual migration]"),
+    ("out", "    Migrate this step manually to AzureCLI@3, reviewing the documented behavior and input differences."),
+    ("out", "    More: https://harnageagabriel.github.io/trasloco/tasks/azurecli-0/"),
+    ("blank", ""),
+    ("out", "templates/copyfiles.yml:11:11  CopyFiles@1 -> CopyFiles@2  [drop-in replacement]"),
+    ("out", "    Replace CopyFiles@1 with CopyFiles@2."),
+    ("out", "    More: https://harnageagabriel.github.io/trasloco/tasks/copyfiles-1/"),
+    ("blank", ""),
+    ("out", "Found 3 retired task reference(s) in 3 file(s): 1 drop-in, 1 with input changes, 1 manual, 0 no replacement. Retired 2026-10-15, removed 2027-03-15 (pipelines fail after removal)."),
+    ("status", "exit status 5"),
 ]
-CYCLE = 16.0
+CYCLE = 12.0
 
 
 def terminal():
     th = 44 + PAD + LINE * (len(SCRIPT) + 1) + PAD
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TW} {th}" width="{TW}" height="{th}" '
-         f'role="img" aria-label="Terminal: download the retired task list and grep a repository; '
-         f'three retired tasks are found">',
-         '<title>Find retired Azure Pipelines tasks from the shell</title>',
+         f'role="img" aria-label="Terminal: trasloco finds three retired Azure Pipelines tasks and exits with status 5">',
+         '<title>trasloco modernize --check output</title>',
          f'<rect width="{TW}" height="{th}" rx="12" fill="#0D1117" stroke="#3D444D"/>',
          f'<rect width="{TW}" height="36" rx="12" fill="#161B22"/><rect y="24" width="{TW}" height="12" fill="#161B22"/>',
          '<circle cx="22" cy="18" r="6" fill="#FF5F57"/><circle cx="42" cy="18" r="6" fill="#FEBC2E"/>'
          '<circle cx="62" cy="18" r="6" fill="#28C840"/>',
          f'<text x="{TW / 2}" y="22" text-anchor="middle" font-family="{SANS}" font-size="12" fill="#9198A1">'
-         'retired tasks check · sample repository</text>',
+         'trasloco modernize --check · sample repository</text>',
          # master clock
          f'<rect width="0" height="0"><animate id="clk" attributeName="x" from="0" to="0" dur="{CYCLE}s" '
          'begin="0s;clk.end"/></rect>',
-         f'<g font-family="{MONO}" font-size="12" xml:space="preserve">']
+         f'<g font-family="{MONO}" font-size="11" xml:space="preserve">']
     t = 0.6
     y = 44 + PAD
     defs = []
@@ -191,19 +195,14 @@ def terminal():
             p.append(f'<text x="{PAD}" y="{y}" clip-path="url(#c{i})">'
                      f'<tspan fill="{TAPE}">$ </tspan><tspan fill="#E6EDF3">{escape(text)}</tspan></text>')
             t += dur + 0.45
-        else:
-            if kind == "out":
-                body = f'<tspan fill="#E6EDF3">{escape(text)}</tspan>'
-            else:
-                path, num, mid, task = text
-                body = (f'<tspan fill="#D2A8FF">{escape(path)}</tspan><tspan fill="#9198A1">:</tspan>'
-                        f'<tspan fill="#7EE787">{num}</tspan><tspan fill="#9198A1">:</tspan>'
-                        f'<tspan fill="#E6EDF3">{escape(mid)}</tspan>'
-                        f'<tspan fill="#FF7B72" font-weight="700">{escape(task)}</tspan>')
+        elif kind != "blank":
+            color = "#FF7B72" if kind == "status" else "#E6EDF3"
+            weight = ' font-weight="700"' if kind == "status" else ""
+            body = f'<tspan fill="{color}"{weight}>{escape(text)}</tspan>'
             p.append(f'<text x="{PAD}" y="{y}">{body}'
                      f'<set attributeName="opacity" to="0" begin="clk.begin"/>'
                      f'<set attributeName="opacity" to="1" begin="clk.begin+{t:.2f}s"/></text>')
-            t += 0.25
+            t += 0.20
         y += LINE
     # blinking cursor on the last prompt line
     p.append(f'<text x="{PAD}" y="{y}"><tspan fill="{TAPE}">$ </tspan>'
