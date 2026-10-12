@@ -25,6 +25,15 @@
 {{- end}}
 </tbody>
 </table>
+<h2 id="by-replacement">Grouped by replacement</h2>
+{{- range .ReplacementGroups}}
+<h3>Tasks replaced by <code>{{h .Replacement}}</code></h3>
+<ul class="cols">
+{{- range .Entries}}
+<li><a href="{{h $.Base}}{{h .Path}}">{{h .Task}}</a></li>
+{{- end}}
+</ul>
+{{- end}}
 <h2 id="by-kind">Grouped by kind of migration</h2>
 {{- range .Groups}}
 <h3 id="{{h .Slug}}">{{h .Label}} ({{.Count}})</h3>
@@ -40,7 +49,7 @@
 <p>{{h .Answer}}</p>
 {{- end}}
 <h2 id="about">About trasloco</h2>
-<p>trasloco is an open-source command-line tool that migrates CI/CD pipelines between platforms and finds retired Azure Pipelines tasks. This site is generated from its catalog. Machine-readable versions: <a href="{{h .Base}}/llms.txt">llms.txt</a>, <a href="{{h .Base}}/llms-full.txt">llms-full.txt</a> and <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
+<p>trasloco is an open-source command-line tool that migrates CI/CD pipelines between platforms and finds retired Azure Pipelines tasks. This site is generated from its catalog. Machine-readable versions: <a href="{{h .Base}}/feed.xml">Atom feed</a>, <a href="{{h .Base}}/llms.txt">llms.txt</a>, <a href="{{h .Base}}/llms-full.txt">llms-full.txt</a> and <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
 </main>
 {{template "footer" .}}
 </body>

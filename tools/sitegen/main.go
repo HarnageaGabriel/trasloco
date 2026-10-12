@@ -4,6 +4,7 @@
 // Usage: sitegen [-out _site] [-catalog catalog] [-assets docs/assets] -date YYYY-MM-DD
 //
 //	[-base-url URL] [-tool-available] [-rewrite-available]
+//	[-google-site-verification TOKEN] [-bing-site-verification TOKEN]
 package main
 
 import (
@@ -40,6 +41,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	base := flags.String("base-url", defaultBaseURL, "public base URL of the site")
 	tool := flags.Bool("tool-available", false, "state that the trasloco modernization command is released")
 	rewrite := flags.Bool("rewrite-available", false, "state that trasloco modernize --write ships (pages say 'planned' when false)")
+	googleVerification := flags.String("google-site-verification", "", "Google Search Console verification token")
+	bingVerification := flags.String("bing-site-verification", "", "Bing Webmaster Tools verification token")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -56,13 +59,15 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 	cfg := Config{
-		RetirementDate:   header.RetirementDate,
-		RemovalDate:      header.RemovalDate,
-		AnnouncementURL:  header.Source.RetirementURL,
-		Generated:        *date,
-		BaseURL:          *base,
-		ToolAvailable:    *tool,
-		RewriteAvailable: *rewrite,
+		RetirementDate:     header.RetirementDate,
+		RemovalDate:        header.RemovalDate,
+		AnnouncementURL:    header.Source.RetirementURL,
+		Generated:          *date,
+		BaseURL:            *base,
+		ToolAvailable:      *tool,
+		RewriteAvailable:   *rewrite,
+		GoogleVerification: *googleVerification,
+		BingVerification:   *bingVerification,
 	}
 	files, err := generate(cat, cfg)
 	if err != nil {
