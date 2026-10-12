@@ -64,23 +64,38 @@ is free software under Apache-2.0 and will stay free.
 
 ## Try it now: find retired Azure Pipelines tasks
 
-Look up any retired task and its replacement on the
-[task retirement site](https://harnageagabriel.github.io/trasloco/).
+Install [trasloco v0.1.0](https://github.com/HarnageaGabriel/trasloco/releases/tag/v0.1.0)
+using the [installation guide](docs/install.md), then check a repository:
+
+```sh
+trasloco modernize --check --format text -- .
+```
+
+<p align="center">
+  <img src="docs/assets/readme-retired-check.svg" width="880"
+    alt="trasloco modernize check finding three retired Azure Pipelines tasks and exiting with status 5">
+</p>
+
+Or add the GitHub Action to an existing workflow:
+
+```yaml
+- uses: HarnageaGabriel/trasloco@v0
+  with:
+    path: .
+    fail-on-findings: true
+```
 
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail
 ([official announcement](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement)).
 trasloco ships that list as data and checks pipeline YAML with its full parser.
-Install a release, then block actionable retired tasks locally or in CI:
-
-```sh
-trasloco modernize --check --format text -- .
-```
+Look up any retired task and its replacement on the
+[task retirement site](https://harnageagabriel.github.io/trasloco/).
 
 Exit status 5 means actionable retired tasks remain; 0 means the check passed.
-See [installation and CI examples](docs/install.md), including the reusable
-GitHub Action and SARIF upload. The Action and Azure Pipelines snippet verify
+The installation guide also covers Azure Pipelines and SARIF upload. The Action
+and Azure Pipelines snippet verify
 the archive against `checksums.txt` from the same release only; the full Linux,
 macOS, and Windows recipes also verify the signed checksum bundle and require
 an authenticated GitHub CLI for `gh attestation verify`.
