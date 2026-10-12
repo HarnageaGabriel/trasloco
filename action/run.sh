@@ -7,7 +7,7 @@ select_major_release() {
     const fs = require("fs");
     const major = process.argv[1];
     const releases = JSON.parse(fs.readFileSync(0, "utf8"));
-    const pattern = new RegExp("^v" + major + "\\.([0-9]+)\\.([0-9]+)$");
+    const pattern = new RegExp("^v" + major + "\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$");
     const matches = releases
       .filter((release) => release && release.prerelease === false && release.draft === false)
       .map((release) => ({ tag: release.tag_name, match: pattern.exec(release.tag_name) }))
@@ -78,9 +78,9 @@ if [[ "${TRASLOCO_INPUT_PATH}" == -* ]]; then
 fi
 
 requested_version=${TRASLOCO_VERSION:-${TRASLOCO_ACTION_REF:-}}
-if [[ "${requested_version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ "${requested_version}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
   version=${requested_version}
-elif [[ "${requested_version}" =~ ^v([0-9]+)$ ]]; then
+elif [[ "${requested_version}" =~ ^v(0|[1-9][0-9]*)$ ]]; then
   major=${BASH_REMATCH[1]}
   curl_headers=()
   if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then

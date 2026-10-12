@@ -6,6 +6,11 @@ on:
 
 permissions: {}
 
+# One release at a time, so the vMAJOR alias decision cannot race.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Release
@@ -24,7 +29,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "release tag must have the form vMAJOR.MINOR.PATCH" >&2
             exit 1
           fi
@@ -34,6 +39,8 @@ jobs:
           cache: true
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          syft-version: v1.54.1
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (cosign v3.0.6)
       - name: Build, sign, and publish release
@@ -56,13 +63,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [[ ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "release tag must have the form vMAJOR.MINOR.PATCH" >&2
             exit 1
           fi
           major_tag="v${BASH_REMATCH[1]}"
+          git fetch --force --tags --quiet origin
           highest=$(git tag --list "v${BASH_REMATCH[1]}.*" \
-            | grep -E "^v${BASH_REMATCH[1]}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+            | grep -E "^v${BASH_REMATCH[1]}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$" | sort -V | tail -n 1)
           if [[ "${highest}" != "${GITHUB_REF_NAME}" ]]; then
             echo "${GITHUB_REF_NAME} is not the highest ${major_tag}.x.y release; leaving ${major_tag} unchanged"
             exit 0
