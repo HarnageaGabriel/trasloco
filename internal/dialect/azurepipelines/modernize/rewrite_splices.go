@@ -8,13 +8,26 @@ import (
 	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 )
 
-func (s *stepPlan) ending() string {
-	crlf := bytes.Count(s.src, []byte("\r\n"))
-	lf := bytes.Count(s.src, []byte("\n")) - crlf
+// endingComputations counts whole-file ending scans (test hook).
+var endingComputations int
+
+// dominantEnding returns the file's dominant line ending, LF if tied. It scans
+// the whole file, so it runs once per Rewrite call.
+func dominantEnding(src []byte) string {
+	endingComputations++
+	crlf := bytes.Count(src, []byte("\r\n"))
+	lf := bytes.Count(src, []byte("\n")) - crlf
 	if crlf > lf {
 		return "\r\n"
 	}
 	return "\n"
+}
+
+func (s *stepPlan) ending() string {
+	if s.eol == "" {
+		s.eol = dominantEnding(s.src)
+	}
+	return s.eol
 }
 
 func quoteYAML(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRewriteStepDirectives(t *testing.T) {
@@ -42,14 +43,35 @@ func TestRewriteManyInputs(t *testing.T) {
 	}
 }
 
-func TestRewriteManyRetiredSteps(t *testing.T) {
-	const step = "- task: CopyFiles@1.1.4\n"
-	const replacement = "- task: CopyFiles@2\n"
-	src := "steps:\n" + strings.Repeat(step, 3000) + "- script: echo unchanged\n"
-	want := "steps:\n" + strings.Repeat(replacement, 3000) + "- script: echo unchanged\n"
-	out, ds, changed, err := Rewrite(context.Background(), []byte(src), "large.yml", testCatalog(t))
-	if err != nil || !changed || len(ds) != 6000 || string(out) != want {
-		t.Fatalf("changed=%v err=%v diagnostics=%d output matches=%v", changed, err, len(ds), string(out) == want)
+const archiveStep = "- task: ArchiveFiles@1\n  inputs:\n    rootFolder: a\n    archiveType: default\n"
+
+func TestRewriteEndingComputedOncePerFile(t *testing.T) {
+	cat := testCatalog(t)
+	for _, n := range []int{10, 200} {
+		src := "steps:\n" + strings.Repeat(archiveStep, n)
+		before := endingComputations
+		_, _, changed, err := Rewrite(context.Background(), []byte(src), "large.yml", cat)
+		if err != nil || !changed {
+			t.Fatalf("n=%d changed=%v err=%v", n, changed, err)
+		}
+		if got := endingComputations - before; got != 1 {
+			t.Fatalf("n=%d: line ending computed %d times, want 1", n, got)
+		}
+	}
+}
+
+func TestRewriteManyRetiredStepsTimeBudget(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("wall-clock budget: skipped with -short or -race")
+	}
+	src := []byte("steps:\n" + strings.Repeat(archiveStep, 40000))
+	// Linear cost is ~5s here (diagnostic redaction dominates); the quadratic
+	// ending scan took ~57s. Rewrite returns the context error past the budget.
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	_, _, changed, err := Rewrite(ctx, src, "large.yml", testCatalog(t))
+	if err != nil || !changed {
+		t.Fatalf("within 20s budget: changed=%v err=%v", changed, err)
 	}
 }
 

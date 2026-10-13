@@ -52,6 +52,7 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 	var edits []yamlx.Patch
 	steps := 0
 	var planErr error
+	ending := dominantEnding(src)
 	idx.onStep = func(step, task *yamlx.Node) {
 		steps++
 		raw := strings.TrimSpace(task.Value())
@@ -74,7 +75,7 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 		case "D":
 			ds = append(ds, rewriteDiagnostic("TRL-MOD-0004", task, map[string]any{"from": row.Task, "guidance": p.Message}))
 		default:
-			s := stepPlan{src: src, step: step, task: task, row: row, program: p, cat: cat}
+			s := stepPlan{src: src, step: step, task: task, row: row, program: p, cat: cat, eol: ending}
 			patches, diagnostics, err := s.plan(raw, name, full)
 			if err != nil {
 				planErr = err
@@ -238,7 +239,7 @@ func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yam
 		}
 		if next < len(ordered) {
 			edit := ordered[next]
-			if edit.Start < r.End || n.Kind() != yamlx.ScalarKind && edit.Start == edit.End && edit.Start == r.End {
+			if edit.Start < r.End || n.Kind() != yamlx.ScalarKind && appendsToEntry(src, r.End, edit) {
 				continue
 			}
 		}
@@ -248,6 +249,18 @@ func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yam
 		}
 	}
 	return problem
+}
+
+// appendsToEntry reports whether e is a pure insertion at the end of a
+// collection ending at end, either directly or after the rest of that last
+// line including its terminator. Such an insertion extends the collection.
+func appendsToEntry(src []byte, end int, e yamlx.Patch) bool {
+	if e.Start != e.End || e.Start < end || e.Start > len(src) {
+		return false
+	}
+	tail := src[end:e.Start]
+	i := bytes.IndexByte(tail, '\n')
+	return i < 0 || i == len(tail)-1
 }
 
 func visitNodes(roots []*yamlx.Node, visit func(*yamlx.Node)) {

@@ -38,7 +38,7 @@ func rewriteVectors(t testing.TB) []rewriteVector {
 	section := strings.Split(strings.Split(string(data), "## 10. Test vectors\n")[1], "## 11.")[0]
 	row := regexp.MustCompile("(?m)^\\| (MODV-[0-9]+) \\| `([^`]+)` \\| (.*?)<br>diags: (.*?) \\| ")
 	decode := strings.NewReplacer(`\n`, "\n", `\r`, "\r", `\|`, "|")
-	vectors := make([]rewriteVector, 0, 82)
+	vectors := make([]rewriteVector, 0, 84)
 	seen := make(map[string]bool)
 	for _, m := range row.FindAllStringSubmatch(section, -1) {
 		v := rewriteVector{id: m[1], input: decode.Replace(m[2])}
@@ -58,10 +58,10 @@ func rewriteVectors(t testing.TB) []rewriteVector {
 		}
 		vectors = append(vectors, v)
 	}
-	if len(vectors) != 82 {
-		t.Fatalf("loaded %d / 82 vectors", len(vectors))
+	if len(vectors) != 84 {
+		t.Fatalf("loaded %d / 84 vectors", len(vectors))
 	}
-	for i := 1; i <= 82; i++ {
+	for i := 1; i <= 84; i++ {
 		if id := fmt.Sprintf("MODV-%03d", i); !seen[id] {
 			t.Fatalf("missing vector %s", id)
 		}
@@ -116,7 +116,10 @@ func TestRewriteMODV(t *testing.T) {
 			}
 		})
 	}
-	t.Logf("MODV: %d / 82 passing", passed)
+	t.Logf("MODV: %d / 84 passing", passed)
+	if passed != 84 {
+		t.Errorf("only %d / 84 vectors passed", passed)
+	}
 }
 
 func TestRewriteRejectsInvalidSourceRanges(t *testing.T) {

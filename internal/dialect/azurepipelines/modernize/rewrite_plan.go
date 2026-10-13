@@ -21,6 +21,7 @@ type inputValue struct {
 
 type stepPlan struct {
 	src             []byte
+	eol             string
 	step, task      *yamlx.Node
 	row             catalog.Modernization
 	program         program.Program
