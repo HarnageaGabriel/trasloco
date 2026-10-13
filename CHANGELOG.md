@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   renamed or dropped inputs of class B steps listed below. A step that was not
   rewritten and is still reported by `--check` appears once, with the reason
   the rewrite was refused. JSON findings gain `rewriteNotes` for that reason.
+- When a remaining finding covers a step, `TRL-MOD-0003`, `0004`, `0005`,
+  `0006`, `0009` and `0010` no longer appear separately in JSON `diagnostics`
+  or SARIF `results`; the reason becomes a `rewriteNotes` entry of the finding
+  (SARIF: `properties.rewriteNotes` and the result message).
+- If the rewrite self-check fails, the original file is left untouched and the
+  exit code is 1. ACLs, extended attributes and Windows alternate data streams
+  are not preserved on replacement.
 
 ## [0.1.1] - 2026-10-13
 

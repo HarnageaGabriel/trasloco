@@ -54,33 +54,17 @@ func mergeRewriteDiagnostic(findings []modernize.Finding, d diag.Diagnostic) boo
 }
 
 // matchingFinding returns the finding of the step the diagnostic belongs to:
-// the one at the same position, else the closest one before it, else the
-// closest one after it, among findings naming the same task.
+// the one at the position of the step's task reference, in the same file.
 func matchingFinding(findings []modernize.Finding, d diag.Diagnostic) int {
-	name := taskName(fmt.Sprint(d.Params["from"]))
-	before, after := -1, -1
+	if d.Step == nil {
+		return -1
+	}
 	for i, f := range findings {
-		if f.Path != d.Source.File || !strings.EqualFold(taskName(f.RetiredTask), name) {
-			continue
-		}
-		switch {
-		case f.Line == d.Source.Line && f.Column == d.Source.Col:
+		if f.Path == d.Step.File && f.Line == d.Step.Line && f.Column == d.Step.Col {
 			return i
-		case f.Line < d.Source.Line || (f.Line == d.Source.Line && f.Column < d.Source.Col):
-			before = i
-		case after < 0:
-			after = i
 		}
 	}
-	if before >= 0 {
-		return before
-	}
-	return after
-}
-
-func taskName(reference string) string {
-	name, _, _ := strings.Cut(strings.TrimSpace(reference), "@")
-	return name
+	return -1
 }
 
 func rewriteNote(d diag.Diagnostic) string {

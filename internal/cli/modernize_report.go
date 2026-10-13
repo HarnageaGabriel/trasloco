@@ -349,6 +349,10 @@ func makeSARIF(result modernizeResult, executionSuccessful bool) sarifLog {
 		if len(finding.Diagnostics) > 0 {
 			properties["diagnostics"] = finding.Diagnostics
 		}
+		if len(finding.RewriteNotes) > 0 {
+			properties["rewriteNotes"] = finding.RewriteNotes
+			message += " " + strings.Join(finding.RewriteNotes, " ")
+		}
 		results = append(results, sarifResult{
 			RuleID: finding.Code, Level: sarifLevel(finding), Message: sarifText{Text: message},
 			Locations:  []sarifLocation{sarifLocationOf(finding.Path, finding.Line, finding.Column)},

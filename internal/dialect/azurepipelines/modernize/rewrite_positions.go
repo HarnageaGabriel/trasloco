@@ -24,11 +24,11 @@ func remapDiagnostics(ds []diag.Diagnostic, src, out []byte, edits []yamlx.Patch
 	})
 	starts := lineStarts(src)
 	newStarts := lineStarts(out)
-	for i := range ds {
-		if ds[i].Source == nil || ds[i].Source.Line < 1 {
-			continue
+	remap := func(original *diag.Source) *diag.Source {
+		if original == nil || original.Line < 1 {
+			return original
 		}
-		source := *ds[i].Source
+		source := *original
 		start := mapOffset(ordered, offsetOf(src, starts, source.Line, source.Col))
 		source.Line, source.Col = positionOf(out, newStarts, start)
 		if source.Offset > 0 || source.EndOffset > 0 {
@@ -39,7 +39,11 @@ func remapDiagnostics(ds []diag.Diagnostic, src, out []byte, edits []yamlx.Patch
 			source.EndOffset = end
 			source.EndLine, source.EndCol = positionOf(out, newStarts, end)
 		}
-		ds[i].Source = &source
+		return &source
+	}
+	for i := range ds {
+		ds[i].Source = remap(ds[i].Source)
+		ds[i].Step = remap(ds[i].Step)
 	}
 }
 

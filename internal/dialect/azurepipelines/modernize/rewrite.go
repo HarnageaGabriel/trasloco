@@ -55,6 +55,14 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 	ending := dominantEnding(src)
 	idx.onStep = func(step, task *yamlx.Node) {
 		steps++
+		first := len(ds)
+		defer func() {
+			position := task.Position()
+			for i := first; i < len(ds); i++ {
+				at := position
+				ds[i].Step = &at
+			}
+		}()
 		raw := strings.TrimSpace(task.Value())
 		name, major, full, ok := splitReference(raw)
 		if !ok || dynamic(raw) || strings.Contains(name, ".") {
