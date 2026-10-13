@@ -139,7 +139,7 @@ The 73 programs in section 8 are the entire allowed program set; an unknown oper
 
 ### 5.4 Evaluation and edit order
 
-1. On the original step, resolve layout and duplicate keys, then evaluate operation preconditions and the default-deny rules. Collect failures in source-key order, de-duplicate identical `(input,reason)` pairs, report every failure, discard all edits for that step, and do not emit the row's rewrite diagnostic.
+1. On the original step, resolve layout and duplicate keys, then evaluate operation preconditions and the default-deny rules. Collect failures in source-key order. Each input yields at most one failure: the first in program order, where every operation precondition (`guard`, `require`, `literal`, `map`, `invert`, conditional `drop`) comes before the default-deny rules of 5.5, so an input already failed by an operation never also reports `removed-input` or `new-only-input` (MODV-033). Report every remaining failure, discard all edits for that step, and do not emit the row's rewrite diagnostic.
 2. If safe, apply operations by phase, retaining table order within a phase: `drop`; `rename`; `map` and `invert`; `pin` and `add`. `guard`, `require`, `literal`, `review` and `pass` do not edit. Then apply E1.
 3. `params.changes` follows actual edit order and contains only edits performed. `params.review` follows program order and is present even when empty.
 

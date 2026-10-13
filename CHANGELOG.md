@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Internal parser for the Azure Pipelines modernization mapping language, with
+  tests loaded from all 73 specification programs. YAML rewriting is not yet
+  exposed by the CLI.
+
 ## [0.1.1] - 2026-10-13
 
 ### Changed
