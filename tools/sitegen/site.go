@@ -283,6 +283,9 @@ func fillFacts(e *entry, cfg *Config) {
 		if cfg.RewriteAvailable {
 			e.Auto = "available"
 			e.AutoText = "Yes. trasloco modernize --write rewrites this step to " + repl + "."
+			if e.Class == "B" {
+				e.AutoText = "Yes, when its inputs pass the safety checks. trasloco modernize --write rewrites this step to " + repl + " and applies the input changes; otherwise it leaves the step unchanged and says why."
+			}
 		} else {
 			e.Auto = "planned"
 			e.AutoText = "Not yet. Automatic rewrite is planned for this kind of task (" + e.ClassLabel + "). Today, trasloco modernize --check finds the step and you change it by hand."
