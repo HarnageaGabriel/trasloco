@@ -3,6 +3,7 @@ package modernize
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -61,8 +62,10 @@ func TestRewriteEndingComputedOncePerFile(t *testing.T) {
 }
 
 func TestRewriteManyRetiredStepsTimeBudget(t *testing.T) {
-	if testing.Short() || raceEnabled {
-		t.Skip("wall-clock budget: skipped with -short or -race")
+	// Wall-clock budgets flake on shared CI runners; TestRewriteEndingComputedOncePerFile
+	// guards the quadratic regression deterministically. Run with TRASLOCO_PERF=1.
+	if testing.Short() || raceEnabled || os.Getenv("TRASLOCO_PERF") == "" {
+		t.Skip("wall-clock budget: set TRASLOCO_PERF=1 (not with -short or -race)")
 	}
 	src := []byte("steps:\n" + strings.Repeat(archiveStep, 40000))
 	// Linear cost is ~5s here (diagnostic redaction dominates); the quadratic

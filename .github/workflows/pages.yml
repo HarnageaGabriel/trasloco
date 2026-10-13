@@ -2,6 +2,7 @@ name: Pages
 
 env:
   TRASLOCO_TOOL_AVAILABLE: "true"
+  TRASLOCO_REWRITE_AVAILABLE: "true"
   # Optional repository variables; leave unset until search-console ownership is configured.
   GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
   BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
@@ -39,7 +40,7 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Generate site
         run: |
-          go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)" -tool-available="${TRASLOCO_TOOL_AVAILABLE}" -google-site-verification="${GOOGLE_SITE_VERIFICATION}" -bing-site-verification="${BING_SITE_VERIFICATION}"
+          go run ./tools/sitegen -out _site -date "$(git log -1 --format=%cs HEAD)" -tool-available="${TRASLOCO_TOOL_AVAILABLE}" -rewrite-available="${TRASLOCO_REWRITE_AVAILABLE}" -google-site-verification="${GOOGLE_SITE_VERIFICATION}" -bing-site-verification="${BING_SITE_VERIFICATION}"
           # upload-pages-artifact preserves modes; Pages needs every generated path readable/traversable.
           chmod -R a+rX _site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
