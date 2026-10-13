@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A `${{ if }}` (or any other key directive) inside a repository resource
+  `trigger` keeps its `branches`, `paths` and `tags` instead of dropping them.
+
 ## [0.1.1] - 2026-10-13
 
 ### Changed

@@ -375,21 +375,25 @@ func (p *parser) repositoryTrigger(n *yamlx.Node, ctx string) *ast.Trigger {
 	if n == nil || n.Kind() != yamlx.MappingKind {
 		return p.trigger(n, ctx, false)
 	}
-	return build(p, n, ctx, func(out *ast.Trigger, m *mapping) {
-		out.Pos, out.Form = pos(m.node), ast.TriggerFull
-		if e := m.take("branches"); e != nil {
-			out.Branches = p.filter(e.value, e.name)
-		}
-		if e := m.take("paths"); e != nil {
-			out.Paths = p.filter(e.value, e.name)
-		}
-		if e := m.take("tags"); e != nil {
-			out.Tags = p.filter(e.value, e.name)
-		}
-		out.Inserts, out.Extra = finish(m, func(t *ast.Trigger, bm *mapping) {
-			t.Pos, t.Form = pos(bm.node), ast.TriggerFull
-		})
-	})
+	return build(p, n, ctx, p.fillRepositoryTrigger)
+}
+
+// fillRepositoryTrigger reads a repository resource trigger mapping. Directive
+// bodies are parsed with the same function so that branches, paths and tags
+// wrapped in a `${{ if }}` (or any other key directive) are kept instead of
+// being dropped.
+func (p *parser) fillRepositoryTrigger(out *ast.Trigger, m *mapping) {
+	out.Pos, out.Form = pos(m.node), ast.TriggerFull
+	if e := m.take("branches"); e != nil {
+		out.Branches = p.filter(e.value, e.name)
+	}
+	if e := m.take("paths"); e != nil {
+		out.Paths = p.filter(e.value, e.name)
+	}
+	if e := m.take("tags"); e != nil {
+		out.Tags = p.filter(e.value, e.name)
+	}
+	out.Inserts, out.Extra = finish(m, p.fillRepositoryTrigger)
 }
 
 func (p *parser) fillPipelineResource(out *ast.PipelineResource, m *mapping) {
