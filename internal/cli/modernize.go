@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 const retirementURL = "https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/task-retirement"
 
 type modernizeOptions struct {
+	write  bool
 	check  bool
 	strict bool
 	format string
@@ -31,10 +33,16 @@ func newModernizeCmd(a *app) *cobra.Command {
 	options := modernizeOptions{}
 	cmd := &cobra.Command{
 		Use:   "modernize [paths...]",
-		Short: "Report retired Azure Pipelines task versions",
+		Short: "Report or safely rewrite retired Azure Pipelines task versions",
 		Long: `Find references to Azure Pipelines tasks that Microsoft retires on 2026-10-15
 (removed 2027-03-15) in the YAML files under the given paths (default: the
-current directory). Nothing is modified.
+current directory). Nothing is modified unless --write is given.
+
+--write safely rewrites class A/B tasks in place; class C/D tasks and unsafe
+rewrites are reported for manual migration. Unchanged files are not touched.
+Symbolic links are skipped. UTF-16 files are reported but not rewritten.
+Use --write --check to return exit 5 if actionable findings remain afterward.
+All report formats, including SARIF, support --write.
 
 Only files that look like Azure Pipelines files are examined; GitHub
 workflows, Kubernetes manifests and other YAML are skipped silently.
@@ -44,7 +52,8 @@ UTF-16 files are decoded when they start with a byte order mark, or without
 one when their first characters are in the Latin range.
 
 Exit codes: 0 nothing to fix (or --check not given), 5 retired tasks found
-with --check, 64 usage error, 1 a named path cannot be read (or, with
+with --check (after rewriting with --write), 64 usage error, 1 an I/O or
+rewrite self-check failure (or, with
 --strict, an Azure Pipelines file has parser errors, including constructs the
 parser rejects).
 
@@ -60,6 +69,7 @@ command exits 1.`,
 		},
 	}
 	cmd.Flags().BoolVar(&options.check, "check", false, "return exit code 5 when retired tasks are found")
+	cmd.Flags().BoolVar(&options.write, "write", false, "safely rewrite class A/B tasks in place; report steps needing manual migration")
 	cmd.Flags().BoolVar(&options.strict, "strict", false, "return exit code 1 when an Azure Pipelines file cannot be parsed")
 	cmd.Flags().StringVar(&options.format, "format", "text", "report format: text, json or sarif")
 	return cmd
@@ -77,10 +87,12 @@ type modernizeWarning struct {
 }
 
 type modernizeResult struct {
-	findings []modernize.Finding
-	warnings []modernizeWarning
-	scanned  int
-	skipped  int
+	diagnostics []diag.Diagnostic
+	summary     *modernizeSummary
+	findings    []modernize.Finding
+	warnings    []modernizeWarning
+	scanned     int
+	skipped     int
 }
 
 func (r modernizeResult) actionable() int {
@@ -103,7 +115,7 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		return fmt.Errorf("load catalog: %w", err)
 	}
 
-	files, notices, pathFailures := pipelineFiles(paths)
+	files, notices, pathFailures := pipelineFiles(paths, options.write)
 	for _, notice := range notices {
 		_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: %s\n", notice)
 	}
@@ -112,19 +124,39 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 	}
 
 	var result modernizeResult
+	if options.write {
+		result.summary = &modernizeSummary{}
+	}
 	ioFailed, strictFailed := pathFailures, false
+	rewriteFailed := false
 	for _, file := range files {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		data, readErr := os.ReadFile(file.path) //nolint:gosec // paths are the command's explicit scan targets
+		if options.write {
+			if err := modernizeNoSymlinks(file.path); err != nil {
+				_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: skipped %s: %v\n", file.display, err)
+				if !errors.Is(err, errModernizeSymlink) {
+					ioFailed++
+				}
+				continue
+			}
+		}
+		var data []byte
+		var readErr error
+		if options.write {
+			data, readErr = readModernizeWriteSource(file.path)
+		} else {
+			data, readErr = os.ReadFile(file.path) //nolint:gosec // paths are the command's explicit scan targets
+		}
 		if readErr != nil {
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)
-			if file.explicit {
+			if file.explicit || options.write {
 				ioFailed++
 			}
 			continue
 		}
+		original := data
 		data, readErr = decodeModernizeData(data)
 		if readErr != nil {
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: skipped %s: %v\n", file.display, readErr)
@@ -137,6 +169,41 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		if !modernize.IsCandidate(file.display, data) {
 			result.skipped++
 			continue
+		}
+		if options.write {
+			if !bytes.Equal(original, data) {
+				warning := modernizeWarning{Code: "UTF16", Severity: "warning", Path: file.display, Line: 1, Column: 1, Message: "UTF-16 file not rewritten"}
+				result.warnings = append(result.warnings, warning)
+				_, _ = fmt.Fprintf(a.io.Err, "warning: %s: %s\n", file.display, warning.Message)
+			} else {
+				out, diagnostics, changed, err := modernize.Rewrite(ctx, data, file.display, cat)
+				selfCheckFailed := false
+				for _, d := range diagnostics {
+					if d.Code == "TRL-INT-0002" {
+						selfCheckFailed = true
+					}
+				}
+				if err == nil && changed && !selfCheckFailed {
+					err = writeModernizeFile(file.path, original, out)
+					if err == nil {
+						data = out
+						result.summary.FilesRewritten++
+						for _, d := range diagnostics {
+							if d.Code == "TRL-MOD-0001" || d.Code == "TRL-MOD-0002" {
+								result.summary.StepsRewritten++
+							}
+						}
+					}
+				}
+				if err != nil {
+					ioFailed++
+					_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, err)
+					// Do not report planned rewrites as completed when the write failed.
+				} else {
+					result.diagnostics = append(result.diagnostics, diagnostics...)
+				}
+				rewriteFailed = rewriteFailed || selfCheckFailed
+			}
 		}
 		found, diagnostics := modernize.Scan(file.display, data, cat)
 		result.findings = append(result.findings, found...)
@@ -165,11 +232,17 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		}
 		return x.Code < y.Code
 	})
-	if err := writeModernizeReport(a, options.format, result, !strictFailed); err != nil {
+	if result.summary != nil {
+		result.summary.ManualSteps = result.actionable()
+	}
+	if err := writeModernizeReport(a, options.format, result, !strictFailed && !rewriteFailed && ioFailed == 0); err != nil {
 		return err
 	}
 	if ioFailed > 0 {
-		return WithExitCode(ExitError, fmt.Errorf("%d named file(s) could not be read", ioFailed))
+		return WithExitCode(ExitError, fmt.Errorf("%d file operation(s) failed", ioFailed))
+	}
+	if rewriteFailed {
+		return WithExitCode(ExitError, errors.New("modernization self-check failed (TRL-INT-0002)"))
 	}
 	if options.strict && strictFailed {
 		return WithExitCode(ExitError, errors.New("an Azure Pipelines file could not be parsed (--strict)"))
@@ -187,8 +260,8 @@ type scanFile struct {
 
 // pipelineFiles lists the YAML files under paths. Notices are problems with
 // single paths that do not stop the scan; failures counts unreadable named
-// paths so the caller can return exit 1 after writing the report.
-func pipelineFiles(paths []string) ([]scanFile, []string, int) {
+// paths (and traversal failures in write mode) for exit 1 after the report.
+func pipelineFiles(paths []string, write bool) ([]scanFile, []string, int) {
 	cwd, _ := os.Getwd()
 	seen := make(map[string]bool)
 	var files []scanFile
@@ -203,6 +276,10 @@ func pipelineFiles(paths []string) ([]scanFile, []string, int) {
 		files = append(files, scanFile{path: absolute, display: displayPath(cwd, absolute), explicit: explicit})
 	}
 	for _, root := range paths {
+		if err := modernizeNoSymlinks(root); errors.Is(err, errModernizeSymlink) {
+			notices = append(notices, fmt.Sprintf("skipped %s: symbolic links are not followed", root))
+			continue
+		}
 		info, err := os.Lstat(root)
 		if err != nil {
 			notices = append(notices, fmt.Sprintf("cannot read %s: %v", root, err))
@@ -224,6 +301,9 @@ func pipelineFiles(paths []string) ([]scanFile, []string, int) {
 		err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				notices = append(notices, fmt.Sprintf("cannot read %s: %v", path, walkErr))
+				if write {
+					failures++
+				}
 				return nil
 			}
 			if entry.IsDir() && path != root {
@@ -233,6 +313,7 @@ func pipelineFiles(paths []string) ([]scanFile, []string, int) {
 				}
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
+				notices = append(notices, fmt.Sprintf("skipped %s: symbolic links are not followed", path))
 				if entry.IsDir() {
 					return filepath.SkipDir
 				}
