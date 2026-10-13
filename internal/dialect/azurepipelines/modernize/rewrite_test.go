@@ -38,7 +38,7 @@ func rewriteVectors(t testing.TB) []rewriteVector {
 	section := strings.Split(strings.Split(string(data), "## 10. Test vectors\n")[1], "## 11.")[0]
 	row := regexp.MustCompile("(?m)^\\| (MODV-[0-9]+) \\| `([^`]+)` \\| (.*?)<br>diags: (.*?) \\| ")
 	decode := strings.NewReplacer(`\n`, "\n", `\r`, "\r", `\|`, "|")
-	var vectors []rewriteVector
+	vectors := make([]rewriteVector, 0, 80)
 	for _, m := range row.FindAllStringSubmatch(section, -1) {
 		v := rewriteVector{id: m[1], input: decode.Replace(m[2])}
 		v.output = v.input
@@ -60,7 +60,7 @@ func rewriteVectors(t testing.TB) []rewriteVector {
 }
 
 func projectDiagnostics(ds []diag.Diagnostic) []vectorDiagnostic {
-	result := []vectorDiagnostic{}
+	result := make([]vectorDiagnostic, 0, len(ds))
 	for _, d := range ds {
 		at := ""
 		if d.Source != nil {

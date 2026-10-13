@@ -46,7 +46,7 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 	// The structure reader may normalize malformed input. Never use its
 	// coordinates for splices unless they still refer to the source buffer.
 	if !validRewriteRanges(doc, len(src)) {
-		return src, []diag.Diagnostic{selfCheckDiagnostic(path)}, nil, nil
+		return rewriteSelfCheckFailure(src, path)
 	}
 	idx := newIndex(cat)
 	var edits []yamlx.Patch
@@ -107,9 +107,13 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 		err = selfCheck(path, src, out, doc, edits, steps)
 	}
 	if err != nil {
-		return src, []diag.Diagnostic{selfCheckDiagnostic(path)}, nil, nil
+		return rewriteSelfCheckFailure(src, path)
 	}
 	return out, ds, edits, nil
+}
+
+func rewriteSelfCheckFailure(src []byte, path string) ([]byte, []diag.Diagnostic, []yamlx.Patch, error) {
+	return src, []diag.Diagnostic{selfCheckDiagnostic(path)}, nil, nil
 }
 
 func selfCheckDiagnostic(path string) diag.Diagnostic {

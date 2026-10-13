@@ -16,7 +16,9 @@ func (s *stepPlan) ending() string {
 	}
 	return "\n"
 }
+
 func quoteYAML(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
+
 func (s *stepPlan) rangeOf(n *yamlx.Node) yamlx.ByteRange {
 	r, e := n.ByteRange()
 	if e != nil {
@@ -24,6 +26,7 @@ func (s *stepPlan) rangeOf(n *yamlx.Node) yamlx.ByteRange {
 	}
 	return r
 }
+
 func (s *stepPlan) patch(r yamlx.ByteRange, text string) {
 	s.edits = append(s.edits, yamlx.Patch{Start: r.Start, End: r.End, Replacement: []byte(text)})
 }
@@ -74,7 +77,9 @@ func (s *stepPlan) contentEnd(n *yamlx.Node) int {
 	}
 	return end
 }
+
 func (s *stepPlan) lineStart(offset int) int { return bytes.LastIndexByte(s.src[:offset], '\n') + 1 }
+
 func (s *stepPlan) deletion(p yamlx.Pair) yamlx.ByteRange {
 	r := s.rangeOf(p.Key)
 	// Remove indentation along with the entry so no whitespace-only line leaks
@@ -83,6 +88,7 @@ func (s *stepPlan) deletion(p yamlx.Pair) yamlx.ByteRange {
 	r.End = s.contentEnd(p.Value)
 	return r
 }
+
 func (s *stepPlan) unit() int {
 	pairs, _ := s.step.Map()
 	if len(pairs) == 0 {
@@ -97,6 +103,7 @@ func (s *stepPlan) unit() int {
 	}
 	return 2
 }
+
 func (s *stepPlan) taskKeyColumn() int {
 	pairs, _ := s.step.Map()
 	for _, p := range pairs {

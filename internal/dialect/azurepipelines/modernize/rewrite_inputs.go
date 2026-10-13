@@ -2,8 +2,11 @@ package modernize
 
 import (
 	"encoding/json"
-	"github.com/HarnageaGabriel/trasloco/internal/catalog"
+	"maps"
+	"slices"
 	"strings"
+
+	"github.com/HarnageaGabriel/trasloco/internal/catalog"
 )
 
 // Appendix A of docs/spec/modernize-ado.md, transcribed as data. These facts
@@ -17,7 +20,9 @@ var legacyInputs = func() map[string][]catalog.Input {
 }()
 
 func oldTaskVersion(cat *catalog.Catalog, ref string) *catalog.TaskVersion {
-	for name, inputs := range legacyInputs {
+	names := slices.Sorted(maps.Keys(legacyInputs))
+	for _, name := range names {
+		inputs := legacyInputs[name]
 		if strings.EqualFold(name, ref) {
 			return &catalog.TaskVersion{Inputs: inputs}
 		}
