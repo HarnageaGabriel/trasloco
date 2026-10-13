@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `modernize --write` rewrites class A/B tasks with specification-defined
+  fail-closed guards; class C/D tasks are never edited. It preserves unchanged
+  files and reports manual migrations and rewrite diagnostics in
+  text, JSON and SARIF. Combine with `--check` to check remaining findings.
+  Do not run concurrently with other editors: a check-to-rename window remains.
+  Replacement preserves permission bits, attempts Unix uid/gid preservation and
+  syncs the Unix directory; ACLs, extended attributes and Windows ADS are not preserved.
+  Symlinks and UTF-16 files are not rewritten; self-check failures leave the
+  original file untouched and return exit code 1.
+- Internal parser for the Azure Pipelines modernization mapping language, with
+  tests loaded from all 73 specification programs.
+- Internal modernization byte-edit application preserving the program order of
+  insertions at the same offset, with bounds, overlap and fuzz checks.
+
 ## [0.1.1] - 2026-10-13
 
 ### Changed

@@ -11,6 +11,8 @@ import (
 type catalogIndex struct {
 	cat    *catalog.Catalog
 	byGUID map[string][]catalog.Modernization
+	// onStep shares detection's discovery with the pure rewrite engine.
+	onStep func(*yamlx.Node, *yamlx.Node)
 }
 
 func newIndex(cat *catalog.Catalog) catalogIndex {

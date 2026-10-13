@@ -180,6 +180,9 @@ func walkMapping(node *yamlx.Node, context walkContext, emit func(Finding), inde
 	if context.tasks {
 		if task := stepTask(pairs, context.freeform); task != nil {
 			isStep = true
+			if index.onStep != nil {
+				index.onStep(node, task)
+			}
 			if finding, ok := index.reference(task); ok {
 				emit(finding)
 			}

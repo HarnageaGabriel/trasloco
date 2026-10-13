@@ -38,14 +38,34 @@ func writeModernizeReport(a *app, format string, result modernizeResult, executi
 // is present (never null). filesScanned counts the YAML files read;
 // filesSkipped is the part of them that is not an Azure Pipelines file.
 type modernizeJSONReport struct {
+	Diagnostics  []diag.Diagnostic   `json:"diagnostics"`
+	Summary      *modernizeSummary   `json:"summary,omitempty"`
+	SummaryText  string              `json:"summaryText,omitempty"`
 	Findings     []modernize.Finding `json:"findings"`
 	Warnings     []modernizeWarning  `json:"warnings"`
 	FilesScanned int                 `json:"filesScanned"`
 	FilesSkipped int                 `json:"filesSkipped"`
 }
 
+type modernizeSummary struct {
+	StepsRewritten int `json:"stepsRewritten"`
+	FilesRewritten int `json:"filesRewritten"`
+	ManualSteps    int `json:"manualSteps"`
+}
+
+func (s modernizeSummary) String() string {
+	return fmt.Sprintf("Rewrote %d step(s) in %d file(s); %d step(s) need manual migration", s.StepsRewritten, s.FilesRewritten, s.ManualSteps)
+}
+
 func modernizeJSON(result modernizeResult) modernizeJSONReport {
 	report := modernizeJSONReport{Findings: result.findings, Warnings: result.warnings, FilesScanned: result.scanned, FilesSkipped: result.skipped}
+	report.Diagnostics, report.Summary = result.diagnostics, result.summary
+	if report.Summary != nil {
+		report.SummaryText = report.Summary.String()
+	}
+	if report.Diagnostics == nil {
+		report.Diagnostics = []diag.Diagnostic{}
+	}
 	if report.Findings == nil {
 		report.Findings = []modernize.Finding{}
 	}
@@ -65,6 +85,10 @@ func writeModernizeText(out io.Writer, result modernizeResult) error {
 		}
 	}
 	var builder strings.Builder
+	for _, d := range result.diagnostics {
+		path, line, column := modernizeDiagnosticLocation(d)
+		fmt.Fprintf(&builder, "%s:%d:%d  %s  %s\n", path, line, column, d.Code, d.Message)
+	}
 	previous := ""
 	for _, finding := range actionable {
 		if previous != "" && previous != finding.Path {
@@ -105,6 +129,9 @@ func writeModernizeText(out io.Writer, result modernizeResult) error {
 		}
 		fmt.Fprintf(&builder, "\nFound %d retired task reference(s) in %d file(s): %d drop-in, %d with input changes, %d manual, %d no replacement. %s\n",
 			len(actionable), len(files), a, b, c, d, retirementNotice)
+	}
+	if result.summary != nil {
+		fmt.Fprintln(&builder, result.summary.String())
 	}
 	_, err := io.WriteString(out, builder.String())
 	return err
@@ -150,6 +177,7 @@ type sarifLog struct {
 	Runs    []sarifRun `json:"runs"`
 }
 type sarifRun struct {
+	Properties  map[string]any    `json:"properties,omitempty"`
 	Tool        sarifTool         `json:"tool"`
 	Invocations []sarifInvocation `json:"invocations"`
 	Results     []sarifResult     `json:"results"`
@@ -265,7 +293,20 @@ func sarifLocationOf(path string, line, column int) sarifLocation {
 
 func makeSARIF(result modernizeResult, executionSuccessful bool) sarifLog {
 	rules := make([]sarifRule, 0, len(sarifRuleCodes))
-	for _, code := range sarifRuleCodes {
+	codes := append([]string(nil), sarifRuleCodes...)
+	for _, d := range result.diagnostics {
+		found := false
+		for _, code := range codes {
+			if code == d.Code {
+				found = true
+				break
+			}
+		}
+		if !found {
+			codes = append(codes, d.Code)
+		}
+	}
+	for _, code := range codes {
 		entry, _ := diag.Lookup(code)
 		rules = append(rules, sarifRule{
 			ID: code, Name: code, ShortDescription: sarifText{Text: entry.Title}, Help: sarifText{Text: entry.Remediation},
@@ -273,6 +314,18 @@ func makeSARIF(result modernizeResult, executionSuccessful bool) sarifLog {
 		})
 	}
 	results := make([]sarifResult, 0, len(result.findings))
+	for _, d := range result.diagnostics {
+		path, line, column := modernizeDiagnosticLocation(d)
+		level := string(d.Severity)
+		if d.Severity == diag.SeverityInfo {
+			level = "note"
+		}
+		results = append(results, sarifResult{
+			RuleID: d.Code, Level: level, Message: sarifText{Text: d.Message},
+			Locations:  []sarifLocation{sarifLocationOf(path, line, column)},
+			Properties: map[string]any{"diagnostic": d},
+		})
+	}
 	for _, finding := range result.findings {
 		message := fmt.Sprintf("%s: %s", finding.RetiredTask, finding.Action)
 		properties := map[string]any{"help": helpOf(finding)}
@@ -302,12 +355,26 @@ func makeSARIF(result modernizeResult, executionSuccessful bool) sarifLog {
 			Locations: []sarifLocation{sarifLocationOf(warning.Path, warning.Line, warning.Column)},
 		})
 	}
+	var properties map[string]any
+	if result.summary != nil {
+		properties = map[string]any{"summary": result.summary, "summaryText": result.summary.String()}
+	}
 	return sarifLog{
 		Version: "2.1.0", Schema: "https://json.schemastore.org/sarif-2.1.0.json",
 		Runs: []sarifRun{{
+			Properties:  properties,
 			Tool:        sarifTool{Driver: sarifDriver{Name: "trasloco modernize", InformationURI: retirementURL, Rules: rules}},
 			Invocations: []sarifInvocation{{ExecutionSuccessful: executionSuccessful, ToolExecutionNotifications: notifications}},
 			Results:     results,
 		}},
 	}
+}
+
+func modernizeDiagnosticLocation(d diag.Diagnostic) (path string, line, column int) {
+	line, column = 1, 1
+	if d.Source != nil {
+		path = d.Source.File
+		line, column = max(1, d.Source.Line), max(1, d.Source.Col)
+	}
+	return path, line, column
 }

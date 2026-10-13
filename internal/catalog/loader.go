@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
+	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/modernize/program"
 	catalogschema "github.com/HarnageaGabriel/trasloco/schemas/catalog"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"go.yaml.in/yaml/v3"
@@ -233,6 +234,9 @@ func (c *Catalog) buildIndexes(collector *diag.Collector) []error {
 	}
 	for i := range c.Modernizations {
 		entry := &c.Modernizations[i]
+		if _, err := program.Parse(entry.Program, entry.Class); err != nil {
+			failures = append(failures, catalogError("azure-pipelines/modernize.yaml", fmt.Sprintf("invalid modernization program for %s (class %s): %v", entry.Task, entry.Class, err), collector))
+		}
 		name, major, ok := splitRef(entry.Task)
 		if !ok {
 			continue
