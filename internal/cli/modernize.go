@@ -49,6 +49,12 @@ Replacement preserves permission bits and attempts uid/gid preservation on Unix
 after rename. ACLs, extended attributes and Windows alternate data streams (ADS)
 are not preserved. Windows uses rename because portable in-place writes are not atomic.
 Use --write --check to return exit 5 if actionable findings remain afterward.
+With --write, every reported line and column refers to the file as it is on
+disk after the run: the rewritten file when it was written, the original when
+it was not. A step that could not be rewritten and is still reported as a
+finding is listed once, with the reason as a note on that finding. If the
+rewrite self-check fails, the original file is left untouched and the exit
+code is 1.
 All report formats, including SARIF, support --write.
 
 Only files that look like Azure Pipelines files are examined; GitHub
@@ -245,6 +251,7 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		}
 		return x.Code < y.Code
 	})
+	mergeRewriteDiagnostics(&result)
 	if result.summary != nil {
 		result.summary.ManualSteps = result.actionable()
 	}

@@ -99,6 +99,10 @@ type Diagnostic struct {
 	Remediation string         `json:"remediation"`
 	DocsURL     string         `json:"docsUrl"`
 	Params      map[string]any `json:"params,omitempty"`
+
+	// Step is the position of the task reference of the step a rewrite
+	// diagnostic belongs to. It is internal and never serialized.
+	Step *Source `json:"-"`
 }
 
 // Entry is one stable registry definition.

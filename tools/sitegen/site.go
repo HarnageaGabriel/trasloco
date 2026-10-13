@@ -495,6 +495,9 @@ func (c *Config) application() map[string]any {
 	}
 	if c.ToolAvailable {
 		application["description"] = "Open-source command-line tool that finds retired Azure Pipelines tasks with trasloco modernize --check. Automatic upgrades are planned."
+		if c.RewriteAvailable {
+			application["description"] = "Open-source command-line tool that finds retired Azure Pipelines tasks with trasloco modernize --check and rewrites the safe ones with trasloco modernize --write."
+		}
 		application["downloadUrl"] = releasesURL
 	}
 	return application

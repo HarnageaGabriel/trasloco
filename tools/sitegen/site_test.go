@@ -465,6 +465,18 @@ func TestRewriteFlag(t *testing.T) {
 	if !strings.Contains(string(site["tasks/copyfiles-1/index.html"]), "trasloco modernize --write rewrites this step") {
 		t.Error("class A page ignores -rewrite-available")
 	}
+	if !strings.Contains(string(site["index.html"]), "trasloco modernize --write</code>, rewrites the safe ones") {
+		t.Error("index text ignores -rewrite-available")
+	}
+	if strings.Contains(string(generateFixture(t, func() Config { c := testConfig(); c.ToolAvailable = true; return c }())["index.html"]), "modernize --write") {
+		t.Error("index text mentions --write while rewrite is unavailable")
+	}
+	if got := (&Config{ToolAvailable: true, RewriteAvailable: true}).application()["description"].(string); !strings.Contains(got, "modernize --write") {
+		t.Errorf("JSON-LD description ignores -rewrite-available: %s", got)
+	}
+	if got := (&Config{ToolAvailable: true}).application()["description"].(string); strings.Contains(got, "--write") {
+		t.Errorf("JSON-LD description mentions --write while rewrite is unavailable: %s", got)
+	}
 	if !strings.Contains(string(site["tasks/androidbuild-1/index.html"]), "needs a manual migration") {
 		t.Error("class C page must stay manual")
 	}

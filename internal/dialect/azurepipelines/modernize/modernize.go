@@ -38,6 +38,8 @@ type Finding struct {
 	SourceURL    string   `json:"sourceUrl,omitempty"`
 	Help         string   `json:"help,omitempty"`
 	Diagnostics  []string `json:"diagnostics,omitempty"`
+	// RewriteNotes say why --write left the step unchanged.
+	RewriteNotes []string `json:"rewriteNotes,omitempty"`
 }
 
 // Actionable reports whether the finding is something the user has to fix.
