@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/HarnageaGabriel/trasloco/internal/catalog"
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
@@ -27,6 +28,7 @@ type stepPlan struct {
 	inputs          *yamlx.Node
 	inputKey        *yamlx.Node
 	values          []*inputValue
+	byCanonical     map[string]*inputValue
 	old, new        *catalog.TaskVersion
 	failures        []diag.Diagnostic
 	failed          map[string]bool
@@ -64,13 +66,20 @@ func (s *stepPlan) canonical(key string) string {
 }
 
 func (s *stepPlan) find(key string) *inputValue {
-	canonical := s.canonical(key)
-	for _, v := range s.values {
-		if strings.EqualFold(v.canonical, canonical) {
-			return v
+	return s.byCanonical[foldInputKey(s.canonical(key))]
+}
+
+// Match EqualFold, including Unicode fold cycles such as S/s/long-s.
+func foldInputKey(key string) string {
+	return strings.Map(func(r rune) rune {
+		least := r
+		for next := unicode.SimpleFold(r); next != r; next = unicode.SimpleFold(next) {
+			if next < least {
+				least = next
+			}
 		}
-	}
-	return nil
+		return least
+	}, key)
 }
 
 func (s *stepPlan) fail(key, reason string, anchor *yamlx.Node) {
@@ -128,10 +137,14 @@ func (s *stepPlan) plan(raw, name string, full bool) ([]yamlx.Patch, []diag.Diag
 	s.old = oldTaskVersion(s.cat, s.row.Task)
 	s.new = taskVersion(s.cat, s.row.Replacement[0])
 	s.failed = map[string]bool{}
+	s.byCanonical = map[string]*inputValue{}
 	s.changes = []map[string]any{}
 	s.review = []map[string]any{}
 	pairs, _ := s.step.Map()
 	for _, p := range pairs {
+		if strings.Contains(p.Key.Value(), "${{") {
+			return s.layout("dynamic-input-key")
+		}
 		if strings.EqualFold(p.Key.Value(), "inputs") {
 			s.inputs = p.Value
 			s.inputKey = p.Key
@@ -168,7 +181,9 @@ func (s *stepPlan) plan(raw, name string, full bool) ([]yamlx.Patch, []diag.Diag
 					old = true
 				}
 			}
-			s.values = append(s.values, &inputValue{pair: p, canonical: canonical, old: old, accepted: accepted})
+			v := &inputValue{pair: p, canonical: canonical, old: old, accepted: accepted}
+			s.values = append(s.values, v)
+			s.byCanonical[foldInputKey(canonical)] = v
 		}
 	}
 	if len(s.failures) > 0 {

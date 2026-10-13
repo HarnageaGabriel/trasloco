@@ -205,6 +205,11 @@ func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yam
 			nodes[r] = identity{n.Kind(), n.Tag(), n.Value()}
 		}
 	})
+	type originalNode struct {
+		node *yamlx.Node
+		span yamlx.ByteRange
+	}
+	var originals []originalNode
 	var problem error
 	visitNodes(before.Documents, func(n *yamlx.Node) {
 		r, e := n.ByteRange()
@@ -212,25 +217,36 @@ func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yam
 			problem = e
 			return
 		}
-		delta := 0
-		for _, edit := range ordered {
-			if edit.Start < r.End && edit.End > r.Start || edit.Start == edit.End && edit.Start > r.Start && edit.Start < r.End {
-				return
+		originals = append(originals, originalNode{n, r})
+	})
+	sort.Slice(originals, func(i, j int) bool { return originals[i].span.Start < originals[j].span.Start })
+	// Non-overlapping edits have monotonic ends. Sweep once across sorted
+	// nodes, accumulating offsets; only the next edit can intersect a node.
+	delta, next := 0, 0
+	for _, original := range originals {
+		n, r := original.node, original.span
+		for next < len(ordered) && ordered[next].End <= r.Start {
+			edit := ordered[next]
+			delta += len(edit.Replacement) - (edit.End - edit.Start)
+			next++
+		}
+		if next > 0 && n.Kind() != yamlx.ScalarKind {
+			previous := ordered[next-1]
+			if previous.Start == previous.End && previous.End == r.End {
+				continue
 			}
-			// An append at a collection's end extends that collection, but
-			// leaves its last scalar's bytes and meaning untouched.
-			if n.Kind() != yamlx.ScalarKind && edit.Start == edit.End && edit.Start == r.End {
-				return
-			}
-			if edit.End <= r.Start {
-				delta += len(edit.Replacement) - (edit.End - edit.Start)
+		}
+		if next < len(ordered) {
+			edit := ordered[next]
+			if edit.Start < r.End || n.Kind() != yamlx.ScalarKind && edit.Start == edit.End && edit.Start == r.End {
+				continue
 			}
 		}
 		got, ok := nodes[yamlx.ByteRange{Start: r.Start + delta, End: r.End + delta}]
 		if !ok || got != (identity{n.Kind(), n.Tag(), n.Value()}) {
 			problem = fmt.Errorf("unplanned node changed at %d:%d", n.Line(), n.Column())
 		}
-	})
+	}
 	return problem
 }
 

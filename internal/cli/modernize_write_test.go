@@ -172,7 +172,11 @@ func TestModernizeWriteFailures(t *testing.T) {
 		}
 	}
 	path := filepath.Join(root, "pipeline.yml")
-	if err := writeModernizeFile(path, []byte("stale contents"), []byte("replacement")); err == nil {
+	initial, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeModernizeFile(path, []byte("stale contents"), []byte("replacement"), initial); err == nil {
 		t.Fatal("overwrote a concurrently changed file")
 	}
 	got, err := os.ReadFile(path)

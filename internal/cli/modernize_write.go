@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/HarnageaGabriel/trasloco/internal/diag"
+	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 )
 
 var errModernizeSymlink = errors.New("symbolic links are not followed")
@@ -73,33 +76,66 @@ func openModernizeDirectory(path string) (*os.Root, error) {
 	return root, nil
 }
 
-func readModernizeFile(root *os.Root, name string) ([]byte, error) {
+type modernizeSizeError struct{ size int64 }
+
+func (e *modernizeSizeError) diagnostic(path string) diag.Diagnostic {
+	return diag.MustNew("TRL-PARSE-0005", diag.WithSource(diag.Source{File: path, Line: 1, Col: 1}),
+		diag.WithParams(map[string]any{"limit": yamlx.DefaultSizeLimit, "size": e.size}))
+}
+
+func (e *modernizeSizeError) Error() string { return e.diagnostic("").Message }
+
+func readModernizeBounded(reader io.Reader, size int64) ([]byte, error) {
+	if size > yamlx.DefaultSizeLimit {
+		return nil, &modernizeSizeError{size}
+	}
+	data, err := io.ReadAll(io.LimitReader(reader, yamlx.DefaultSizeLimit+1))
+	if int64(len(data)) > yamlx.DefaultSizeLimit {
+		return nil, &modernizeSizeError{int64(len(data))}
+	}
+	return data, err
+}
+
+func sameModernizeSource(before, after os.FileInfo) bool {
+	return after.Mode().IsRegular() && os.SameFile(before, after) &&
+		before.Size() == after.Size() && before.ModTime().Equal(after.ModTime())
+}
+
+func readModernizeFile(root *os.Root, name string) ([]byte, os.FileInfo, error) {
 	info, err := root.Lstat(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, errModernizeSymlink
+		return nil, nil, errModernizeSymlink
 	}
 	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("refusing to read a non-regular file")
+		return nil, nil, fmt.Errorf("refusing to read a non-regular file")
 	}
 	file, err := root.Open(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { _ = file.Close() }()
 	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
-		return nil, fmt.Errorf("file changed during modernization")
+	if err != nil || !sameModernizeSource(info, opened) {
+		return nil, nil, fmt.Errorf("file changed during modernization")
 	}
-	return io.ReadAll(file)
+	data, err := readModernizeBounded(file, opened.Size())
+	if err != nil {
+		return nil, nil, err
+	}
+	after, err := file.Stat()
+	if err != nil || !sameModernizeSource(opened, after) {
+		return nil, nil, fmt.Errorf("file changed during modernization")
+	}
+	return data, opened, nil
 }
 
-func readModernizeWriteSource(path string) ([]byte, error) {
+func readModernizeWriteSource(path string) ([]byte, os.FileInfo, error) {
 	root, err := openModernizeDirectory(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { _ = root.Close() }()
 	return readModernizeFile(root, filepath.Base(path))
@@ -107,7 +143,7 @@ func readModernizeWriteSource(path string) ([]byte, error) {
 
 // Keep replacement operations relative to an open directory, so a directory
 // substitution cannot redirect the temporary file or rename outside that root.
-func writeModernizeFile(path string, original, out []byte) error {
+func writeModernizeFile(path string, original, out []byte, initial os.FileInfo) error {
 	if err := modernizeNoSymlinks(path); err != nil {
 		return err
 	}
@@ -124,6 +160,9 @@ func writeModernizeFile(path string, original, out []byte) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("refusing to replace a non-regular file")
 	}
+	if !sameModernizeSource(initial, info) {
+		return fmt.Errorf("file changed during modernization")
+	}
 	tempName := ".trasloco-" + rand.Text()
 	temp, err := root.OpenFile(tempName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -136,6 +175,9 @@ func writeModernizeFile(path string, original, out []byte) error {
 	if _, err := temp.Write(out); err != nil {
 		return err
 	}
+	if err := preserveModernizeOwner(temp, info); err != nil {
+		return err
+	}
 	if err := temp.Chmod(info.Mode().Perm()); err != nil {
 		return err
 	}
@@ -145,19 +187,17 @@ func writeModernizeFile(path string, original, out []byte) error {
 	if err := temp.Close(); err != nil {
 		return err
 	}
-	current, err := root.Lstat(name)
+	data, current, err := readModernizeFile(root, name)
 	if err != nil {
 		return err
 	}
-	if !current.Mode().IsRegular() || !os.SameFile(info, current) {
+	if !sameModernizeSource(initial, current) || !bytes.Equal(data, original) {
 		return fmt.Errorf("file changed during modernization")
 	}
-	data, err := readModernizeFile(root, name)
-	if err != nil {
+	// No portable compare-and-swap exists for file replacement. The help
+	// explicitly forbids concurrent editors during the remaining rename window.
+	if err := root.Rename(tempName, name); err != nil {
 		return err
 	}
-	if !bytes.Equal(data, original) {
-		return fmt.Errorf("file changed during modernization")
-	}
-	return root.Rename(tempName, name)
+	return syncModernizeDirectory(root)
 }

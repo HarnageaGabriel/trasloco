@@ -33,14 +33,21 @@ func newModernizeCmd(a *app) *cobra.Command {
 	options := modernizeOptions{}
 	cmd := &cobra.Command{
 		Use:   "modernize [paths...]",
-		Short: "Report or safely rewrite retired Azure Pipelines task versions",
+		Short: "Report or rewrite retired Azure Pipelines task versions with fail-closed guards",
 		Long: `Find references to Azure Pipelines tasks that Microsoft retires on 2026-10-15
 (removed 2027-03-15) in the YAML files under the given paths (default: the
 current directory). Nothing is modified unless --write is given.
 
---write safely rewrites class A/B tasks in place; class C/D tasks and unsafe
-rewrites are reported for manual migration. Unchanged files are not touched.
+--write rewrites class A/B tasks with the specification's fail-closed guards;
+class C/D tasks are never edited. Rejected rewrites need manual migration.
+Unchanged files are not touched.
 Symbolic links are skipped. UTF-16 files are reported but not rewritten.
+Files are checked for size, mtime and content changes before replacement, but
+a race window remains: do not run concurrently with other tools that edit the same files.
+Replacement preserves permission bits and attempts uid/gid preservation on Unix
+(permission-denied ownership changes are ignored). Unix directories are synced
+after rename. ACLs, extended attributes and Windows alternate data streams (ADS)
+are not preserved. Windows uses rename because portable in-place writes are not atomic.
 Use --write --check to return exit 5 if actionable findings remain afterward.
 All report formats, including SARIF, support --write.
 
@@ -69,7 +76,7 @@ command exits 1.`,
 		},
 	}
 	cmd.Flags().BoolVar(&options.check, "check", false, "return exit code 5 when retired tasks are found")
-	cmd.Flags().BoolVar(&options.write, "write", false, "safely rewrite class A/B tasks in place; report steps needing manual migration")
+	cmd.Flags().BoolVar(&options.write, "write", false, "rewrite class A/B tasks with fail-closed guards; report steps needing manual migration")
 	cmd.Flags().BoolVar(&options.strict, "strict", false, "return exit code 1 when an Azure Pipelines file cannot be parsed")
 	cmd.Flags().StringVar(&options.format, "format", "text", "report format: text, json or sarif")
 	return cmd
@@ -143,13 +150,19 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 			}
 		}
 		var data []byte
+		var initial os.FileInfo
 		var readErr error
-		if options.write {
-			data, readErr = readModernizeWriteSource(file.path)
-		} else {
-			data, readErr = os.ReadFile(file.path) //nolint:gosec // paths are the command's explicit scan targets
-		}
+		data, initial, readErr = readModernizeWriteSource(file.path)
 		if readErr != nil {
+			var sizeErr *modernizeSizeError
+			if errors.As(readErr, &sizeErr) {
+				d := sizeErr.diagnostic(file.display)
+				result.scanned++
+				strictFailed = true
+				result.warnings = append(result.warnings, modernizeWarning{Code: d.Code, Severity: string(d.Severity), Path: file.display, Line: 1, Column: 1, Message: d.Message})
+				_, _ = fmt.Fprintf(a.io.Err, "warning: %s:1:1: %s: %s\n", file.display, d.Code, d.Message)
+				continue
+			}
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)
 			if file.explicit || options.write {
 				ioFailed++
@@ -184,7 +197,7 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 					}
 				}
 				if err == nil && changed && !selfCheckFailed {
-					err = writeModernizeFile(file.path, original, out)
+					err = writeModernizeFile(file.path, original, out, initial)
 					if err == nil {
 						data = out
 						result.summary.FilesRewritten++

@@ -49,8 +49,12 @@ pipelines: every new platform works with all the others, **any platform to any
 platform**.
 
 The first pair is **Azure DevOps <-> GitHub**. The shipped `modernize --check`
-finds retired Azure Pipelines tasks; `modernize --write` safely rewrites class A/B
-tasks and reports class C/D tasks for manual migration. trasloco
+finds retired Azure Pipelines tasks; `modernize --write` rewrites class A/B
+tasks with the specification's fail-closed guards; class C/D tasks are never
+edited and are reported for manual migration. Do not run it concurrently with
+other tools that edit the same files. Replacement preserves permission bits and
+attempts uid/gid preservation on Unix, but does not preserve ACLs, extended
+attributes or Windows alternate data streams. trasloco
 is free software under Apache-2.0 and will stay free.
 
 > [!WARNING]
@@ -139,7 +143,7 @@ exists today.
 | Task retirement catalog (73 task versions) and built-in task catalog | Done | M2 |
 | `modernize --check` retired-task reporting (no rewrites) | Done | M2 / 0.1.0 |
 | Curated task -> action mappings | Planned | M2 |
-| Safe class A/B `modernize --write` rewrites; class C/D reported | Done | M2 |
+| Class A/B `modernize --write` with fail-closed guards; C/D never edited | Done | M2 |
 | GitHub Actions output and `convert` | Planned | M2 |
 | `audit` | Planned | M3 |
 | `plan` / `apply` / `resume` / `rollback` (the ledger is done) | Planned | M4 |
@@ -243,7 +247,7 @@ make docs-check  # generated diagnostics docs are up to date
 |---|---|
 | M0 (done) | Foundations: CLI, config, diagnostics, events, redaction, ledger, HTTP, rate limiting, credential pool, cache |
 | M1 (done) | Read Azure Pipelines: parser, expressions, templates, variables, packing into the trasloco format |
-| M2 (in progress) | Task catalog, `modernize --check`, and safe `modernize --write` rewrites implemented; mappings, GitHub Actions output, and `convert` remain |
+| M2 (in progress) | Task catalog, `modernize --check`, and `modernize --write` rewrites with fail-closed guards implemented; mappings, GitHub Actions output, and `convert` remain |
 | M3 | Platform connections and `audit` |
 | M4 | `plan` / `apply` / `resume` / `rollback` to GitHub |
 | M5 | Hard cases: OIDC and workload identity federation, classic pipelines, deployment jobs, matrices |
