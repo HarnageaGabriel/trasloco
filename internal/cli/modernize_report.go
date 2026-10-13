@@ -86,6 +86,9 @@ func writeModernizeText(out io.Writer, result modernizeResult) error {
 	}
 	var builder strings.Builder
 	for _, d := range result.diagnostics {
+		if writeTextRewrittenStep(&builder, d) {
+			continue
+		}
 		path, line, column := modernizeDiagnosticLocation(d)
 		fmt.Fprintf(&builder, "%s:%d:%d  %s  %s\n", path, line, column, d.Code, d.Message)
 	}
@@ -153,8 +156,12 @@ func writeTextFinding(builder *strings.Builder, finding modernize.Finding) {
 			}
 		}
 	}
-	fmt.Fprintf(builder, "%s:%d:%d  %s -> %s  [%s]\n    %s\n    More: %s\n",
-		finding.Path, finding.Line, finding.Column, finding.RetiredTask, replacement, label, finding.Action, helpOf(finding))
+	fmt.Fprintf(builder, "%s:%d:%d  %s -> %s  [%s]\n    %s\n",
+		finding.Path, finding.Line, finding.Column, finding.RetiredTask, replacement, label, finding.Action)
+	for _, note := range finding.RewriteNotes {
+		fmt.Fprintf(builder, "    %s\n", note)
+	}
+	fmt.Fprintf(builder, "    More: %s\n", helpOf(finding))
 }
 
 func helpOf(finding modernize.Finding) string {

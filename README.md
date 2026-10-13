@@ -69,12 +69,22 @@ is free software under Apache-2.0 and will stay free.
 
 ## Try it now: find retired Azure Pipelines tasks
 
-Install [trasloco v0.1.0](https://github.com/HarnageaGabriel/trasloco/releases/tag/v0.1.0)
+Install the [latest trasloco release](https://github.com/HarnageaGabriel/trasloco/releases/latest)
 using the [installation guide](docs/install.md), then check a repository:
 
 ```sh
 trasloco modernize --check --format text -- .
 ```
+
+Or rewrite what can be rewritten safely (add `--check` to fail if anything is left):
+
+```sh
+trasloco modernize --write -- .
+```
+
+`--write` edits only class A and B tasks, each behind fail-closed guards that
+leave a step untouched when the rewrite is not provably safe; class C and D
+tasks are only reported, never edited.
 
 <p align="center">
   <img src="docs/assets/readme-retired-check.svg" width="880"

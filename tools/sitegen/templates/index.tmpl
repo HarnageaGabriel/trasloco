@@ -49,7 +49,7 @@
 <p>{{h .Answer}}</p>
 {{- end}}
 <h2 id="about">About trasloco</h2>
-<p>trasloco is an open-source command-line tool that finds retired Azure Pipelines tasks. CI/CD pipeline migration is planned. This site is generated from its catalog. Machine-readable versions: <a href="{{h .Base}}/feed.xml">Atom feed</a>, <a href="{{h .Base}}/llms.txt">llms.txt</a>, <a href="{{h .Base}}/llms-full.txt">llms-full.txt</a> and <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
+<p>trasloco is an open-source command-line tool that finds retired Azure Pipelines tasks{{if and .Cfg.ToolAvailable .Cfg.RewriteAvailable}} and, with <code>trasloco modernize --write</code>, rewrites the safe ones{{end}}. CI/CD pipeline migration is planned. This site is generated from its catalog. Machine-readable versions: <a href="{{h .Base}}/feed.xml">Atom feed</a>, <a href="{{h .Base}}/llms.txt">llms.txt</a>, <a href="{{h .Base}}/llms-full.txt">llms-full.txt</a> and <a href="{{h .Base}}/data/modernize.json">modernize.json</a>.</p>
 </main>
 {{template "footer" .}}
 </body>

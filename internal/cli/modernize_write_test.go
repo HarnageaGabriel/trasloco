@@ -53,7 +53,11 @@ func TestModernizeWrite(t *testing.T) {
 			if err := json.Unmarshal([]byte(output), &report); err != nil {
 				t.Fatal(err)
 			}
-			if tc.diagnostic != "" && (len(report.Diagnostics) == 0 || report.Diagnostics[0].Code != tc.diagnostic) {
+			if tc.diagnostic == "TRL-MOD-0003" || tc.diagnostic == "TRL-MOD-0006" {
+				if len(report.Diagnostics) != 0 || len(report.Findings) != 1 || (tc.diagnostic == "TRL-MOD-0006") != (len(report.Findings[0].RewriteNotes) == 1) {
+					t.Fatalf("want one finding and no diagnostic for %s: %s", tc.diagnostic, output)
+				}
+			} else if tc.diagnostic != "" && (len(report.Diagnostics) == 0 || report.Diagnostics[0].Code != tc.diagnostic) {
 				t.Fatalf("missing %s: %s", tc.diagnostic, output)
 			}
 			got, err := os.ReadFile(path)
@@ -138,7 +142,7 @@ func TestModernizeWriteReports(t *testing.T) {
 		t.Run(format, func(t *testing.T) {
 			root := writeTree(t, map[string]string{"pipeline.yml": "steps:\n- task: CopyFiles@1.1.4\n"})
 			code, output, stderr := executeModernize(t, "modernize", "--write", "--format", format, root)
-			if code != ExitOK || stderr != "" || !strings.Contains(output, "TRL-MOD-0001") || !strings.Contains(output, "TRL-MOD-0011") {
+			if code != ExitOK || stderr != "" || !strings.Contains(output, map[bool]string{true: "CopyFiles@1 -> CopyFiles@2  [rewritten]", false: "TRL-MOD-0001"}[format == "text"]) || !strings.Contains(output, "TRL-MOD-0011") {
 				t.Fatalf("exit=%d\n%s\n%s", code, output, stderr)
 			}
 			if format == "text" && !strings.Contains(output, "Rewrote 1 step(s) in 1 file(s); 0 step(s) need manual migration") {

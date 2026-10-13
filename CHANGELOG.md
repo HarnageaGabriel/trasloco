@@ -7,21 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
 ### Added
 
-- `modernize --write` rewrites class A/B tasks with specification-defined
-  fail-closed guards; class C/D tasks are never edited. It preserves unchanged
-  files and reports manual migrations and rewrite diagnostics in
-  text, JSON and SARIF. Combine with `--check` to check remaining findings.
-  Do not run concurrently with other editors: a check-to-rename window remains.
-  Replacement preserves permission bits, attempts Unix uid/gid preservation and
-  syncs the Unix directory; ACLs, extended attributes and Windows ADS are not preserved.
-  Symlinks and UTF-16 files are not rewritten; self-check failures leave the
-  original file untouched and return exit code 1.
-- Internal parser for the Azure Pipelines modernization mapping language, with
-  tests loaded from all 73 specification programs.
-- Internal modernization byte-edit application preserving the program order of
-  insertions at the same offset, with bounds, overlap and fuzz checks.
+- `modernize --write` rewrites class A/B tasks behind fail-closed guards and
+  reports class C/D tasks without editing them. Unchanged files are not
+  touched, permission bits are kept, and symlinks and UTF-16 files are skipped.
+  Add `--check` to exit 5 when findings remain. Works with text, JSON and SARIF
+  output. Do not run it while other tools edit the same files.
+
+### Changed
+
+- With `--write`, every reported line and column refers to the file as it is on
+  disk after the run (#48). Rewritten steps print as
+  `path:line:col  CopyFiles@1 -> CopyFiles@2  [rewritten]`, with the pinned,
+  renamed or dropped inputs of class B steps listed below. A step that was not
+  rewritten and is still reported by `--check` appears once, with the reason
+  the rewrite was refused. JSON findings gain `rewriteNotes` for that reason.
 
 ## [0.1.1] - 2026-10-13
 

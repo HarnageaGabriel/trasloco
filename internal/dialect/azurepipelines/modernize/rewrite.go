@@ -110,6 +110,7 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 	if err != nil {
 		return rewriteSelfCheckFailure(src, path)
 	}
+	remapDiagnostics(ds, src, out, edits)
 	return out, ds, edits, nil
 }
 
