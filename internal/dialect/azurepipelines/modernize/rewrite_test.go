@@ -75,7 +75,7 @@ func TestRewriteMODV(t *testing.T) {
 	cat := testCatalog(t)
 	passed := 0
 	for _, v := range rewriteVectors(t) {
-		if t.Run(v.id, func(t *testing.T) {
+		t.Run(v.id, func(t *testing.T) {
 			input := []byte(v.input)
 			original := bytes.Clone(input)
 			out, ds, changed, err := Rewrite(context.Background(), input, "vector.yml", cat)
@@ -101,11 +101,43 @@ func TestRewriteMODV(t *testing.T) {
 			if againErr != nil || againChanged != changed || !bytes.Equal(out, again) || !reflect.DeepEqual(ds, againDS) {
 				t.Fatal("nondeterministic rewrite")
 			}
-		}) {
-			passed++
-		}
+			if !t.Failed() {
+				passed++
+			}
+		})
 	}
 	t.Logf("MODV: %d / 80 passing", passed)
+}
+
+func TestRewriteRejectsInvalidSourceRanges(t *testing.T) {
+	src := []byte("steps:\n- tAsk: GrAdle@1\n  \xeb:")
+	out, ds, changed, err := Rewrite(context.Background(), src, "invalid.yml", testCatalog(t))
+	if err != nil || changed || !bytes.Equal(out, src) || len(ds) != 1 || ds[0].Code != "TRL-INT-0002" {
+		t.Fatalf("invalid source ranges: changed=%v err=%v diagnostics=%v", changed, err, ds)
+	}
+}
+
+func TestRewriteSelfCheckCollectionBoundary(t *testing.T) {
+	src := []byte("steps:\n- task: CopyFiles@1\n  inputs:\n    Contents: src")
+	doc, _ := parseRewrite("test.yml", src)
+	for _, tc := range []struct {
+		name, insertion string
+		valid           bool
+	}{
+		{"new entry", "\n    TargetFolder: out", true},
+		{"changes last scalar", "suffix", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			edits := []yamlx.Patch{{Start: len(src), End: len(src), Replacement: []byte(tc.insertion)}}
+			out, err := ApplyEdits(src, edits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := selfCheck("test.yml", src, out, doc, edits, 1); (err == nil) != tc.valid {
+				t.Fatalf("valid=%v: %v", tc.valid, err)
+			}
+		})
+	}
 }
 
 func TestRewriteIdempotence(t *testing.T) {

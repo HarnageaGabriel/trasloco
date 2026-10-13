@@ -43,9 +43,13 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 	if doc == nil || hasError(ds) {
 		return src, ds, nil, nil
 	}
+	// The structure reader may normalize malformed input. Never use its
+	// coordinates for splices unless they still refer to the source buffer.
+	if !validRewriteRanges(doc, len(src)) {
+		return src, []diag.Diagnostic{selfCheckDiagnostic(path)}, nil, nil
+	}
 	idx := newIndex(cat)
 	var edits []yamlx.Patch
-	handled := map[int]bool{}
 	steps := 0
 	var planErr error
 	idx.onStep = func(step, task *yamlx.Node) {
@@ -59,7 +63,6 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 		if state != retiredOnce {
 			return
 		}
-		handled[task.Position().Offset] = true
 		p, err := program.Parse(row.Program, row.Class)
 		if err != nil {
 			planErr = err
@@ -89,7 +92,6 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 			ds = append(ds, diag.MustNew(f.Code, diag.WithSource(diag.Source{File: path, Line: f.Line, Col: f.Column}), diag.WithParams(map[string]any{"value": f.RetiredTask})))
 		}, idx)
 	}
-	_ = handled
 	if err := ctx.Err(); err != nil {
 		return src, nil, nil, err
 	}
@@ -105,10 +107,24 @@ func rewrite(ctx context.Context, src []byte, path string, cat *catalog.Catalog)
 		err = selfCheck(path, src, out, doc, edits, steps)
 	}
 	if err != nil {
-		d := diag.MustNew("TRL-INT-0002", diag.WithSource(diag.Source{File: path}), diag.WithMessage("Modernization self-check failed"))
-		return src, []diag.Diagnostic{d}, nil, nil
+		return src, []diag.Diagnostic{selfCheckDiagnostic(path)}, nil, nil
 	}
 	return out, ds, edits, nil
+}
+
+func selfCheckDiagnostic(path string) diag.Diagnostic {
+	return diag.MustNew("TRL-INT-0002", diag.WithSource(diag.Source{File: path}), diag.WithMessage("Modernization self-check failed"))
+}
+
+func validRewriteRanges(doc *yamlx.Document, length int) bool {
+	valid := true
+	visitNodes(doc.Documents, func(n *yamlx.Node) {
+		r, err := n.ByteRange()
+		if err != nil || r.Start < 0 || r.End < r.Start || r.End > length {
+			valid = false
+		}
+	})
+	return valid
 }
 
 func rewriteDiagnostic(code string, node *yamlx.Node, params map[string]any) diag.Diagnostic {
@@ -140,7 +156,7 @@ func dynamic(s string) bool {
 // compared at its shifted byte coordinates, including keys and script steps.
 func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yamlx.Patch, steps int) error {
 	after, ds := parseRewrite(path, out)
-	if after == nil || hasError(ds) {
+	if after == nil || hasError(ds) || !validRewriteRanges(after, len(out)) {
 		return fmt.Errorf("invalid rewritten document")
 	}
 	count := 0
@@ -197,13 +213,18 @@ func selfCheck(path string, src, out []byte, before *yamlx.Document, edits []yam
 			if edit.Start < r.End && edit.End > r.Start || edit.Start == edit.End && edit.Start > r.Start && edit.Start < r.End {
 				return
 			}
+			// An append at a collection's end extends that collection, but
+			// leaves its last scalar's bytes and meaning untouched.
+			if n.Kind() != yamlx.ScalarKind && edit.Start == edit.End && edit.Start == r.End {
+				return
+			}
 			if edit.End <= r.Start {
 				delta += len(edit.Replacement) - (edit.End - edit.Start)
 			}
 		}
 		got, ok := nodes[yamlx.ByteRange{Start: r.Start + delta, End: r.End + delta}]
 		if !ok || got != (identity{n.Kind(), n.Tag(), n.Value()}) {
-			problem = fmt.Errorf("unplanned node changed")
+			problem = fmt.Errorf("unplanned node changed at %d:%d", n.Line(), n.Column())
 		}
 	})
 	return problem
