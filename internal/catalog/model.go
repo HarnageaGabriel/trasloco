@@ -102,6 +102,7 @@ type Modernization struct {
 	Replacement []string `yaml:"replacement"`
 	Action      string   `yaml:"action"`
 	Class       string   `yaml:"class"`
+	Program     string   `yaml:"program"`
 	Sources     []string `yaml:"sources"`
 	Verify      []string `yaml:"verify,omitempty"`
 }

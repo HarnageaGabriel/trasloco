@@ -77,6 +77,7 @@ tasks:
     replacement: [Build@4]
     action: Replace Build@3 with Build@4 and review its inputs.
     class: B
+    program: 'rename kind -> mode'
     sources: [https://learn.microsoft.com/example]
     verify: [V1]
 `
@@ -165,6 +166,8 @@ func TestLoadInvalidDocuments(t *testing.T) {
 		"duplicate task":           {"azure-pipelines/tasks.generated.yaml": {Data: []byte(tasksFixture + strings.Replace(tasksFixture, "schemaVersion: 1\nkind: tasks-generated\nsource:\n  repo: https://github.com/microsoft/azure-pipelines-tasks\n  commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n  license: MIT\ntasks:\n", "", 1))}},
 		"bad modernization class":  {"azure-pipelines/modernize.yaml": {Data: []byte(strings.Replace(modernizationFixture, "class: B", "class: E", 1))}},
 		"modernization operations": {"azure-pipelines/modernize.yaml": {Data: []byte(strings.Replace(modernizationFixture, "    verify: [V1]", "    operations: []", 1))}},
+		"missing program":          withModernization(strings.Replace(modernizationFixture, "    program: 'rename kind -> mode'\n", "", 1)),
+		"nonstring program":        withModernization(strings.Replace(modernizationFixture, "program: 'rename kind -> mode'", "program: 42", 1)),
 	}
 	for name, fsys := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -179,6 +182,60 @@ func TestLoadInvalidDocuments(t *testing.T) {
 			}
 			if len(collector.List()) == 0 {
 				t.Fatal("no diagnostic collected")
+			}
+		})
+	}
+}
+
+func TestModernizationProgramValidation(t *testing.T) {
+	const source = "docs/spec/modernize-ado.md#51-grammar"
+	tests := []struct {
+		name, class, program, problem, source string
+	}{
+		{"pass", "A", "pass", "", source},
+		{"operations", "B", "rename kind -> mode", "", source},
+		{"manual", "C", `manual "Review inputs."`, "", source},
+		{"guidance", "D", `guidance "Use a supported task."`, "", source},
+		{"invalid operation", "B", "rename kind mode", "expected  -> ", source},
+		{"trailing garbage", "A", "pass extra", "expected end of program", source},
+		{"pass class mismatch", "B", "pass", "expected class A", source},
+		{"operations class mismatch", "A", "rename kind -> mode", "expected class B", source},
+		{"manual class mismatch", "D", `manual "Review inputs."`, "expected class C", source},
+		{"guidance class mismatch", "C", `guidance "Use a supported task."`, "expected class D", source},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("source: %s", tt.source)
+			document := strings.NewReplacer(
+				"class: B", "class: "+tt.class,
+				"program: 'rename kind -> mode'", "program: '"+tt.program+"'",
+			).Replace(modernizationFixture)
+			collector := diag.NewCollector()
+			loaded, err := Load(context.Background(), withModernization(document), collector)
+			if tt.problem == "" {
+				if err != nil {
+					t.Fatalf("Load() error = %v", err)
+				}
+				if diff := cmp.Diff(tt.program, loaded.Modernizations[0].Program); diff != "" {
+					t.Fatalf("program mismatch (-want +got):\n%s", diff)
+				}
+				return
+			}
+			var diagnosticError *diag.Error
+			if !errors.As(err, &diagnosticError) {
+				t.Fatalf("Load() error = %v; want diagnostic error", err)
+			}
+			finding := diagnosticError.Finding
+			if finding.Code != "TRL-CAT-0005" || finding.Source == nil || finding.Source.File != "azure-pipelines/modernize.yaml" {
+				t.Fatalf("unexpected program diagnostic: %#v", finding)
+			}
+			for _, fragment := range []string{"Build@3", "mapping program", strings.Join(strings.Fields(tt.problem), " ")} {
+				if !strings.Contains(finding.Message, fragment) {
+					t.Errorf("diagnostic message %q does not contain %q", finding.Message, fragment)
+				}
+			}
+			if diff := cmp.Diff([]diag.Diagnostic{finding}, collector.List()); diff != "" {
+				t.Fatalf("collected diagnostic mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -266,11 +323,13 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 	linkUsePattern := regexp.MustCompile(`\[([^]]+)\]`)
 	verifyGroupPattern := regexp.MustCompile(`VERIFY: (V[0-9]+(?:, V[0-9]+)*)`)
 	verifyPattern := regexp.MustCompile(`V[0-9]+`)
+	programPattern := regexp.MustCompile("^`([^`]+)`")
 	type tableEntry struct {
 		Task        string
 		GUID        string
 		Replacement []string
 		Class       string
+		Program     string
 		Sources     []string
 		Verify      []string
 	}
@@ -307,6 +366,10 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 			t.Fatalf("specification row %d has no task reference", row)
 		}
 		task := taskMatch[1]
+		programMatch := programPattern.FindStringSubmatch(match[5])
+		if programMatch == nil {
+			t.Fatalf("specification row %d has no input mapping program", row)
+		}
 		if _, duplicate := seen[strings.ToLower(task)]; duplicate {
 			t.Fatalf("specification row %d duplicates %s", row, task)
 		}
@@ -333,7 +396,7 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 		}
 		want = append(want, tableEntry{
 			Task: task, GUID: guidPattern.FindString(match[2]), Replacement: replacements,
-			Class: match[4], Sources: sources, Verify: verify,
+			Class: match[4], Program: programMatch[1], Sources: sources, Verify: verify,
 		})
 	}
 	if err := scanner.Err(); err != nil {
@@ -350,7 +413,7 @@ func TestModernizationMatchesSpecificationTable(t *testing.T) {
 		verify := append(make([]string, 0, len(entry.Verify)), entry.Verify...)
 		got = append(got, tableEntry{
 			Task: entry.Task, GUID: entry.GUID, Replacement: replacements,
-			Class: entry.Class, Sources: entry.Sources, Verify: verify,
+			Class: entry.Class, Program: entry.Program, Sources: entry.Sources, Verify: verify,
 		})
 		counts[entry.Class]++
 	}
