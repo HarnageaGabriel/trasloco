@@ -446,14 +446,17 @@ func (c *conv) defaultPRTrigger(root *ast.Pipeline) (ir.Trigger, bool) {
 		c.newAcc(root.Source).in(root.Chain).note(codeSynth, "trigger", "pr", root.Source,
 			"Azure Repos Git uses branch policies for pull request validation; no pr trigger is synthesized")
 		return ir.Trigger{}, false
-	case RepositoryOther, RepositoryUnknown:
-		// The provider default is unconfirmed here: fire more often, never less,
-		// and mark the synthesized trigger approximated.
-		return c.defaultTrigger(root, "pr", ir.TriggerPR, diag.FidelityApproximated,
-			"default PR trigger: pull request validation for all branches (repository type unknown)"), true
-	default:
+	case RepositoryGitHub, RepositoryBitbucket:
+		// Only these two hosting types have an exact unfiltered default PR
+		// trigger; every other value is unconfirmed.
 		return c.defaultTrigger(root, "pr", ir.TriggerPR, diag.FidelityExact,
 			"default PR trigger: Azure validates pull requests to all branches when pr is omitted"), true
+	default:
+		// other, unknown and unrecognized spellings: the provider default is
+		// unconfirmed here, so fire more often, never less, and mark the
+		// synthesized trigger approximated.
+		return c.defaultTrigger(root, "pr", ir.TriggerPR, diag.FidelityApproximated,
+			"default PR trigger: pull request validation for all branches (repository type unknown)"), true
 	}
 }
 
@@ -480,7 +483,7 @@ func (c *conv) filterGlobs(a *acc, filter *ast.Filter) []ir.Glob {
 			if exclude {
 				pattern = "!" + pattern
 			}
-			*out = append(*out, ir.Glob{Pattern: pattern, Original: item.Value.Value})
+			*out = append(*out, ir.Glob{Pattern: pattern, Original: c.sanitize(item.Value.Value)})
 		}
 	}
 	appendList(filter.Include, false, &includes)
@@ -499,23 +502,33 @@ func (c *conv) filterGlobs(a *acc, filter *ast.Filter) []ir.Glob {
 }
 
 // translateGlob maps Azure Pipelines wildcard semantics onto the IR glob
-// dialect. Azure `*` crosses `/`, so every unescaped star run becomes `**`
-// (idempotent: `*`, `**` and `***` all normalize to `**`); `?`, character
-// classes and `\` escapes are preserved. It reports whether the pattern changed.
+// dialect. Azure `*` crosses `/`, so every unescaped star run outside a
+// character class becomes `**` (idempotent: `*`, `**` and `***` all
+// normalize to `**`); `?`, character classes and `\` escapes are preserved.
+// Inside an unescaped `[...]` class a `*` is a literal member, so it is copied
+// verbatim: it neither widens nor marks the pattern changed. It reports whether
+// the pattern changed.
 func translateGlob(pattern string) (string, bool) {
 	var b strings.Builder
 	b.Grow(len(pattern))
 	changed := false
+	inClass := false
 	for i := 0; i < len(pattern); i++ {
 		ch := pattern[i]
-		switch ch {
-		case '\\':
+		switch {
+		case ch == '\\':
 			b.WriteByte(ch)
 			if i+1 < len(pattern) {
 				i++
 				b.WriteByte(pattern[i])
 			}
-		case '*':
+		case ch == '[' && !inClass:
+			inClass = true
+			b.WriteByte(ch)
+		case ch == ']' && inClass:
+			inClass = false
+			b.WriteByte(ch)
+		case ch == '*' && !inClass:
 			run := 1
 			for i+1 < len(pattern) && pattern[i+1] == '*' {
 				i++
