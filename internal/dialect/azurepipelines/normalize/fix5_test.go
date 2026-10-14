@@ -106,17 +106,21 @@ func TestScriptLikeLeavesOutsideStepsReplaced(t *testing.T) {
 }
 
 func TestLineContinuationJoinsCommandName(t *testing.T) {
-	tests := []struct{ name, script, canary string }{
-		{"bash backslash", "echo ##vso[task.setse\\\ncret]bash-cont-canary", "bash-cont-canary"},
-		{"cmd caret", "echo ##vso[task.setse^\ncret]cmd-cont-canary", "cmd-cont-canary"},
-		{"pwsh backtick", "Write-Host ##vso[task.setse`\ncret]pwsh-cont-canary", "pwsh-cont-canary"},
+	tests := []struct{ name, script, canary, step, pool string }{
+		{"bash backslash", "echo ##vso[task.setse\\\ncret]bash-cont-canary", "bash-cont-canary", "script", ""},
+		{"cmd caret", "echo ##vso[task.setse^\ncret]cmd-cont-canary", "cmd-cont-canary", "script", "windows-latest"},
+		{"pwsh backtick", "Write-Host ##vso[task.setse`\ncret]pwsh-cont-canary", "pwsh-cont-canary", "pwsh", ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if !secretLoggingLiteral(test.script) {
 				t.Fatalf("continuation not detected in %q", test.script)
 			}
-			yaml := "steps:\n- script: |\n    " + strings.ReplaceAll(test.script, "\n", "\n    ") + "\n"
+			yaml := ""
+			if test.pool != "" {
+				yaml += "pool:\n  vmImage: " + test.pool + "\n"
+			}
+			yaml += "steps:\n- " + test.step + ": |\n    " + strings.ReplaceAll(test.script, "\n", "\n    ") + "\n"
 			leaks(t, yaml, test.canary)
 		})
 	}

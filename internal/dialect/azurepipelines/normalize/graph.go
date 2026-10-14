@@ -63,6 +63,8 @@ func (c *conv) addStage(out *ir.Pipeline, source *ast.StageDef, previous string)
 		stage.DependsOn = dependencyNames(source.DependsOn)
 	}
 	stage.Variables = c.variables(source.Variables, ir.ScopeStage, id)
+	c.pushMacroScope(source.Variables)
+	defer c.popMacroScope()
 	if source.LockBehavior != nil {
 		a.keep("lockBehavior", source.LockBehavior.Value)
 		a.lose(codeExt, "stage", "lockBehavior", source.LockBehavior.Source, "stage lock behavior has no IR field")
