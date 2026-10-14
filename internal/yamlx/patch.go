@@ -109,7 +109,7 @@ func rawNodeRange(ctx *nodeContext, node *yaml.Node) (ByteRange, error) {
 	if ctx == nil || node == nil {
 		return ByteRange{}, errors.New("yamlx: node has no source range")
 	}
-	start := ctx.positionOffset(node.Line, node.Column)
+	start := ctx.offsetOf(node)
 	end := start
 	switch node.Kind {
 	case yaml.ScalarNode:
@@ -147,15 +147,18 @@ func scalarRange(ctx *nodeContext, node *yaml.Node, start int) (int, int) {
 	if start >= len(data) {
 		return start, start
 	}
+	// The indentation of the line the scalar starts on is precomputed: walking
+	// back to the line start for every node is quadratic on a long line.
+	parentIndent := ctx.lineIndentAt(start)
 	switch {
 	case style&yaml.SingleQuotedStyle != 0:
 		return start, scanQuotedEnd(data, start, '\'')
 	case style&yaml.DoubleQuotedStyle != 0:
 		return start, scanQuotedEnd(data, start, '"')
 	case style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0:
-		return start, scanBlockScalarEnd(data, start)
+		return start, scanBlockScalarEnd(data, start, parentIndent)
 	default:
-		return start, scanPlainEnd(data, start, limit, ctx.nodeContexts[node])
+		return start, scanPlainEnd(data, start, limit, parentIndent, ctx.nodeContexts[node])
 	}
 }
 
@@ -197,9 +200,8 @@ func scanQuotedEnd(data []byte, start int, quote byte) int {
 	return len(data)
 }
 
-func scanPlainEnd(data []byte, start, limit int, context lexicalContext) int {
+func scanPlainEnd(data []byte, start, limit, parentIndent int, context lexicalContext) int {
 	end := start
-	parentIndent := lineIndent(data, start)
 	for cursor := start; cursor < limit; cursor++ {
 		if data[cursor] == '\r' || data[cursor] == '\n' {
 			next := consumeLineEnding(data, cursor)
@@ -235,9 +237,8 @@ func isDocumentBoundary(data []byte) bool {
 		(len(data) == 3 || bytes.ContainsRune([]byte(" \t\r\n"), rune(data[3])))
 }
 
-func scanBlockScalarEnd(data []byte, start int) int {
+func scanBlockScalarEnd(data []byte, start, parentIndent int) int {
 	headerEnd := lineEnd(data, start)
-	parentIndent := lineIndent(data, start)
 	end := consumeLineEnding(data, headerEnd)
 	cursor := end
 	for cursor < len(data) {

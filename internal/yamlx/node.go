@@ -84,6 +84,16 @@ func (n *Node) Scalar() (string, []diag.Diagnostic) {
 	return resolved.Value, nil
 }
 
+// Quoted reports whether the scalar was written in single or double quotes.
+// It is false for plain and block scalars: those carry no quoting information.
+func (n *Node) Quoted() bool {
+	resolved, _ := n.resolved()
+	if resolved == nil || resolved.Kind != yaml.ScalarNode {
+		return false
+	}
+	return resolved.Style&(yaml.SingleQuotedStyle|yaml.DoubleQuotedStyle) != 0
+}
+
 // HeadComment returns the comment preceding the node.
 func (n *Node) HeadComment() string {
 	if n == nil || n.raw == nil {

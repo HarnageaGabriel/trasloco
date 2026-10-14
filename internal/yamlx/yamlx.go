@@ -77,6 +77,41 @@ type nodeContext struct {
 	lineStarts   []int
 	nodeOffsets  []int
 	nodeContexts map[*yaml.Node]lexicalContext
+	// nodeOffset caches the start offset of every indexed node. Locating a node
+	// by walking from the start of its line is linear in the column, which turns
+	// a flow sequence (all items on one line) into quadratic work.
+	nodeOffset map[*yaml.Node]int
+	// runePrefixes holds, every runeStride bytes, the number of code-point
+	// starts seen so far. It makes the byte-offset-to-line/column conversion
+	// independent of the column, which is what keeps a flow sequence (many
+	// nodes on one line) linear.
+	runePrefixes []int32
+	// lineIndents is the leading-space indentation of every line, in line order.
+	lineIndents []int
+	// scanWork counts the bytes walked while resolving positions. It is a
+	// regression counter for tests; it has no effect on parsing.
+	scanWork int
+}
+
+// runeStride is the block size of nodeContext.runePrefixes.
+const runeStride = 128
+
+// buildRunePrefixes records the number of code-point starts (excluding
+// carriage returns) at every runeStride boundary of data.
+func buildRunePrefixes(data []byte) []int32 {
+	// No capacity hint: CodeQL flags size arithmetic on input length (go/allocation-size-overflow).
+	prefixes := []int32{0}
+	count := int32(0)
+	for start := 0; start < len(data); start += runeStride {
+		end := min(start+runeStride, len(data))
+		for index := start; index < end; index++ {
+			if data[index] != '\r' && utf8.RuneStart(data[index]) {
+				count++
+			}
+		}
+		prefixes = append(prefixes, count)
+	}
+	return prefixes
 }
 
 type lexicalContext struct {
@@ -162,6 +197,7 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 		data = bytes.ToValidUTF8(data, []byte("\uFFFD"))
 	}
 
+	lineStarts := sourceLineStarts(data)
 	document := &Document{
 		Name: name, hadBOM: hadBOM, hadCRLF: bytes.Contains(data, []byte("\r\n")),
 		indent: detectIndent(data), aliasMax: config.aliasLimit, depthMax: config.depthLimit,
@@ -169,7 +205,9 @@ func ParseWithOptions(name string, data []byte, options ...ParseOption) (*Docume
 	document.ctx = &nodeContext{
 		name: name, data: data, original: original, baseOffset: baseOffset,
 		aliasMax: config.aliasLimit, depthMax: config.depthLimit,
-		lineStarts: sourceLineStarts(data), nodeContexts: make(map[*yaml.Node]lexicalContext),
+		lineStarts: lineStarts, nodeContexts: make(map[*yaml.Node]lexicalContext),
+		nodeOffset:   make(map[*yaml.Node]int),
+		runePrefixes: buildRunePrefixes(data), lineIndents: sourceLineIndents(data, lineStarts),
 	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	for {
@@ -365,7 +403,7 @@ func (n *Node) sourceOf(node *yaml.Node) diag.Source {
 	if node == nil {
 		return diag.Source{File: n.ctx.name}
 	}
-	start := n.ctx.positionOffset(node.Line, node.Column) + n.ctx.baseOffset
+	start := n.ctx.offsetOf(node) + n.ctx.baseOffset
 	end := start
 	if byteRange, err := rawNodeRange(n.ctx, node); err == nil {
 		start, end = byteRange.Start, byteRange.End
@@ -390,6 +428,7 @@ func (ctx *nodeContext) positionOffset(line, column int) int {
 	for current := 1; current < column && offset < len(ctx.data) && ctx.data[offset] != '\n'; current++ {
 		_, size := utf8.DecodeRune(ctx.data[offset:])
 		offset += size
+		ctx.scanWork++
 	}
 	return offset
 }
@@ -479,33 +518,124 @@ func sourceLineStarts(data []byte) []int {
 	return starts
 }
 
+// runeCount returns the number of code-point starts (excluding carriage returns)
+// in the data before offset. The strided prefix index bounds the work to one
+// block, so a node late in a long line costs the same as the first one.
+func (ctx *nodeContext) runeCount(offset int) int {
+	offset = max(0, min(offset, len(ctx.data)))
+	block := offset / runeStride
+	if block >= len(ctx.runePrefixes) {
+		block = len(ctx.runePrefixes) - 1
+	}
+	count := int(ctx.runePrefixes[block])
+	for index := block * runeStride; index < offset; index++ {
+		if ctx.data[index] != '\r' && utf8.RuneStart(ctx.data[index]) {
+			count++
+		}
+		ctx.scanWork++
+	}
+	return count
+}
+
+// offsetPosition converts a byte offset into a one-based line and column.
 func (ctx *nodeContext) offsetPosition(offset int) (int, int) {
 	offset = max(0, min(offset, len(ctx.data)))
 	line := sort.Search(len(ctx.lineStarts), func(i int) bool { return ctx.lineStarts[i] > offset })
 	if line == 0 {
-		return offsetPosition(ctx.data, offset)
+		return 1, 1 + ctx.runeCount(offset)
 	}
-	_, col := offsetPosition(ctx.data[ctx.lineStarts[line-1]:], offset-ctx.lineStarts[line-1])
-	return line, col
+	return line, 1 + ctx.runeCount(offset) - ctx.runeCount(ctx.lineStarts[line-1])
 }
 
+// indexNodes records the lexical context and the start offset of every node of
+// one document. Offsets are resolved in a single pass over the source instead of
+// walking from the start of each line: a flow sequence keeps every item on one
+// line, and walking to each column separately is quadratic in the item count.
 func (ctx *nodeContext) indexNodes(root *yaml.Node) {
 	type item struct {
 		node *yaml.Node
 		flow bool
 	}
 	stack := []item{{node: root}}
+	var nodes []*yaml.Node
 	for len(stack) > 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		flow := current.flow || current.node.Style&yaml.FlowStyle != 0
 		ctx.nodeContexts[current.node] = lexicalContext{flow: flow, root: current.node == root}
-		ctx.nodeOffsets = append(ctx.nodeOffsets, ctx.positionOffset(current.node.Line, current.node.Column))
+		nodes = append(nodes, current.node)
 		for _, child := range current.node.Content {
 			stack = append(stack, item{node: child, flow: flow})
 		}
 	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Line != nodes[j].Line {
+			return nodes[i].Line < nodes[j].Line
+		}
+		return nodes[i].Column < nodes[j].Column
+	})
+	line, column, offset := -1, 1, 0
+	for _, node := range nodes {
+		if node.Line != line {
+			line, column, offset = node.Line, 1, ctx.lineStart(node.Line)
+		}
+		for column < node.Column && offset < len(ctx.data) && ctx.data[offset] != '\n' {
+			_, size := utf8.DecodeRune(ctx.data[offset:])
+			if size <= 0 {
+				size = 1
+			}
+			offset += size
+			column++
+			ctx.scanWork++
+		}
+		ctx.nodeOffset[node] = offset
+		ctx.nodeOffsets = append(ctx.nodeOffsets, offset)
+	}
 	sort.Ints(ctx.nodeOffsets)
+}
+
+// sourceLineIndents records the leading-space indentation of every line.
+func sourceLineIndents(data []byte, lineStarts []int) []int {
+	indents := make([]int, len(lineStarts))
+	for index, start := range lineStarts {
+		indent := 0
+		for start+indent < len(data) && data[start+indent] == ' ' {
+			indent++
+		}
+		indents[index] = indent
+	}
+	return indents
+}
+
+// lineIndentAt returns the indentation of the line that contains offset. The
+// per-line indentation is precomputed: walking back to the line start for every
+// node makes a flow sequence (all nodes on one line) quadratic.
+func (ctx *nodeContext) lineIndentAt(offset int) int {
+	line := sort.Search(len(ctx.lineStarts), func(i int) bool { return ctx.lineStarts[i] > offset })
+	if line == 0 || line > len(ctx.lineIndents) {
+		return lineIndent(ctx.data, offset)
+	}
+	return ctx.lineIndents[line-1]
+}
+
+// lineStart returns the byte offset at which a one-based line begins.
+func (ctx *nodeContext) lineStart(line int) int {
+	if line < 1 {
+		return 0
+	}
+	if line > len(ctx.lineStarts) {
+		return len(ctx.data)
+	}
+	return ctx.lineStarts[line-1]
+}
+
+// offsetOf returns the start offset of a node, falling back to a column walk for
+// nodes that were not indexed (for example a synthetic node).
+func (ctx *nodeContext) offsetOf(node *yaml.Node) int {
+	if offset, ok := ctx.nodeOffset[node]; ok {
+		return offset
+	}
+	return ctx.positionOffset(node.Line, node.Column)
 }
 
 func (ctx *nodeContext) nextOffset(start int) int {

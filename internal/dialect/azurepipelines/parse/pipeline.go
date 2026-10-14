@@ -65,35 +65,102 @@ func (p *parser) pipeline(n *yamlx.Node) *ast.Pipeline {
 	return out
 }
 
+// shapeSelection is one root key that selects the pipeline shape, with the key
+// as written.
+type shapeSelection struct {
+	shape ast.Shape
+	name  string
+	key   *yamlx.Node
+}
+
+// shapeOfKey maps a root key to the shape it selects, or ShapeNone.
+func shapeOfKey(name string) ast.Shape {
+	switch strings.ToLower(name) {
+	case "stages":
+		return ast.ShapeStages
+	case "jobs":
+		return ast.ShapeJobs
+	case "steps":
+		return ast.ShapeSteps
+	case "extends":
+		return ast.ShapeExtends
+	}
+	return ast.ShapeNone
+}
+
 func (p *parser) shape(m *mapping) ast.Shape {
 	shape := ast.ShapeNone
 	first := ""
+	// Conflicts are diagnosed only between explicit root keys, exactly as before:
+	// two different shape keys in the same mapping cannot both bind.
 	for _, e := range m.entries {
-		if e.dir != 0 || e.used {
+		if e.used || e.dir != 0 {
 			continue
 		}
-		var s ast.Shape
-		switch strings.ToLower(e.name) {
-		case "stages":
-			s = ast.ShapeStages
-		case "jobs":
-			s = ast.ShapeJobs
-		case "steps":
-			s = ast.ShapeSteps
-		case "extends":
-			s = ast.ShapeExtends
-		default:
+		if s := shapeOfKey(e.name); s != ast.ShapeNone {
+			shape, first = p.recordShape(shape, first, shapeSelection{shape: s, name: e.name, key: e.key})
+		}
+	}
+	if shape != ast.ShapeNone {
+		return shape
+	}
+	// A shape key inside a key directive (`${{ if }}: {steps: ...}`) selects the
+	// shape when no explicit root key does. It never conflicts: ADO evaluates
+	// `${{ }}` before schema binding, so mutually exclusive directive bodies may
+	// select different shapes without being an error (ADR 0009, issue #15 item 2).
+	for _, e := range m.entries {
+		if e.used || e.dir == 0 {
 			continue
 		}
-		if shape == ast.ShapeNone {
-			shape, first = s, e.name
-			continue
+		for _, selection := range p.shapeSelections(e.value, 0) {
+			if shape == ast.ShapeNone {
+				shape = selection.shape
+			}
 		}
-		p.add("TRL-PARSE-0014", e.key.Position(),
-			fmt.Sprintf("pipeline: %s and %s select different pipeline shapes; only one is allowed", first, e.name),
-			map[string]any{"keys": first + ", " + e.name})
 	}
 	return shape
+}
+
+// recordShape keeps the first shape seen and diagnoses a second, different one.
+func (p *parser) recordShape(shape ast.Shape, first string, selection shapeSelection) (ast.Shape, string) {
+	if shape == ast.ShapeNone {
+		return selection.shape, selection.name
+	}
+	if selection.shape == shape {
+		return shape, first
+	}
+	p.add("TRL-PARSE-0014", selection.key.Position(),
+		fmt.Sprintf("pipeline: %s and %s select different pipeline shapes; only one is allowed", first, selection.name),
+		map[string]any{"keys": first + ", " + selection.name})
+	return shape, first
+}
+
+// shapeSelections returns the shape keys selected by the mapping node of a key
+// directive body, descending into nested key directives. It never diagnoses and
+// never consumes entries: the body is parsed later by fillPipeline.
+func (p *parser) shapeSelections(n *yamlx.Node, depth int) []shapeSelection {
+	if n == nil || depth >= p.limit || n.Kind() != yamlx.MappingKind {
+		return nil
+	}
+	pairs, problems := n.Map()
+	if len(problems) > 0 {
+		return nil
+	}
+	var found []shapeSelection
+	for _, pair := range pairs {
+		name, bad := pair.Key.Scalar()
+		if len(bad) > 0 {
+			continue
+		}
+		if _, ok := classifyKey(name); ok {
+			found = append(found, p.shapeSelections(pair.Value, depth+1)...)
+			continue
+		}
+		if s := shapeOfKey(name); s != ast.ShapeNone {
+			found = append(found, shapeSelection{shape: s, name: name, key: pair.Key})
+		}
+	}
+	return found
 }
 
 func (p *parser) fillPipeline(out *ast.Pipeline, m *mapping) {
@@ -375,21 +442,23 @@ func (p *parser) repositoryTrigger(n *yamlx.Node, ctx string) *ast.Trigger {
 	if n == nil || n.Kind() != yamlx.MappingKind {
 		return p.trigger(n, ctx, false)
 	}
-	return build(p, n, ctx, func(out *ast.Trigger, m *mapping) {
-		out.Pos, out.Form = pos(m.node), ast.TriggerFull
-		if e := m.take("branches"); e != nil {
-			out.Branches = p.filter(e.value, e.name)
-		}
-		if e := m.take("paths"); e != nil {
-			out.Paths = p.filter(e.value, e.name)
-		}
-		if e := m.take("tags"); e != nil {
-			out.Tags = p.filter(e.value, e.name)
-		}
-		out.Inserts, out.Extra = finish(m, func(t *ast.Trigger, bm *mapping) {
-			t.Pos, t.Form = pos(bm.node), ast.TriggerFull
-		})
-	})
+	return build(p, n, ctx, p.fillRepositoryTrigger)
+}
+
+// fillRepositoryTrigger reads the branches, paths and tags of a repository
+// resource trigger. A repository trigger accepts no `batch`.
+func (p *parser) fillRepositoryTrigger(out *ast.Trigger, m *mapping) {
+	out.Pos, out.Form = pos(m.node), ast.TriggerFull
+	if e := m.take("branches"); e != nil {
+		out.Branches = p.filter(e.value, e.name)
+	}
+	if e := m.take("paths"); e != nil {
+		out.Paths = p.filter(e.value, e.name)
+	}
+	if e := m.take("tags"); e != nil {
+		out.Tags = p.filter(e.value, e.name)
+	}
+	out.Inserts, out.Extra = finish(m, p.fillRepositoryTrigger)
 }
 
 func (p *parser) fillPipelineResource(out *ast.PipelineResource, m *mapping) {

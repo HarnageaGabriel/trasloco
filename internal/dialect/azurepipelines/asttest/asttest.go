@@ -29,6 +29,12 @@ func Options() []cmp.Option {
 			}
 			return expr.Print(e)
 		}),
+		// Quoting is presentation: the printer does not have to re-emit the
+		// original quote style, so round-trip comparisons ignore it.
+		cmp.Transformer("quoted", func(s ast.Scalar) ast.Scalar {
+			s.Quoted = false
+			return s
+		}),
 	}
 }
 

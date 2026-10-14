@@ -286,7 +286,7 @@ func (p *parser) scalar(n *yamlx.Node, ctx string) *ast.Scalar {
 	if !ok {
 		return nil
 	}
-	s := &ast.Scalar{Pos: pos(n), Value: value, Null: n.Tag() == "!!null"}
+	s := &ast.Scalar{Pos: pos(n), Value: value, Null: n.Tag() == "!!null", Quoted: n.Quoted()}
 	if strings.Contains(value, "${{") || strings.HasPrefix(strings.TrimSpace(value), "$[") {
 		s.Directives = p.scanDirectives(n, value)
 	}
