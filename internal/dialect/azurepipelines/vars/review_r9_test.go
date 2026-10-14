@@ -99,7 +99,7 @@ func TestReviewR9CmdEchoOffSplitsOnASCIIOnly(t *testing.T) {
 }
 
 func TestReviewR9SameLineMarkerScanScalesLinearly(t *testing.T) {
-	work := func(count int) int {
+	work := func(count int) *evaluationWork {
 		script := "# " + strings.Repeat("##vso[task.setvariable variable=x]v", count)
 		step := &ast.ScriptStep{Kind: ast.ScriptBash, Script: scalarNode(script)}
 		counter := &evaluationWork{}
@@ -110,13 +110,15 @@ func TestReviewR9SameLineMarkerScanScalesLinearly(t *testing.T) {
 		if counter.scanBytes == 0 || counter.lineBytes == 0 {
 			t.Fatalf("counters not wired: %+v", *counter)
 		}
-		return counter.total()
+		return counter
 	}
-	assertLinearGrowth(t, work(500), work(1000))
+	small, large := work(500), work(1000)
+	assertLinearGrowth(t, small.total(), large.total())
+	assertWorkBudget(t, 1000, large)
 }
 
 func TestReviewR9DistinctMarkerBindingsScaleLinearly(t *testing.T) {
-	work := func(count int) int {
+	work := func(count int) *evaluationWork {
 		var script strings.Builder
 		for i := 0; i < count; i++ {
 			script.WriteString("# ##vso[task.setvariable variable=x")
@@ -133,9 +135,11 @@ func TestReviewR9DistinctMarkerBindingsScaleLinearly(t *testing.T) {
 		if len(table.Bindings) != count {
 			t.Fatalf("bindings = %d, want %d", len(table.Bindings), count)
 		}
-		return counter.total()
+		return counter
 	}
-	assertLinearGrowth(t, work(500), work(1000))
+	small, large := work(500), work(1000)
+	assertLinearGrowth(t, small.total(), large.total())
+	assertWorkBudget(t, 1000, large)
 }
 
 func assertLinearGrowth(t *testing.T, small, large int) {
@@ -144,6 +148,27 @@ func assertLinearGrowth(t *testing.T, small, large int) {
 	t.Logf("work ratio %.2fx (%d to %d)", ratio, small, large)
 	if ratio > 2.5 {
 		t.Fatalf("work grew by %.2fx (%d to %d); want <= 2.5x", ratio, small, large)
+	}
+}
+
+// assertWorkBudget pins the counted work to the marker count, so the tests fix
+// the constant and not only the slope. The growth checks above compare two
+// sizes and pass for any counted work that is linear; a bound at one size fails
+// as soon as the per-marker constant jumps, as it would if the cached candidate
+// lookup were replaced by a scan over candidates or bindings (exactly what
+// candidateSteps and bindingScans count). Neither check can see a loop the
+// counters never reach, so a new loop must keep counting its iterations.
+func assertWorkBudget(t *testing.T, markers int, work *evaluationWork) {
+	t.Helper()
+	t.Logf("work for %d markers: lines=%d scan=%d bindings=%d candidates=%d total=%d", markers, work.lineBytes, work.scanBytes, work.bindingScans, work.candidateSteps, work.total())
+	if work.candidateSteps > 3*markers {
+		t.Fatalf("candidate steps for %d markers = %d, want at most %d", markers, work.candidateSteps, 3*markers)
+	}
+	if work.bindingScans > 3*markers {
+		t.Fatalf("binding scans for %d markers = %d, want at most %d", markers, work.bindingScans, 3*markers)
+	}
+	if work.total() > 200*markers {
+		t.Fatalf("total work for %d markers = %d, want at most %d", markers, work.total(), 200*markers)
 	}
 }
 
