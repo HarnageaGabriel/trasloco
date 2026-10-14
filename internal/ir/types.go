@@ -129,7 +129,8 @@ type Trigger struct {
 
 // TriggerBinding records whether the trigger lives in pipeline source.
 type TriggerBinding struct {
-	InYAML bool `json:"inYaml"`
+	InYAML    bool `json:"inYaml"`
+	Synthetic bool `json:"synthetic,omitempty"`
 }
 
 // TriggerFilters uses one normalized glob dialect while retaining spellings.
@@ -350,20 +351,39 @@ type Shell string
 type RunStep struct {
 	Script           string              `json:"script"`
 	Shell            Shell               `json:"shell"`
+	ShellOptions     *ShellOptions       `json:"shellOptions,omitempty"`
 	WorkingDirectory string              `json:"workingDirectory,omitempty"`
+	MacroRefs        []MacroRef          `json:"macroRefs,omitempty"`
 	Operations       []ProtocolOperation `json:"operations,omitempty"`
 }
 
+// ShellOptions records invocation behavior that differs between providers.
+type ShellOptions struct {
+	Errexit  bool `json:"errexit"`
+	Pipefail bool `json:"pipefail"`
+}
+
+// CheckoutRefSource identifies how a checkout ref was selected.
+type CheckoutRefSource string
+
+// Supported checkout ref sources.
+const (
+	CheckoutRefLiteral       CheckoutRefSource = "literal"
+	CheckoutRefSourceVersion CheckoutRefSource = "sourceVersion"
+)
+
 // CheckoutStep makes source acquisition explicit.
 type CheckoutStep struct {
-	Repository         string `json:"repository"`
-	Ref                Expr   `json:"ref"`
-	Path               string `json:"path,omitempty"`
-	FetchDepth         int    `json:"fetchDepth,omitempty"`
-	Submodules         bool   `json:"submodules"`
-	LFS                bool   `json:"lfs"`
-	PersistCredentials bool   `json:"persistCredentials"`
-	PRMergeRef         string `json:"prMergeRef,omitempty"`
+	Repository         string            `json:"repository"`
+	Ref                Expr              `json:"ref"`
+	RefSource          CheckoutRefSource `json:"refSource,omitempty"`
+	Path               string            `json:"path,omitempty"`
+	FetchDepth         int               `json:"fetchDepth,omitempty"`
+	FetchDepthSet      bool              `json:"fetchDepthSet,omitempty"`
+	Submodules         bool              `json:"submodules"`
+	LFS                bool              `json:"lfs"`
+	PersistCredentials bool              `json:"persistCredentials"`
+	PRMergeRef         string            `json:"prMergeRef,omitempty"`
 }
 
 // ArtifactPublishStep publishes files under a portable artifact name.
@@ -460,14 +480,30 @@ const (
 	ExprLiteral ExprKind = "literal"
 	ExprRef     ExprKind = "ref"
 	ExprCall    ExprKind = "call"
+	ExprMacro   ExprKind = "macro"
 )
 
 // Expr is the closed portable expression AST.
 type Expr struct {
-	Kind    ExprKind  `json:"kind"`
-	Literal *Literal  `json:"literal,omitempty"`
-	Ref     *RefExpr  `json:"ref,omitempty"`
-	Call    *CallExpr `json:"call,omitempty"`
+	Kind    ExprKind   `json:"kind"`
+	Literal *Literal   `json:"literal,omitempty"`
+	Ref     *RefExpr   `json:"ref,omitempty"`
+	Call    *CallExpr  `json:"call,omitempty"`
+	Macro   *MacroExpr `json:"macro,omitempty"`
+}
+
+// MacroExpr is a whole-value provider macro with resolved classification.
+type MacroExpr struct {
+	Name     string `json:"name"`
+	Declared bool   `json:"declared"`
+	Secret   bool   `json:"secret"`
+}
+
+// MacroRef classifies a provider macro embedded in run-step text.
+type MacroRef struct {
+	Name     string `json:"name"`
+	Declared bool   `json:"declared"`
+	Secret   bool   `json:"secret"`
 }
 
 // LiteralType identifies a JSON scalar literal.

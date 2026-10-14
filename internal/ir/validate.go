@@ -193,6 +193,9 @@ func (v *irValidator) validateTriggersAndInputs() {
 		if !oneOf(trigger.Kind, TriggerPush, TriggerPR, TriggerSchedule, TriggerManual, TriggerUpstream, TriggerWebhook, TriggerOther) {
 			v.add("TRL-VAL-0012", path+".kind", "invalid trigger kind")
 		}
+		if trigger.Binding.Synthetic && trigger.Binding.InYAML {
+			v.add("TRL-VAL-0012", path+".binding", "synthetic trigger cannot also be source YAML")
+		}
 		if (trigger.Kind == TriggerSchedule) != (trigger.Schedule != nil) {
 			v.add("TRL-VAL-0012", path+".schedule", "schedule payload must appear exactly on schedule triggers")
 		}
@@ -373,6 +376,9 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 		if step.Run.Shell == "" {
 			v.add("TRL-VAL-0007", path+".run.shell", "run shell is required; defaults must be explicit")
 		}
+		for macroIndex := range step.Run.MacroRefs {
+			v.macroRef(fmt.Sprintf("%s.run.macroRefs[%d]", path, macroIndex), &step.Run.MacroRefs[macroIndex])
+		}
 		for operationIndex := range step.Run.Operations {
 			v.operation(fmt.Sprintf("%s.run.operations[%d]", path, operationIndex), jobID, step.ID, &step.Run.Operations[operationIndex])
 		}
@@ -381,6 +387,13 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 		v.add("TRL-VAL-0007", path+".checkout.ref", "checkout ref is required; PR merge refs must be explicit")
 	}
 	if step.Checkout != nil {
+		if !oneOf(step.Checkout.RefSource, CheckoutRefSource(""), CheckoutRefLiteral, CheckoutRefSourceVersion) {
+			v.add("TRL-VAL-0012", path+".checkout.refSource", "invalid checkout ref source")
+		}
+		// fetchDepthSet becomes required for a non-zero depth once the reader sets it (issue #26, tranche T4).
+		if step.Checkout.FetchDepth < 0 {
+			v.add("TRL-VAL-0012", path+".checkout.fetchDepth", "fetch depth must be non-negative")
+		}
 		v.expr(path+".checkout.ref", &step.Checkout.Ref, jobID)
 	}
 	if step.ArtifactPublish != nil {
@@ -512,13 +525,14 @@ func (v *irValidator) expr(path string, expression *Expr, jobID string) {
 		return
 	}
 	payloads := 0
-	for _, present := range []bool{expression.Literal != nil, expression.Ref != nil, expression.Call != nil} {
+	for _, present := range []bool{expression.Literal != nil, expression.Ref != nil, expression.Call != nil, expression.Macro != nil} {
 		if present {
 			payloads++
 		}
 	}
 	if payloads != 1 || (expression.Kind == ExprLiteral && expression.Literal == nil) ||
-		(expression.Kind == ExprRef && expression.Ref == nil) || (expression.Kind == ExprCall && expression.Call == nil) {
+		(expression.Kind == ExprRef && expression.Ref == nil) || (expression.Kind == ExprCall && expression.Call == nil) ||
+		(expression.Kind == ExprMacro && expression.Macro == nil) {
 		v.add("TRL-VAL-0012", path, "expression kind must select exactly one matching payload")
 		return
 	}
@@ -545,8 +559,28 @@ func (v *irValidator) expr(path string, expression *Expr, jobID string) {
 		for index := range expression.Call.Args {
 			v.expr(fmt.Sprintf("%s.call.args[%d]", path, index), &expression.Call.Args[index], jobID)
 		}
+	case ExprMacro:
+		v.macroExpr(path+".macro", expression.Macro)
 	default:
 		v.add("TRL-VAL-0012", path+".kind", "invalid expression kind")
+	}
+}
+
+func (v *irValidator) macroExpr(path string, macro *MacroExpr) {
+	if macro.Name == "" {
+		v.add("TRL-VAL-0007", path+".name", "macro name is required")
+	}
+	if macro.Secret && !macro.Declared {
+		v.add("TRL-VAL-0012", path, "secret macro must be declared")
+	}
+}
+
+func (v *irValidator) macroRef(path string, macro *MacroRef) {
+	if macro.Name == "" {
+		v.add("TRL-VAL-0007", path+".name", "macro name is required")
+	}
+	if macro.Secret && !macro.Declared {
+		v.add("TRL-VAL-0012", path, "secret macro must be declared")
 	}
 }
 

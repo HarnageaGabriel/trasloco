@@ -241,12 +241,22 @@ func (c *conv) shortSecretReference(e *ir.Expr) (string, bool) {
 			if node.Ref != nil && len(node.Ref.Path) > 0 && c.isShortSecretName(node.Ref.Path[len(node.Ref.Path)-1]) {
 				return node.Ref.Path[len(node.Ref.Path)-1], true
 			}
+		case ir.ExprMacro:
+			if node.Macro != nil && c.isShortSecretName(node.Macro.Name) {
+				return node.Macro.Name, true
+			}
 		case ir.ExprCall:
 			if node.Call != nil {
 				for i := range node.Call.Args {
 					stack = append(stack, &node.Call.Args[i])
 				}
 			}
+		case ir.ExprLiteral:
+			// Literals contain no references.
+		default:
+			// Unknown future expression kinds may contain references. Require
+			// manual review rather than silently treating them as safe.
+			return "", true
 		}
 	}
 	return "", false

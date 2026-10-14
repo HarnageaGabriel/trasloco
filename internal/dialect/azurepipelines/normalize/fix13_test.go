@@ -62,3 +62,16 @@ steps:
 		t.Fatalf("IR validation: %v", findings)
 	}
 }
+
+func TestShortSecretReferenceHandlesMacrosAndUnknownKinds(t *testing.T) {
+	c := conv{shortSecretNames: []string{"secretPin"}}
+	macro := ir.Expr{Kind: ir.ExprMacro, Macro: &ir.MacroExpr{Name: "SECRETPIN", Declared: true, Secret: true}}
+	if name, ok := c.shortSecretReference(&macro); !ok || name != "SECRETPIN" {
+		t.Fatalf("macro reference = %q, %v; want SECRETPIN, true", name, ok)
+	}
+
+	unknown := ir.Expr{Kind: ir.ExprKind("future")}
+	if name, ok := c.shortSecretReference(&unknown); !ok || name != "" {
+		t.Fatalf("unknown expression = %q, %v; want conservative review", name, ok)
+	}
+}
