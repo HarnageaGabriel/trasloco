@@ -84,12 +84,14 @@ Normalization MUST materialize provider defaults:
 | `id` | string | yes | Stable trigger identity. |
 | `kind` | enum | yes | `push`, `pr`, `schedule`, `manual`, `upstream`, `webhook`, or `other`. |
 | `filters` | `TriggerFilters` | no | Normalized branch, tag, path, and activity filters. |
-| `binding` | `TriggerBinding` | yes | `inYaml: true` if the target definition belongs in emitted YAML; `false` if the provisioning plan owns it. |
+| `binding` | `TriggerBinding` | yes | `inYaml: true` if emitted in YAML. With `inYaml: false`, optional boolean `synthetic` distinguishes a reader-synthesized provider default (`true`, emitted with `TRL-CONV-0004`) from a trigger owned by provisioning (`false` or absent). |
 | `schedule` | `Schedule` | iff schedule | Schedule payload. |
 | `upstream` | string | upstream | Stable upstream pipeline reference. |
 | `other` | `Raw` | iff other | Preserved event without a portable kind. |
 
-`TriggerFilters.branches`, `tags`, and `paths` contain `Glob` objects; `actions` contains normalized provider event activities. A `Glob` has normalized `pattern` and exact `original`. The normalized dialect is gitignore-style: `/` separator, `*` excludes `/`, `**` crosses separators, `?` matches one non-`/` character, `[abc]`/`[!abc]` are character classes, leading `!` negates, and `\` escapes the next metacharacter. Lists are evaluated in order, so later patterns may re-include. Parsers MUST diagnose source behavior not expressible by this dialect.
+`TriggerFilters.branches`, `tags`, and `paths` contain `Glob` objects; `actions` contains normalized provider event activities. A `Glob` has normalized `pattern` and exact `original`. The normalized dialect is gitignore-style: `/` separator, `*` excludes `/`, `**` crosses separators, `?` matches one non-`/` character, `[abc]`/`[!abc]` are character classes, leading `!` negates, and `\` escapes the next metacharacter. Lists are evaluated in order, so later patterns may re-include. A list without a positive pattern materializes an implicit `**` include and records `TRL-CONV-0004`. Azure `*` maps to IR `**` (VERIFY-01; fire more often, never less). Parsers MUST diagnose unexpressible behavior.
+
+A reader MUST synthesize provider-default triggers with `binding: {inYaml: false, synthetic: true}` and record `TRL-CONV-0004`. For Azure Pipelines, omitted `pr` means all branches on GitHub and Bitbucket Cloud; Azure Repos Git uses branch policies and gets no synthetic `pr`. Unknown or other repository types synthesize `pr` with `fidelity: approximated` (maintainer policy: fire more often, never less). See [GitHub repositories](https://learn.microsoft.com/en-us/azure/devops/pipelines/repos/github), [PR schema](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pr), and the repository-context rule in [normalize-ado.md](normalize-ado.md).
 
 `Schedule` fields are `cron`, `timezone`, `original`, and `onlyIfChanged`. `cron` is POSIX five-field minute/hour/day-of-month/month/day-of-week syntax; seconds and provider macros are not portable. `timezone` is an IANA name, including `Etc/UTC`; fixed local aliases are invalid. `original` retains the source expression. `onlyIfChanged` states whether unchanged source suppresses the scheduled run.
 
@@ -120,6 +122,8 @@ Normalization MUST materialize provider defaults:
 | `deployment` | `DeploymentIntent` | no | Environment deployment intent. |
 | `result` | `ResultModel` | yes | `succeeded`, `succeededWithIssues`, `failed`, `canceled`, or `skipped`. This closed model is used by result/status expressions and reports. |
 
+Readers materialize effective job timeouts in the existing `Job.timeout` field. The Azure reader materializes `1h0m0s` only for an omitted timeout on a documented Microsoft-hosted image without a self-hosted pool, with synthetic normalization metadata (`provenance: deterministic`), `TRL-CONV-0004`, and `fidelity: approximated` while VERIFY-12 is open. Explicit zero/non-literal timeouts and omitted timeouts on self-hosted or unknown runners remain unset with a loss; absence here denotes unresolved semantics, not permission to assume a provider default. No step timeout default is introduced. See [Jobs and phases](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases) and [normalize-ado.md](normalize-ado.md).
+
 `OutputDef` has public `name` and `from: OutputRef`. `OutputRef` has mandatory `stage`, `job`, `step`, and output `name`; it is syntax-free and emitters select target syntax.
 
 `Matrix` has exactly one of non-empty explicit `legs` or `opaque: Raw`, optional positive `maxParallel` (`0` means unbounded), and explicit `failFast`. Each `MatrixLeg` has unique `id` and scalar-literal `values` as an ordered object preserving declaration order. Parsers expand include/exclude rules before producing IR; dynamic unbounded matrices use `opaque`, retaining source text and origin without inventing legs.
@@ -130,6 +134,8 @@ Normalization MUST materialize provider defaults:
 
 `RunnerReq` fields are optional `os`, `arch`, ordered `labels`, `image`, immutable `imagePin`, `pool`, and ordered `demands`. `image` is the human/provider image identity; `imagePin` is an immutable digest or dated catalog identity. A moving `*-latest` alias MUST NOT be represented as a pin.
 
+The Azure reader materializes `image: ubuntu-latest` and `os: linux` only when no pool is declared at pipeline, stage, job, or applicable deployment-hook level. It never defaults a declared named self-hosted pool. A shared documented Microsoft-hosted image table supplies `os` (`linux`, `windows`, `macos`); `arch` stays absent when unknown. These are existing fields, not a schema revision. See [Microsoft-hosted agents](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted) and [normalize-ado.md](normalize-ado.md).
+
 `Container` has required `image`, optional `imagePin`, ordered expression object `env`, ordered `ports` and `options`, and optional `credentials`. `ContainerAuthRef.username` is an expression; `password` is a `SecretRef`. `Service` has stable `id`, `container`, and optional `health`. `ServiceHealth` has command argv `command`, optional `interval` and `timeout`, and non-negative `retries`.
 
 ## 6. Steps
@@ -138,8 +144,8 @@ Normalization MUST materialize provider defaults:
 
 | Kind / payload | Fields and semantics |
 |---|---|
-| `run` / `run` | `script`, explicit `shell`, optional `workingDirectory`, and ordered recognized protocol `operations`. Script text remains intact until a target-specific safe rewrite. |
-| `checkout` / `checkout` | `repository`, required expression `ref`, optional `path`, non-negative `fetchDepth`, booleans `submodules`, `lfs`, `persistCredentials`, and optional source `prMergeRef`. |
+| `run` / `run` | `script`, explicit `shell`, optional `shellOptions` (`errexit`, `pipefail`), optional `workingDirectory`, ordered recognized protocol `operations`, and optional ordered `macroRefs` (`MacroRef[]`, section 7). Script text remains intact until a target-specific safe rewrite. |
+| `checkout` / `checkout` | `repository`, expression `ref`, optional `path`, non-negative integer `fetchDepth` plus optional boolean `fetchDepthSet`, booleans `submodules`, `lfs`, `persistCredentials`, optional source `prMergeRef`, and optional `refSource` (`literal` or `sourceVersion`). |
 | `artifactPublish` / `artifactPublish` | Artifact `name` and path expression `path`. |
 | `artifactRestore` / `artifactRestore` | Artifact `name` and destination expression `path`. |
 | `cache` / `cache` | Key expression `key`, ordered `restoreKeys`, path expressions `paths`, and `save` intent. |
@@ -147,17 +153,23 @@ Normalization MUST materialize provider defaults:
 | `setOutput`, `setEnv`, `setPipelineVar`, `addPath`, `mask`, `annotate` / `operation` | One abstract runner-protocol operation as defined below and in `script-protocol.md`. |
 | `raw` / `raw` | Explicit unmodeled provider fragment. |
 
+`CheckoutStep.fetchDepthSet: false` (or absent) means depth is unspecified; `true` makes `fetchDepth` authoritative, including `0` for full history. `fetchDepth` stays an integer and schemaVersion stays `1`. `refSource: sourceVersion` means the triggering commit and ignores `ref`; `literal` (also the absent-field compatibility default) uses `ref`. The reader keeps the original source macro in extensions, never asks an emitter to parse it. See [Checkout schema](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout); unspecified shallow depth remains VERIFY-13 in [emit-gha.md](emit-gha.md).
+
+`ShellOptions` contains both boolean JSON fields `errexit` and `pipefail`, including explicit `false`; an absent `shellOptions` object makes no assertion about invocation flags. Azure Bash defaults are explicitly `{errexit: false, pipefail: false}` (VERIFY-07). Generic Azure `script:` resolves only from a documented Microsoft-hosted image OS: Windows selects `cmd`, Linux/macOS select `bash` with those options. An unknown image or self-hosted pool retains `azure-default` plus a loss; emitters MUST NOT guess its interpreter. See [Script steps](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-script) and [Bash steps](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-bash).
+
 `ProtocolOperation` fields are operation `kind`, optional target `name`, optional expression `value`, `secret`, annotation `level`, optional expression `message`, and optional `location`. Required subsets follow `script-protocol.md`: named setters require `name` and `value`; `addPath`/`mask` require `value`; `annotate` requires `level` and `message`. `Location` has file plus optional one-based line and column. Operation order in `RunStep.operations` is semantic.
 
 ## 7. Conditions and expressions
 
 `Cond` has evaluation `phase` (`compile`, `creation`, or `runtime`) and exactly one of portable `expr` or opaque `opaque: Raw`. `Opaque` is mandatory fallback when parsing succeeds but semantics fall outside the portable AST; adapters MUST NOT reinterpret its text as another dialect.
 
-`Expr` is a tagged tree with `kind` and exactly one matching payload: `literal`, `ref`, or `call`.
+`Expr` is a tagged tree with `kind` and exactly one matching payload: `literal`, `ref`, `call`, or `macro`. `kind: macro` selects `Expr.macro: MacroExpr`; the closed kind and union validation use `TRL-VAL-0012`.
 
 - `Literal` has type `null`, `string`, `bool`, or `number`, and the corresponding scalar field. The `number` field is a JSON string containing a decimal number (optional fraction and exponent, JSON number grammar). This preserves integers beyond 2^53 through serialization, equality, and JCS digests. It is never converted to binary64 by the IR.
 - `RefExpr` has context and either non-empty `path` or typed `output`. Context is `variables`, `parameters`, `env`, `secrets`, `dependencyOutputs`, `matrix`, `runner`, or `run`. Only `dependencyOutputs` uses `output`; other contexts use path segments, never a dialect expression string.
 - `CallExpr` has a closed `function` and ordered `args`.
+- `MacroExpr` has `name` and required resolved booleans `declared` and `secret`. A whole-value provider macro in a variable, env entry, task input, or checkout ref becomes this typed expression, including when unresolved. `CheckoutStep.refSource: sourceVersion` takes precedence for the triggering-commit default. Classification uses only declared inputs/parameters and visible pipeline, stage, job or step variables, following [variable-precedence.md](variable-precedence.md). `secret: true` requires `declared: true` and resolution to a declared `SecretRef`; spelling alone never establishes secrecy. A declared non-secret is `{declared: true, secret: false}`; unresolved is `{declared: false, secret: false}` and records `TRL-CONV-0009`.
+- `MacroRef` carries the same flat JSON fields `name`, `declared`, `secret`. `RunStep.macroRefs` lists every occurrence in `script` followed by `workingDirectory`, in textual order, including repetitions. No offset/location fields are introduced: M2-A placeholders the entire run when this list is non-empty, so it needs classification rather than substitution coordinates. Original text stays in the text fields (or extensions for whole-value expressions). Emitters consume this classification and MUST NOT infer secret references by rescanning text. An unresolved macro becomes a manual placeholder (or a diagnosed dropped variable), never a secret. See [Azure variable syntax](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables) and [Secret variables](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/set-secret-variables); undefined-macro behavior remains VERIFY-22.
 
 Portable functions and mapping obligations:
 
@@ -175,6 +187,14 @@ Portable functions and mapping obligations:
 | `succeededWithIssues` | result comparison / `succeededOrFailed()` refinement | result comparison | Capability check normally grades this approximated or manual on GitHub. |
 
 Any other function, dynamic property operation, object/array construction, or dialect-specific coercion uses `Cond.opaque` or a raw step. Status function zero-argument requirements and ordinary function arity/type rules are checked by expression adapters; structural IR validation checks membership in this closed set.
+
+### Verification notes for normalization additions
+
+- VERIFY-01: Azure wildcard breadth across `/` is unconfirmed; normalize unescaped star runs to `**`, preserve `original`, and mark the possible widening as approximated. See [normalize-ado.md](normalize-ado.md) and [emit-gha.md](emit-gha.md) VERIFY-01.
+- VERIFY-07: Azure Bash invocation flags remain unconfirmed; represent both options as false explicitly, as approved for this tranche.
+- VERIFY-12: the 60-minute Microsoft-hosted agent-job timeout remains unconfirmed; materialize it as synthetic and approximated, never for self-hosted/unknown runners.
+- VERIFY-13: unspecified checkout depth depends on Azure pipeline settings; preserve it as unspecified.
+- VERIFY-22: undefined Azure macros may remain literal; preserve their source spelling and mark them unresolved, with manual cross-dialect handling and no inferred secret.
 
 ## 8. JSON, equality, debug form, and digests
 

@@ -19,6 +19,7 @@ These specifications define contracts shared by every dialect and platform adapt
 | `events.md` | Versioned engine event stream |
 | `exit-codes.md` | Process exit status contract |
 | `modernize-ado.md` | `modernize` for retired Azure Pipelines task versions: classes A-D, input mappings and vectors `MODV-*` |
+| `emit-gha.md` | IR to GitHub Actions workflow emission, M2-A walking-skeleton subset, with vectors `EMITV-001`..`EMITV-083` |
 
 ## Normative language
 
