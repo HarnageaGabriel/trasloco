@@ -10,7 +10,7 @@ Strict scalar typing rejected valid Azure Pipelines YAML (all scalars are string
 - Per-dialect `AnchorPolicy`: Azure Pipelines = error diagnostic on anchors/aliases/merge keys; GitHub Actions = anchors allowed, merge keys VERIFY; config = allowed.
 - Recursive walkers have a depth cap.
 - Emitter strategy: new files are emitted from typed structures (normalized formatting); in-place edits (`modernize`, small fixes) use byte-range patches on the original text so diffs stay minimal. `Emit` always returns an error value.
-- Scalars record whether they were written quoted (yamlx.Node.Quoted, st.Scalar.Quoted): the decoded text cannot tell `60` from `'60'`, so consumers that infer a type from a free-form value consult the flag.
+- Scalars record whether they were written quoted (yamlx.Node.Quoted, ast.Scalar.Quoted): the decoded text cannot tell `60` from `'60'`, so the resolver consults the flag when it infers a type from a free-form value.
 
 ## Consequences
 Real-world ADO files parse; modernize PRs show only the meaningful lines. Quoting is preserved in the tree, so a quoted `'60'` in an object parameter default stays a string instead of being inferred as a number.

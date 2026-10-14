@@ -64,16 +64,38 @@ func TestRootConditionalShapeKey(t *testing.T) {
 	}
 }
 
-// A conditional shape key that selects a different shape than an explicit one
-// is reported, not silently ignored.
-func TestRootConditionalShapeKeyConflict(t *testing.T) {
+// ADR 0009 / issue #15 item 2: ADO evaluates `${{ }}` before schema binding, so
+// mutually exclusive directive bodies may select different shapes. Only
+// explicit root keys conflict; a conditional shape switch is never diagnosed.
+func TestConditionalShapeSwitchIsNotAConflict(t *testing.T) {
+	const input = `${{ if eq(parameters.mode, 'a') }}:
+  steps:
+  - script: a
+${{ else }}:
+  jobs:
+  - job: j
+    steps:
+    - script: b
+`
+	pipeline, got := parseText("switch.yml", input)
+	for _, finding := range got {
+		if strings.HasPrefix(finding, "TRL-PARSE-0014@") {
+			t.Fatalf("conditional shape switch diagnosed: %v", got)
+		}
+	}
+	if pipeline.Shape != ast.ShapeSteps {
+		t.Fatalf("shape = %v, want steps (first directive body)", pipeline.Shape)
+	}
+}
+
+// Two explicit shape keys still select different shapes and conflict.
+func TestExplicitShapeKeysStillConflict(t *testing.T) {
 	const input = `steps:
 - script: echo hi
-${{ if eq(1, 1) }}:
-  jobs:
-  - job: a
-    steps:
-    - script: echo a
+jobs:
+- job: a
+  steps:
+  - script: echo a
 `
 	_, got := parseText("conflict.yml", input)
 	found := false

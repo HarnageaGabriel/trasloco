@@ -91,20 +91,31 @@ func shapeOfKey(name string) ast.Shape {
 func (p *parser) shape(m *mapping) ast.Shape {
 	shape := ast.ShapeNone
 	first := ""
+	// Conflicts are diagnosed only between explicit root keys, exactly as before:
+	// two different shape keys in the same mapping cannot both bind.
 	for _, e := range m.entries {
-		if e.used {
-			continue
-		}
-		if e.dir != 0 {
-			// A conditional shape key selects the shape too: `${{ if }}: {steps: ...}`.
-			// The body is only read here; finish and fillPipeline consume it later.
-			for _, selection := range p.shapeSelections(e.value, 0) {
-				shape, first = p.recordShape(shape, first, selection)
-			}
+		if e.used || e.dir != 0 {
 			continue
 		}
 		if s := shapeOfKey(e.name); s != ast.ShapeNone {
 			shape, first = p.recordShape(shape, first, shapeSelection{shape: s, name: e.name, key: e.key})
+		}
+	}
+	if shape != ast.ShapeNone {
+		return shape
+	}
+	// A shape key inside a key directive (`${{ if }}: {steps: ...}`) selects the
+	// shape when no explicit root key does. It never conflicts: ADO evaluates
+	// `${{ }}` before schema binding, so mutually exclusive directive bodies may
+	// select different shapes without being an error (ADR 0009, issue #15 item 2).
+	for _, e := range m.entries {
+		if e.used || e.dir == 0 {
+			continue
+		}
+		for _, selection := range p.shapeSelections(e.value, 0) {
+			if shape == ast.ShapeNone {
+				shape = selection.shape
+			}
 		}
 	}
 	return shape

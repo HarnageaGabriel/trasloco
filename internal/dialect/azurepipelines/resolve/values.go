@@ -377,6 +377,12 @@ func scalarLiteral(s *ast.Scalar) expr.Value {
 	if s == nil || s.Null {
 		return expr.Null{}
 	}
+	// A quoted scalar is a string regardless of its text: the decoded value
+	// cannot tell 60 from '60', so quoting wins before bool/number inference
+	// (ADR 0009, issue #15 item 4).
+	if s.Quoted {
+		return expr.String(s.Value)
+	}
 	if strings.EqualFold(s.Value, "true") {
 		return expr.Bool(true)
 	}
