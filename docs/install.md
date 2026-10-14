@@ -6,14 +6,14 @@ the [releases page](https://github.com/HarnageaGabriel/trasloco/releases).
 
 ## Download and verify
 
-The examples use `v0.2.0` on Linux amd64. Change both variables for another
+The examples use `v0.2.1` on Linux amd64. Change both variables for another
 release or platform.
 
 ```bash
 set -euo pipefail
 
-version=v0.2.0
-archive=trasloco_0.2.0_linux_amd64.tar.gz
+version=v0.2.1
+archive=trasloco_0.2.1_linux_amd64.tar.gz
 base=https://github.com/HarnageaGabriel/trasloco/releases/download/$version
 curl -fLO "$base/$archive"
 curl -fLO "$base/checksums.txt"
@@ -41,8 +41,8 @@ On macOS, use `shasum` and the same order (all verification before extracting):
 ```bash
 set -euo pipefail
 
-version=v0.2.0
-archive=trasloco_0.2.0_darwin_arm64.tar.gz
+version=v0.2.1
+archive=trasloco_0.2.1_darwin_arm64.tar.gz
 base=https://github.com/HarnageaGabriel/trasloco/releases/download/$version
 curl -fLO "$base/$archive"
 curl -fLO "$base/checksums.txt"
@@ -69,8 +69,8 @@ run `gh attestation verify`, and only then expand the archive:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$version = 'v0.2.0'
-$archive = 'trasloco_0.2.0_windows_amd64.zip'
+$version = 'v0.2.1'
+$archive = 'trasloco_0.2.1_windows_amd64.zip'
 $base = "https://github.com/HarnageaGabriel/trasloco/releases/download/$version"
 Invoke-WebRequest "$base/$archive" -OutFile $archive
 Invoke-WebRequest "$base/checksums.txt" -OutFile checksums.txt
@@ -129,8 +129,8 @@ pool:
 steps:
   - bash: |
       set -euo pipefail
-      version=v0.2.0
-      archive=trasloco_0.2.0_linux_amd64.tar.gz
+      version=v0.2.1
+      archive=trasloco_0.2.1_linux_amd64.tar.gz
       base="https://github.com/HarnageaGabriel/trasloco/releases/download/$version"
       work_dir="$(Agent.TempDirectory)/trasloco-$version"
       mkdir -p "$work_dir"
@@ -195,9 +195,9 @@ makes the run exit 1 and, with `format: sarif`, the SARIF file is then not
 uploaded, because only complete reports (exit 0 or 5) are uploaded to code
 scanning. The optional
 `version` input selects an exact `vMAJOR.MINOR.PATCH` tag or a `vMAJOR` alias.
-With its default empty value, the action uses its own ref: `@v0.2.0` downloads
+With its default empty value, the action uses its own ref: `@v0.2.1` downloads
 that exact release, while `@v0` resolves the highest non-prerelease, non-draft
 `v0.x.y` release through the GitHub Releases API. Branches, commit SHAs,
 prerelease tags, and other refs are rejected unless `version` is set, so
-when you pin the action by commit SHA also set `version: v0.2.0`. The moving `@v0` alias points to
-the highest released v0 version, while `@v0.2.0` is immutable.
+when you pin the action by commit SHA also set `version: v0.2.1`. The moving `@v0` alias points to
+the highest released v0 version, while `@v0.2.1` is immutable.
