@@ -166,6 +166,34 @@ func TestValidateAdditiveIRFields(t *testing.T) {
 			code: "TRL-VAL-0012",
 		},
 		{
+			name: "synthetic trigger outside YAML",
+			mutate: func(p *Pipeline) {
+				p.Triggers = []Trigger{{
+					Metadata: DefaultMetadata(),
+					ID:       "push",
+					Kind:     TriggerPush,
+					Binding:  TriggerBinding{Synthetic: true},
+				}}
+			},
+		},
+		{
+			name: "source YAML trigger is not synthetic",
+			mutate: func(p *Pipeline) {
+				p.Triggers = []Trigger{{
+					Metadata: DefaultMetadata(),
+					ID:       "push",
+					Kind:     TriggerPush,
+					Binding:  TriggerBinding{InYAML: true},
+				}}
+			},
+		},
+		{
+			name: "literal checkout ref",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefLiteral, 0, false)
+			},
+		},
+		{
 			name: "source version may retain ignored literal ref",
 			mutate: func(p *Pipeline) {
 				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefSourceVersion, 0, false)
