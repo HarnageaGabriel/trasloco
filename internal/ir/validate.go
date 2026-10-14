@@ -390,9 +390,14 @@ func (v *irValidator) validateStep(path, jobID string, step *Step) {
 		if !oneOf(step.Checkout.RefSource, CheckoutRefSource(""), CheckoutRefLiteral, CheckoutRefSourceVersion) {
 			v.add("TRL-VAL-0012", path+".checkout.refSource", "invalid checkout ref source")
 		}
-		// fetchDepthSet becomes required for a non-zero depth once the reader sets it (issue #26, tranche T4).
 		if step.Checkout.FetchDepth < 0 {
 			v.add("TRL-VAL-0012", path+".checkout.fetchDepth", "fetch depth must be non-negative")
+		}
+		// Depth 0 without fetchDepthSet means unspecified (VERIFY-13), so a
+		// non-zero depth is only meaningful when the reader marked it
+		// authoritative.
+		if step.Checkout.FetchDepth != 0 && !step.Checkout.FetchDepthSet {
+			v.add("TRL-VAL-0012", path+".checkout.fetchDepth", "a non-zero fetch depth requires fetchDepthSet")
 		}
 		v.expr(path+".checkout.ref", &step.Checkout.Ref, jobID)
 	}

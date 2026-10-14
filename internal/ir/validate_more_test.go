@@ -214,6 +214,25 @@ func TestValidateAdditiveIRFields(t *testing.T) {
 			code: "TRL-VAL-0012",
 		},
 		{
+			name: "non-zero fetch depth requires fetchDepthSet",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefLiteral, 2, false)
+			},
+			code: "TRL-VAL-0012",
+		},
+		{
+			name: "explicit full-history fetch depth",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefSourceVersion, 0, true)
+			},
+		},
+		{
+			name: "explicit positive fetch depth",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefLiteral, 1, true)
+			},
+		},
+		{
 			name: "classified macros",
 			mutate: func(p *Pipeline) {
 				p.Jobs[0].Steps[0].Env.Set("MACRO", Expr{Kind: ExprMacro, Macro: &MacroExpr{Name: "TOKEN", Declared: true, Secret: true}})
