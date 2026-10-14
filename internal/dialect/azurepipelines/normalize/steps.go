@@ -157,10 +157,8 @@ func (c *conv) scalarIntSet(a *acc, value *ast.Scalar, construct, property strin
 	return n, true
 }
 
-// timeout maps timeoutInMinutes. In Azure Pipelines 0 means the maximum the
-// agent pool allows and an absent value uses an agent-dependent default
-// (https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases);
-// neither has an IR duration, so both stay nil.
+// timeout maps an explicitly declared timeoutInMinutes. Job defaults are
+// materialized after runner resolution by jobTimeout; steps have no default.
 func (c *conv) timeout(a *acc, value *ast.Scalar, construct string) *ir.Duration {
 	if value == nil {
 		return nil
