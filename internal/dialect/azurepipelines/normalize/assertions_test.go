@@ -70,6 +70,29 @@ func hasLoss(t *testing.T, m ir.Metadata, property string) bool {
 	return false
 }
 
+func extensionValue(t *testing.T, m ir.Metadata, key string) (string, bool) {
+	t.Helper()
+	raw, ok := m.Extensions[ExtensionKey]
+	if !ok {
+		return "", false
+	}
+	var bag struct {
+		Values map[string]json.RawMessage `json:"values"`
+	}
+	if err := json.Unmarshal(raw, &bag); err != nil {
+		t.Fatal(err)
+	}
+	value, ok := bag.Values[key]
+	if !ok {
+		return "", false
+	}
+	var out string
+	if err := json.Unmarshal(value, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out, true
+}
+
 func TestDeploymentHookConditions(t *testing.T) {
 	got := normalizeText(t, `jobs:
 - deployment: d
@@ -332,14 +355,62 @@ steps:
 `)
 	steps := jobByID(t, got, implicitID).Steps
 	ref := func(i int) string { return steps[i].Checkout.Ref.Literal.String }
-	if ref(0) != "$(Build.SourceVersion)" {
-		t.Fatalf("self ref = %q", ref(0))
+	if steps[0].Checkout.RefSource != ir.CheckoutRefSourceVersion || ref(0) != "" {
+		t.Fatalf("self checkout = %+v", steps[0].Checkout)
 	}
-	if ref(1) == "$(Build.SourceVersion)" || !hasLoss(t, steps[1].Metadata, "ref") {
-		t.Fatalf("non-self ref = %q", ref(1))
+	if macro, ok := extensionValue(t, steps[0].Metadata, "ref"); !ok || macro != "$(Build.SourceVersion)" {
+		t.Fatalf("self checkout extension ref = %q, %v", macro, ok)
 	}
-	if ref(2) != "refs/heads/rel" || !steps[2].Checkout.Submodules || !hasLoss(t, steps[2].Metadata, "submodules") {
+	if ref(1) != "HEAD" || steps[1].Checkout.RefSource != ir.CheckoutRefLiteral || !hasLoss(t, steps[1].Metadata, "ref") {
+		t.Fatalf("non-self checkout = %+v", steps[1].Checkout)
+	}
+	if ref(2) != "refs/heads/rel" || steps[2].Checkout.RefSource != ir.CheckoutRefLiteral || !steps[2].Checkout.Submodules || !hasLoss(t, steps[2].Metadata, "submodules") {
 		t.Fatalf("pinned checkout = %+v", steps[2].Checkout)
+	}
+}
+
+func TestCheckoutNone(t *testing.T) {
+	got := normalizeText(t, "steps:\n- checkout: none\n- script: echo ok\n")
+	for _, step := range jobByID(t, got, implicitID).Steps {
+		if step.Checkout != nil {
+			t.Fatalf("checkout: none left a checkout step: %+v", step.Checkout)
+		}
+	}
+}
+
+func TestCheckoutFetchDepth(t *testing.T) {
+	got := normalizeText(t, `steps:
+- checkout: self
+- checkout: self
+  fetchDepth: 0
+- checkout: self
+  fetchDepth: 1
+- checkout: self
+  fetchDepth: $(DEPTH)
+`)
+	var checkouts []ir.Step
+	for _, step := range jobByID(t, got, implicitID).Steps {
+		if step.Checkout != nil {
+			checkouts = append(checkouts, step)
+		}
+	}
+	if len(checkouts) != 4 {
+		t.Fatalf("checkouts = %d, want 4", len(checkouts))
+	}
+	if d, set := checkouts[0].Checkout.FetchDepth, checkouts[0].Checkout.FetchDepthSet; d != 0 || set {
+		t.Fatalf("absent depth = %d, %v; want 0, false", d, set)
+	}
+	if d, set := checkouts[1].Checkout.FetchDepth, checkouts[1].Checkout.FetchDepthSet; d != 0 || !set {
+		t.Fatalf("fetchDepth 0 = %d, %v; want 0, true (full history)", d, set)
+	}
+	if d, set := checkouts[2].Checkout.FetchDepth, checkouts[2].Checkout.FetchDepthSet; d != 1 || !set {
+		t.Fatalf("fetchDepth 1 = %d, %v; want 1, true", d, set)
+	}
+	if d, set := checkouts[3].Checkout.FetchDepth, checkouts[3].Checkout.FetchDepthSet; d != 0 || set {
+		t.Fatalf("non-literal depth = %d, %v; want 0, false", d, set)
+	}
+	if !hasLoss(t, checkouts[3].Metadata, "fetchDepth") {
+		t.Fatal("non-literal depth did not record a loss")
 	}
 }
 

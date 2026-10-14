@@ -26,6 +26,18 @@ func (c *conv) syntheticMetadata(reason string) ir.Metadata {
 	return m
 }
 
+// selfCheckoutRef is the Azure spelling of the triggering commit that a self
+// checkout selects by default. ir.md section 6 keeps the original macro in
+// extensions; its portable meaning is CheckoutStep.refSource: sourceVersion,
+// and ref itself is ignored.
+const selfCheckoutRef = "$(Build.SourceVersion)"
+
+// selfCheckout is the portable form of `checkout: self`: the triggering
+// commit, expressed with refSource instead of the Azure macro literal.
+func selfCheckout() *ir.CheckoutStep {
+	return &ir.CheckoutStep{Repository: "self", Ref: stringExpr(""), RefSource: ir.CheckoutRefSourceVersion}
+}
+
 func (c *conv) steps(list *ast.List[ast.Step], deployment bool, gate ir.Function) []ir.Step {
 	var out []ir.Step
 	hasCheckout := false
@@ -39,7 +51,7 @@ func (c *conv) steps(list *ast.List[ast.Step], deployment bool, gate ir.Function
 	if !deployment && !hasCheckout {
 		out = append(out, ir.Step{
 			Metadata: c.syntheticMetadata("implicit checkout of the self repository"), ID: "implicit-checkout", Name: "Checkout self", Kind: ir.StepCheckout,
-			If: ir.SuccessCondition(ir.PhaseRuntime), Checkout: &ir.CheckoutStep{Repository: "self", Ref: stringExpr("$(Build.SourceVersion)")},
+			If: ir.SuccessCondition(ir.PhaseRuntime), Checkout: selfCheckout(),
 		})
 	}
 	if list == nil {
@@ -122,19 +134,27 @@ func (c *conv) scalarBool(a *acc, value *ast.Scalar, construct, property string)
 
 // scalarInt reads an integer-valued scalar. Non-literal text records a loss.
 func (c *conv) scalarInt(a *acc, value *ast.Scalar, construct, property string) int {
+	n, _ := c.scalarIntSet(a, value, construct, property)
+	return n
+}
+
+// scalarIntSet is scalarInt plus whether the scalar was a statically known,
+// non-negative literal. It backs CheckoutStep.fetchDepthSet: a redacted or
+// non-literal value stays unspecified instead of claiming 0.
+func (c *conv) scalarIntSet(a *acc, value *ast.Scalar, construct, property string) (int, bool) {
 	if value == nil {
-		return 0
+		return 0, false
 	}
 	n, secret, err := c.checkedAtoi(a, value.Value, value.Source, property, construct, property)
 	if secret {
-		return 0
+		return 0, false
 	}
 	if err != nil || n < 0 {
 		a.keep(property, safeText(value.Value))
 		a.lose(codeExt, construct, property, value.Source, "integer option is not a literal and cannot be evaluated statically")
-		return 0
+		return 0, false
 	}
-	return n
+	return n, true
 }
 
 // timeout maps timeoutInMinutes. In Azure Pipelines 0 means the maximum the
@@ -277,23 +297,28 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 	case *ast.CheckoutStep:
 		step.Kind = ir.StepCheckout
 		repo := scalarOr(value.Checkout, "self")
-		ref := stringExpr("$(Build.SourceVersion)")
+		checkout := selfCheckout()
 		if repo != "self" {
-			ref = stringExpr("HEAD")
+			checkout.Repository = repo
+			checkout.Ref, checkout.RefSource = stringExpr("HEAD"), ir.CheckoutRefLiteral
 			c.work++
 			resource := c.repoByAlias[repo]
 			found := resource != nil && resource.Ref != nil
 			if found {
-				ref = stringExpr(resource.Ref.Value)
+				checkout.Ref = stringExpr(resource.Ref.Value)
 			}
 			if !found {
 				a.lose(codeExt, "checkout", "ref", value.Source, "repository resource has no ref; Azure checks out its default branch, recorded as HEAD")
 			}
 		}
-		step.Checkout = &ir.CheckoutStep{
-			Repository: repo, Ref: ref, Path: scalarOr(value.Path, ""), FetchDepth: c.scalarInt(a, value.FetchDepth, "checkout", "fetchDepth"),
-			LFS: c.scalarBool(a, value.Lfs, "checkout", "lfs"), PersistCredentials: c.scalarBool(a, value.PersistCredentials, "checkout", "persistCredentials"),
+		if repo == "self" {
+			a.keep("ref", selfCheckoutRef)
 		}
+		checkout.Path = scalarOr(value.Path, "")
+		checkout.FetchDepth, checkout.FetchDepthSet = c.scalarIntSet(a, value.FetchDepth, "checkout", "fetchDepth")
+		checkout.LFS = c.scalarBool(a, value.Lfs, "checkout", "lfs")
+		checkout.PersistCredentials = c.scalarBool(a, value.PersistCredentials, "checkout", "persistCredentials")
+		step.Checkout = checkout
 		if value.Submodules != nil {
 			if strings.EqualFold(strings.TrimSpace(value.Submodules.Value), "recursive") {
 				step.Checkout.Submodules = true
