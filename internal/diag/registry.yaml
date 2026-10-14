@@ -1209,6 +1209,38 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-EMIT-0006",
+                      "area":  "EMIT",
+                      "title":  "Literal text contains the GitHub expression delimiter",
+                      "severity":  "warning",
+                      "exitClass":  "blocked",
+                      "remediation":  "Rewrite the value without `${{`; GitHub evaluates it before the shell or the action sees it, and offers no escape.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "fidelity":  "needs-manual"
+                  },
+                  {
+                      "code":  "TRL-EMIT-0007",
+                      "area":  "EMIT",
+                      "title":  "Trigger pattern widened or dropped because GitHub has no equivalent syntax",
+                      "severity":  "warning",
+                      "exitClass":  "none",
+                      "remediation":  "Review `params.pattern` and `params.action`; the trigger now fires on a superset of refs or paths.",
+                      "since":  "0.1.0",
+                      "status":  "active",
+                      "fidelity":  "approximated"
+                  },
+                  {
+                      "code":  "TRL-EMIT-0008",
+                      "area":  "EMIT",
+                      "title":  "Secret reference emitted; the secret must exist on the target",
+                      "severity":  "info",
+                      "exitClass":  "none",
+                      "remediation":  "Create the secret named in `params.secret` before enabling the workflow; no value was read or written.",
+                      "since":  "0.1.0",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-VAL-0001",
                       "area":  "VAL",
                       "title":  "Linter finding in emitted workflow",

@@ -53,6 +53,9 @@
 | [TRL-EMIT-0003](TRL-EMIT-0003.md) | warning | Token permission widening requires approval | active |
 | [TRL-EMIT-0004](TRL-EMIT-0004.md) | error | Local reference not present in planned tree | active |
 | [TRL-EMIT-0005](TRL-EMIT-0005.md) | error | Output path escapes output root | active |
+| [TRL-EMIT-0006](TRL-EMIT-0006.md) | warning | Literal text contains the GitHub expression delimiter | active |
+| [TRL-EMIT-0007](TRL-EMIT-0007.md) | warning | Trigger pattern widened or dropped because GitHub has no equivalent syntax | active |
+| [TRL-EMIT-0008](TRL-EMIT-0008.md) | info | Secret reference emitted; the secret must exist on the target | active |
 | [TRL-EXPR-0001](TRL-EXPR-0001.md) | error | Expression syntax error | active |
 | [TRL-EXPR-0002](TRL-EXPR-0002.md) | warning | Expression function has no target equivalent | active |
 | [TRL-EXPR-0003](TRL-EXPR-0003.md) | warning | Expression evaluation phase differs on target | active |

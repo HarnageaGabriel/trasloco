@@ -29,7 +29,7 @@ Scheduled, manual, upstream, webhook and other triggers; `pull_request_target`/`
 
 - [ir.md](ir.md) defines the input. This file assumes a pipeline that passed `Validate` and MUST NOT re-implement validation; invalid IR is rejected before emission (`TRL-VAL-0007`..`TRL-VAL-0012`).
 - [normalize-ado.md](normalize-ado.md) defines what the Azure reader puts into the IR, including the losses it already reported with `TRL-CONV-0008`. The emitter MUST NOT report those again; it only records the carried fidelity (section 2.3).
-- [diagnostics.md](diagnostics.md) owns the codes. Section 9 proposes new codes; this file does not edit the registry.
+- [diagnostics.md](diagnostics.md) owns the codes. Section 9 defines codes registered in `internal/diag/registry.yaml`.
 - [naming.md](naming.md) owns job IDs, workflow file names and GitHub secret names; the emitter calls the same normalizer and MUST NOT re-implement it.
 - [catalog.md](catalog.md) and `catalog/github-actions/actions.lock.yaml` own action pins (INV-03).
 - [script-protocol.md](script-protocol.md) is not applied in M2-A (section 1.2).
@@ -66,7 +66,7 @@ Every semantic vector and mapping row cites these pages. "Read" means read on 20
 
 ### 2.1 Input
 
-A validated `ir.Pipeline`, the action lock (`catalog/github-actions/actions.lock.yaml`), the naming policy, and `Options{AllowPermissionWidening bool}` (default false, set by `--allow-permission-widening`, [diagnostics.md](diagnostics.md) `TRL-EMIT-0003`). The emitter performs no I/O (`CONVENTIONS.md`, "Layering"): the lock and the policy are values.
+A validated `ir.Pipeline`, the action lock, the naming policy, and `Options{AllowPermissionWidening bool, TargetVisibility TargetVisibility, Strict bool}`. Permission widening defaults to false (`--allow-permission-widening`, `TRL-EMIT-0003`). `Options.TargetVisibility` is `public`, `private`, or `unknown` (default); callers supply it (GH-RUN, section 5.5). `Options.Strict` defaults to false. The emitter performs no I/O: lock and policy are values (`CONVENTIONS.md`, Layering).
 
 ### 2.2 Result
 
@@ -75,13 +75,16 @@ The emitter returns, for one pipeline:
 1. zero or one file: path `.github/workflows/<workflow-file>` where `<workflow-file>` is the `naming.md` workflow-file normalization of `Pipeline.name`, and its bytes. A pipeline without jobs yields no file and `TRL-EMIT-0001`;
 2. diagnostics, attributed to the origin of the IR node that caused them (`CONVENTIONS.md`, "Positions");
 3. one disposition per IR node (section 2.3);
-4. `requiredSecrets`: the sorted, de-duplicated list of GitHub secret names referenced by the file (never values).
+4. `outputElements`: writer-produced `OutputElement{path, nodeID}` records, in file traversal order (section 2.3);
+5. `requiredSecrets`: the sorted, de-duplicated list of GitHub secret names referenced by the file (never values).
 
 Output bytes, the diagnostic list and the disposition list MUST be byte-identical across runs, processes and operating systems for the same IR, lock, policy and options (INV-01).
 
+An error-severity conversion diagnostic still yields a reviewable file with placeholders and a blocked emission result (exit class B), unless `Options.Strict` is true, in which case no file is returned. Registry severity and exit class remain unchanged; overall command-exit aggregation retains registry errors under [exit-codes.md](exit-codes.md). Invalid input and schema-invalid output (INV-10) never yield a file. This is emitter policy.
+
 ### 2.3 Dispositions and conservation
 
-Each IR node of these kinds receives exactly one disposition, recorded under its stable ID: pipeline, input, trigger, variable, stage, job, step, and each job-level feature of the out-of-scope list in section 1.2 that is present on a job.
+Each IR node of these kinds receives exactly one disposition under a stable ID: pipeline, input, trigger, variable, stage, job and step, plus every present out-of-scope feature of section 1.2 under `<nodeKind>:<nodeID>#<feature>` (for example `job:Build#container`). Result node IDs include their kind and owning scope (steps by job, variables by scope), avoiding collisions between IR namespaces. `Result.dispositions` is sorted by ID in byte order. The writer records one `OutputElement{path, nodeID}` per emitted file element; `path` is the file path plus a JSON Pointer into its typed document. Fixed scaffolding belongs to the containing pipeline, job or step.
 
 | Disposition | Meaning | Fidelity of the node in the report |
 |---|---|---|
@@ -91,13 +94,13 @@ Each IR node of these kinds receives exactly one disposition, recorded under its
 | `dropped` | Not rendered, with a diagnostic stating what behavior is lost | `approximated` or `unsupported` as the rule states |
 | `carried` | The reader already recorded the loss in `extensions`; the emitter renders the rest and adds no diagnostic | the node's recorded fidelity |
 
-Conservation (INV-12): the union of dispositions MUST cover every node, and the union of emitted file content MUST be explained by dispositions. A property test walks the IR against the re-parsed file and fails on any node without a disposition or any output element without a source node.
+Conservation (INV-12) is decidable without re-parsing: (1) every qualified IR node ID and present feature ID appears exactly once in `dispositions`; (2) every `OutputElement.nodeID` appears in `dispositions`; (3) every `emitted` disposition produces at least one output element for its node. A property test walks the IR and writer records to evaluate this predicate. Strict/no-file results have no `emitted` dispositions.
 
 The reported fidelity of the file is the highest grade over all dispositions ([README.md](README.md) aggregation order). Provenance is `deterministic` (this emitter never calls an LLM).
 
 ### 2.4 Diagnostic attribution
 
-Codes come from [diagnostics.md](diagnostics.md) unless section 9 proposes them. When several rules apply to one node the diagnostics are all emitted, each once per node. `severity` and exit class are fixed by the registry. Diagnostic messages and `params` MUST NOT contain source text beyond identifiers, never literal values (INV-05).
+Codes come from [diagnostics.md](diagnostics.md) and the registered additions in section 9. When several rules apply to one node the diagnostics are all emitted, each once per node. `severity` and exit class are fixed by the registry. Diagnostic messages and `params` MUST NOT contain source text beyond identifiers, never literal values (INV-05).
 
 ### 2.5 Failing placeholder
 
@@ -114,7 +117,7 @@ A node that cannot be converted safely becomes a placeholder rather than being o
 ```
 
   `<CODE>` is the primary diagnostic code of the node, a fixed identifier from the registry. The placeholder MUST NOT contain any IR text (script, name, value, condition, path): the message is the only dynamic part and it is a code. A YAML comment `# trasloco: <CODE> (source line <N>)` MAY precede the item, with `<N>` the integer start line of the node origin, and is omitted when the node has no origin.
-- **Job placeholder** keeps the job key, `name`, `needs`, `runs-on` (the mapped label, or `ubuntu-24.04` when the runner itself is the problem) and replaces every other key by a single step placeholder named `Manual conversion required`. The job `if`, `env`, `timeout-minutes` and `continue-on-error` are not rendered.
+- **Job placeholder** keeps the job key, `name`, `needs`, `runs-on` (the mapped label, or `ubuntu-24.04` when the runner itself is the problem) and emits `permissions: {}` and replaces every other key by a single step placeholder named `Manual conversion required`. The job `if`, `env`, `timeout-minutes` and `continue-on-error` are not rendered.
 - A placeholder never inherits the source `if` of the step it replaces.
 
 ## 3. Output invariants
@@ -123,9 +126,9 @@ All invariants are normative (`MUST`). Each has a property test over every vecto
 
 | ID | Invariant |
 |---|---|
-| INV-01 | Deterministic: byte-identical output across runs, hosts and operating systems. Ordered IR collections (`OrderedMap`, arrays) keep declaration order. Unordered inputs are sorted by total comparators: lock entries by action then owner/repo, `requiredSecrets` by normalized name (byte order). No map iteration, wall-clock time or locale is observable. Line endings are `\n`; the file ends with exactly one `\n`. |
+| INV-01 | Deterministic: byte-identical output across runs, hosts and operating systems. Ordered IR collections (`OrderedMap`, arrays) keep declaration order. Unordered inputs are sorted by total comparators: lock entries by action then owner/repo, `requiredSecrets` by normalized name (byte order). No Go map iteration may decide output order; values built from maps pass through sorted slices with documented total comparators. No wall-clock time or locale is observable. Line endings are `\n`; the file ends with exactly one `\n`. |
 | INV-02 | Explicit least privilege: the document always has top-level `permissions: {}` (deny all). Jobs needing scopes carry job-level permissions; self checkout gets `contents: read` plus approved grants. `read-all`, `write-all` and an absent top-level block are never emitted. |
-| INV-03 | Every `uses:` is `<owner>/<repo>@<40 lowercase hex>` followed by ` # <version>` from `actions.lock.yaml`. An absent lock entry is `TRL-CAT-0003` (error), becomes the section 2.5 placeholder, and still writes the workflow; no unpinned `uses:` is emitted. |
+| INV-03 | Every `uses:` is `<owner>/<repo>@<40 lowercase hex>` followed by ` # <version>` from `actions.lock.yaml`. An absent lock entry is `TRL-CAT-0003` (error), makes its step the section 2.5 placeholder (disposition `placeholder`), and still writes the workflow unless `Options.Strict`; no unpinned `uses:` is emitted. |
 | INV-04 | No secret value is ever written: not in the file, the diagnostics, the dispositions or `requiredSecrets`. A secret appears only as `${{ secrets.<NAME> }}` and only as the value of a **step-level** `env` entry (never workflow or job `env`, never inside `run`, `with`, `name` or `if`). |
 | INV-05 | No IR-supplied text is ever interpreted as a GitHub expression: a literal containing the two-character sequence `${{` is not emitted (section 5.13). The only `${{ }}` in the file are the ones this emitter generates from `Expr` nodes (section 5.10) and secret references. |
 | INV-06 | Untrusted event data is never interpolated into `run`: the emitter generates no `${{ }}` inside `run:` text. Where a later package must expose such data to a script it passes the value through a step `env` entry and the script reads the shell variable (GH-INJ, GH-SEC). M2-A emits no event context at all. |
@@ -134,7 +137,7 @@ All invariants are normative (`MUST`). Each has a property test over every vecto
 | INV-09 | `pull_request_target` and `workflow_run` are never emitted, and `actions/checkout` is never given a `ref` naming the pull-request head (GH-SEC, GH-EV). `persist-credentials` is always explicit. |
 | INV-10 | The workflow is valid for the GitHub workflow schema and for actionlint (oracle tests); a violation is `TRL-EMIT-0002` (internal error), never shipped. |
 | INV-11 | A placeholder never contains IR text (section 2.5). |
-| INV-12 | Conservation (section 2.3): every IR node has a disposition; nothing is dropped without a diagnostic. |
+| INV-12 | Conservation is the three-part predicate of section 2.3, including synthetic feature IDs; nothing is dropped without a diagnostic. |
 
 ## 4. Document layout and YAML writer
 
@@ -146,7 +149,7 @@ One YAML writer (`internal/yamlx`, ADR 0009: "new files are emitted from typed s
 2. Indentation is two spaces per level. A block sequence is indented two spaces under its key (`key:` then `  - item`), never at the key's column. No blank lines. No flow collections (`[a, b]`, `{a: b}`) except an empty mapping that a rule demands.
 3. Fixed key order:
    - document: `name`, `on`, `permissions`, `env`, `jobs`;
-   - job: `name`, `needs`, `if`, `runs-on`, `timeout-minutes`, `continue-on-error`, `env`, `steps`;
+   - job: `name`, `permissions`, `needs`, `if`, `runs-on`, `timeout-minutes`, `continue-on-error`, `env`, `steps`;
    - step: `name`, `if`, `uses`, `with`, `shell`, `working-directory`, `env`, `timeout-minutes`, `continue-on-error`, `run`;
    - `on`: IR trigger order (a push trigger precedes a pr trigger because the reader emits them in that order); inside `push`: `branches` or `branches-ignore`, `tags`, `paths` or `paths-ignore`; inside `pull_request`: `branches` or `branches-ignore`, `paths` or `paths-ignore`;
    - `with` of checkout: `ref`, `fetch-depth`, `submodules`, `lfs`, `persist-credentials`.
@@ -191,7 +194,7 @@ Fidelity grades are those of [README.md](README.md). "Exact" means equivalent wi
 | `Job.needs`, stage `dependsOn`, `barrier` | `needs:` (always a block list) | exact | GH-WS, AZ-JOBS | Section 5.4. |
 | `Job.if` | `if:` | exact or approximated | GH-WS, GH-EX, AZ-COND | Section 5.10; default `success()` is omitted. |
 | `Job.runner` | `runs-on:` | exact or approximated | AZ-HOST, GH-RUN | Section 5.5. |
-| `Job.timeout` | `timeout-minutes:` | exact | GH-WS, AZ-JOBS | Whole minutes; seconds round up (approximated, `TRL-CONV-0001`). Absent stays absent (Azure default 60 min vs GitHub 360 min is not materialized; see VERIFY-12). |
+| `Job.timeout` | `timeout-minutes:` | exact | GH-WS, AZ-JOBS | Whole minutes; seconds round up (approximated, `TRL-CONV-0001`). The reader-materialized hosted default emits 60 with carried approximated fidelity (VERIFY-12); absent remains absent with the reader loss, never an emitter-side Azure default. |
 | `Job.allowFailure` | `continue-on-error: true` | approximated | GH-WS, AZ-JOBS | GitHub reports dependent `needs.<id>.result` as `success`, versus Azure `succeededWithIssues`; record one `TRL-CONV-0001` per job. VERIFY-09. |
 | `Job.variables`, `Stage.variables`, `Pipeline.variables` | `env` (job, job, workflow) | exact | AZ-JOBS | Section 5.9. |
 | `Job.permissions` | none unless approved | approximated | GH-WS | Section 5.12. |
@@ -212,14 +215,14 @@ Fidelity grades are those of [README.md](README.md). "Exact" means equivalent wi
 
 ### 5.2 Triggers
 
-1. For every IR trigger of kind `push` or `pr` the emitter writes the event regardless of `binding.inYaml`; GitHub has no externally provisioned trigger. When `inYaml` is `false` the emitter adds `TRL-EMIT-0001` (info): the reader uses `false` for the synthesized "CI on every branch" default ([normalize-ado.md](normalize-ado.md)).
+1. Every IR `push`/`pr` writes an event regardless of `binding.inYaml`. `binding.synthetic: true` carries the reader's `TRL-CONV-0004` (add only if missing, never duplicate it). `inYaml: false` with synthetic false/absent instead records `TRL-EMIT-0001` for materializing an external trigger in YAML. Sources: [IR binding contract](ir.md), GH-EV.
 2. **No trigger left.** If no `push`/`pr` event remains (for example `trigger: none` and no `pr`), the `on` mapping is exactly `workflow_dispatch:` (empty value) and the emitter adds `TRL-EMIT-0001` (info). A workflow file without an event is invalid.
 3. **Branch guard.** A `push` event always has `branches` or `branches-ignore`, even when the IR has no branch filter, because on GitHub an event with neither filter also runs for tag pushes (GH-WS), whereas Azure does not trigger on tags unless tag filters are written (AZ-AG, "Tags"). The unfiltered default is `branches: ['**']`; `'**'` matches every branch name (GH-WS, cheat sheet). Path filters are not evaluated for tag pushes (GH-WS), which is a second reason for the guard.
 4. **Sign handling.** Within one filter kind (branches, tags, paths) the IR glob list is ordered, with a leading `!` marking an exclusion. If it contains at least one positive pattern the emitter writes the positive key (`branches`, `tags`, `paths`) with the patterns in IR order, keeping `!` prefixes. If it contains only negative patterns the emitter writes the `-ignore` key with the `!` removed: Azure documents an exclude-only filter as equivalent to including `*` (AZ-TRG, AZ-PR), and GitHub forbids a positive key and its `-ignore` twin together and forbids a `!` pattern without a positive one (GH-WS). Order matters on GitHub: a later `!` pattern removes and a later positive pattern re-includes (GH-WS). VERIFY-04: Azure says the order of path filters does not matter and that an excluded path cannot be included again unless qualified to a deeper folder (AZ-AG); the reader lists includes before excludes, which makes the two models agree for the shapes the reader produces.
 5. **Ref prefixes.** In the branch list of a trigger a pattern `refs/tags/<p>` moves to the tag list as `<p>` and a pattern `refs/heads/<p>` is written as `<p>`, keeping its sign (AZ-TRG documents `refs/tags/{tagname}` in the branch list). VERIFY-02.
 6. **Tags.** With tag filters present and no branch filter the branch guard of rule 3 still applies. VERIFY-03: whether an Azure trigger with only `tags` also fires for branches is not documented.
 7. **Pull requests.** `pull_request` filters match the pull request's base branch (GH-EV); Azure matches the target branch (AZ-GH, "PR triggers"). `pull_request` has no tag filter; tag filters on a `pr` trigger are `dropped` with `TRL-CONV-0005`. The pull-request build is the merge commit on both platforms (AZ-GH; GH-EV).
-8. A `pr` trigger absent from the IR produces no `pull_request` event and no diagnostic. Azure validates pull requests to all branches by default for GitHub repositories (AZ-GH); see the observation in section 10.
+8. A `pr` trigger absent from the IR produces no `pull_request` event or new diagnostic. Repository-dependent synthesis belongs to the reader ([normalize-ado.md](normalize-ado.md), AZ-GH, AZ-PR); synthetic PR triggers are emitted normally.
 9. Reader losses (`batch`, `autoCancel`, `drafts`, display names) are `carried`.
 
 ### 5.3 Glob translation
@@ -237,7 +240,7 @@ The IR glob dialect is gitignore-style ([ir.md](ir.md) section 4): `/` separator
 
 A pattern with a non-expressible token is handled so that a trigger can fire **more often, never less**: a positive pattern has the token replaced by `*`; a negative pattern is dropped. Both record `TRL-EMIT-0007` (warning, approximated) with `params.pattern` (the IR pattern, which is a path or branch glob and not secret material) and `params.action` (`widened` or `dropped`). An empty pattern is dropped without widening. Each emitted pattern is then written under section 4.2 (so `releases/*` becomes `'releases/*'`).
 
-VERIFY-01: Azure documents `*` as "zero or more characters" without excluding `/` (AZ-GH, "Wildcards"), while the IR dialect makes `*` stop at `/`. The emitter follows the IR; see section 10.
+VERIFY-01: Azure wildcard breadth across `/` remains unconfirmed (AZ-GH). The reader maps unescaped star runs to IR `**`, preserves `original`, and marks possible widening as approximated (fire more often, never less). The emitter consumes normalized patterns, never re-translates source text.
 
 ### 5.4 Jobs and the dependency graph
 
@@ -251,23 +254,23 @@ VERIFY-01: Azure documents `*` as "zero or more characters" without excluding `/
 
 `RunnerReq` is mapped only when `pool` is empty or equals `Azure Pipelines` (case-insensitively), `labels` and `demands` are empty, `arch` is empty or `x64`, and `image` is a key of the table below (case-insensitive). The table is the dated catalog snapshot of 2026-10-11 (AZ-HOST, GH-RUN); both platforms publish the same runner-images repository, which is why explicit versions map one to one.
 
-| Azure `vmImage` | GitHub label | Grade | Diagnostic |
-|---|---|---|---|
-| `ubuntu-latest` | `ubuntu-24.04` | approximated | `TRL-CAT-0006` (info): `-latest` aliases diverge, so the alias is pinned |
-| `ubuntu-26.04`, `ubuntu-24.04`, `ubuntu-22.04` | same label | exact | none |
-| `windows-latest` | `windows-2025` | approximated | `TRL-CAT-0006` |
-| `windows-2025`, `windows-2022` | same label | exact | none |
-| `windows-2025-vs2026` | `windows-2025-vs2026` | approximated | `TRL-CONV-0007`; GitHub lists this label for public repositories only (VERIFY-11) |
-| `macOS-latest` | `macos-15-intel` | approximated | `TRL-CAT-0006` |
-| `macOS-26`, `macOS-15` | `macos-26-intel`, `macos-15-intel` | exact | none |
-| `macOS-14` | `macos-14` | approximated | `TRL-CONV-0007`: Azure's image is Intel, GitHub's `macos-14` is Apple silicon (VERIFY-10) |
+| Azure `vmImage` | Visibility | GitHub label | Grade | Diagnostic |
+|---|---|---|---|---|
+| `ubuntu-latest` | any | `ubuntu-24.04` | approximated | `TRL-CAT-0006`: moving alias pinned |
+| `ubuntu-26.04`, `ubuntu-24.04`, `ubuntu-22.04` | any | same label | exact | none |
+| `windows-latest` | any | `windows-2025` | approximated | `TRL-CAT-0006` |
+| `windows-2025`, `windows-2022` | any | same label | exact | none |
+| `windows-2025-vs2026` | public / private / unknown | public: `windows-2025-vs2026`; private: `windows-2025`; unknown: job placeholder | approximated; unknown needs-manual | `TRL-CONV-0007` for mapping/substitution; unknown `TRL-CONV-0003` (GH-RUN, VERIFY-11) |
+| `macOS-latest` | public / private / unknown | public: `macos-15-intel`; private: `macos-15`; unknown: job placeholder | approximated; unknown needs-manual | mapped alias `TRL-CAT-0006`; private architecture substitution also `TRL-CONV-0007`; unknown `TRL-CONV-0003` |
+| `macOS-26`, `macOS-15` | public / private / unknown | public: `macos-26-intel`, `macos-15-intel`; private: `macos-26`, `macos-15`; unknown: job placeholder | public exact; private approximated; unknown needs-manual | private architecture substitution `TRL-CONV-0007`; unknown `TRL-CONV-0003` (GH-RUN, VERIFY-10/11) |
+| `macOS-14` | any | `macos-14` | approximated | `TRL-CONV-0007`: Intel to Apple silicon (VERIFY-10) |
 
 Rules:
 
 1. A mapped label is emitted with `INV-08`. The pin is a policy choice made so the output does not change when either vendor moves its alias.
-2. An empty `image` with `pool` empty or `Azure Pipelines` (no `pool` key at all) maps as `ubuntu-latest`, because Azure uses that image when none is specified (AZ-HOST): label `ubuntu-24.04`, diagnostics `TRL-CONV-0004` (info) and `TRL-CAT-0006`.
+2. An empty `image` makes the job a placeholder with `TRL-CONV-0003`; the reader owns Azure default materialization (AZ-HOST, [normalize-ado.md](normalize-ado.md)). The emitter never invents pool/image defaults.
 3. Anything else (unknown or retired image such as `vs2017-win2016`, a private pool name, demands, labels, a non-`x64` arch, an `os` that disagrees with the label's OS) makes the job a placeholder with `runs-on: ubuntu-24.04` and `TRL-CONV-0003`. Self-hosted pools are never guessed.
-4. The label's OS (`ubuntu-*` Linux, `macos-*` macOS, `windows-*` Windows) drives the shell resolution of 5.7.
+4. The label's OS checks shell compatibility in section 5.7; it never resolves `azure-default`. Public-only labels require target visibility: private uses the documented substitution, unknown uses a job placeholder (GH-RUN, VERIFY-10/11).
 
 ### 5.6 Steps in general
 
@@ -282,19 +285,18 @@ The IR shell is explicit. Mapping to the GitHub `shell:` value:
 
 | IR shell | Runner OS | `shell:` | Source |
 |---|---|---|---|
-| `bash` | any | `bash` | AZ-BASH, GH-WS |
+| `bash` | any | `bash` when both options are true; otherwise the explicit command below | AZ-BASH, GH-WS; VERIFY-07 |
 | `pwsh` | any | `pwsh` | GH-WS |
 | `powershell` | any | `powershell` | GH-WS |
 | `cmd` | Windows | `cmd` | GH-WS |
-| `azure-default` (the reader's name for the generic `script:` shortcut) | Linux, macOS | `bash` | AZ-SCR: "cmd.exe on Windows and Bash on other platforms" |
-| `azure-default` | Windows | `cmd` | AZ-SCR |
+| `azure-default` (unresolved interpreter) | any | step placeholder, `TRL-CONV-0003` | Reader contract; AZ-SCR |
 | any other value | any | step placeholder, `TRL-CONV-0003` | n/a |
 
 `shell:` is always written (INV-01 determinism does not depend on a runner default). Other rules:
 
-- `run` carries the IR script unchanged, written under 4.2. A script is eligible only if it has no `operations` and contains no `${{` (5.13) and no Azure macro (5.9, rule 6). Otherwise the step is a placeholder.
-- `working-directory` carries `workingDirectory` when it is a relative or absolute path without `$(`; with `$(` the step is a placeholder. The Azure default (`$(Build.SourcesDirectory)`, the repository root, AZ-SCR) equals the GitHub workspace after `actions/checkout` of `self`.
-- GitHub runs `bash` as `bash --noprofile --norc -eo pipefail {0}` and `pwsh`/`powershell` through `-command ". '{0}'"` (GH-WS). VERIFY-07: whether Azure's Bash runs with `errexit`/`pipefail` is not stated by AZ-BASH; if it does not, a failing intermediate command now stops the step. VERIFY-08: PowerShell `ErrorActionPreference` defaults. Until confirmed the grade is `exact` and no per-step diagnostic is raised; a confirmed difference becomes one `TRL-CONV-0001` per workflow.
+- `run` carries the IR script unchanged, written under 4.2. A script is eligible only if it has no `operations` and contains no `${{` (5.13) and no `macroRefs` (5.9, rule 6). Otherwise the step is a placeholder.
+- `working-directory` carries `workingDirectory` only when `macroRefs` is empty; otherwise the step is a placeholder. The reader classifies macros; the emitter never scans Azure syntax (section 5.9).
+- GitHub built-in `bash` uses `bash --noprofile --norc -eo pipefail {0}` (GH-WS). Explicit `shellOptions` preserve each flag: both true uses `bash`; otherwise use `bash --noprofile --norc`, append `-e` only for `errexit: true`, append `-o pipefail` only for `pipefail: true`, then `{0}`. Both false emits `shell: 'bash --noprofile --norc {0}'`. Missing options retain the explicit IR shell and its recorded fidelity, without inventing source flags. VERIFY-07 remains open for Azure defaults. PowerShell invocation follows GH-WS; VERIFY-08 remains exact pending confirmation.
 - `failOnStderr` and other script options are reader losses and are `carried`.
 
 ### 5.8 Checkout
@@ -303,8 +305,8 @@ Only `repository: self` is emitted. The step is `uses: actions/checkout@<sha> # 
 
 | IR field | `with` key | Rule |
 |---|---|---|
-| `ref` | `ref` | Omitted when the expression is the literal `$(Build.SourceVersion)` (the reader's spelling of "the triggering commit"): `actions/checkout` defaults to the triggering ref/SHA (GH-CHK; for pull requests the merge commit, GH-EV). Any other string literal is written; one containing `$(` makes the step a placeholder. |
-| `fetchDepth` | `fetch-depth` | Written when greater than 0. Zero and absent are omitted (action default 1, GH-CHK). See observation O-5: the IR cannot tell `fetchDepth: 0` (full history, AZ-CHK) from unset. VERIFY-13: Azure's default depth depends on a pipeline setting (AZ-CHK, "Shallow fetch"). |
+| `refSource`, `ref` | `ref` | `sourceVersion` omits `ref` (triggering ref/SHA, GH-CHK, GH-EV); `literal` or absent `refSource` uses a literal expression. A macro or unsupported expression is a placeholder. Never recognize Azure macro spelling as the triggering commit. |
+| `fetchDepth`, `fetchDepthSet` | `fetch-depth` | True writes the integer including `0` (full history, AZ-CHK). False/absent omits the key (GH-CHK default 1); unspecified Azure depth remains VERIFY-13. |
 | `submodules` | `submodules` | `true` written; `false` omitted. VERIFY-14: the reader folds `recursive` into `true` (normalize-ado.md), so recursion is lost on this path. |
 | `lfs` | `lfs` | `true` written; `false` omitted. |
 | `persistCredentials` | `persist-credentials` | Always written. Azure leaves the token out of git config by default (AZ-CHK) while the action keeps it by default (GH-CHK), so `false` is explicit. |
@@ -316,10 +318,10 @@ A job without a checkout step (for example after `checkout: none`) emits none. `
 
 1. **Projection of names.** Azure exposes a variable to scripts as an environment variable whose name is the upper-cased variable name with `.` and spaces replaced by `_` (AZ-JOBS, "Job variables": `mySimpleVar` is `MYSIMPLEVAR`, `my.dotted.var` is `MY_DOTTED_VAR`, `my var with spaces` is `MY_VAR_WITH_SPACES`). The emitter writes that name. Any remaining character outside `[A-Za-z0-9_]` is replaced by `_`, a leading digit gets the prefix `N_`, and the change records `TRL-NAME-0001`. VERIFY-17: Azure's projection of other characters (for example `-`) is unconfirmed. Explicit `env:` keys of a step are written as given ([variable-precedence.md](variable-precedence.md): "Explicit `env:` keys remain as written"). VERIFY-16: GitHub reserves names beginning `GITHUB_` for its own variables; a projected or explicit key with that prefix is written unchanged until the reservation is confirmed for `env`.
 2. **Placement.** Pipeline-scope literals go to workflow `env`; stage-scope literals are copied, in declaration order and before job entries, into the `env` of every job of that stage; job-scope literals go to job `env`. A later entry with the same projected name replaces the earlier value in place (Azure's more specific scope wins); two entries of the **same** scope projecting to one name keep the later value and record `TRL-VAR-0004`. VERIFY-18: Azure variable names are case-insensitive.
-3. **Values.** A workflow, stage or job variable whose value is a literal string without `$(` and `$[` is written under 4.2. A value containing an Azure macro `$(` or runtime `$[` text cannot be expanded by GitHub; the variable is `dropped` and `TRL-CONV-0003` records it, because GitHub would pass the text through unexpanded. A step `env` value follows the same test, except that the whole-value secret patterns of rule 5 are translated; a step `env` value of any other expression kind (a reference to `variables`, `parameters`, `env`, `matrix`, `runner`, `run` or `dependencyOutputs`, or a call) is not translated and the step is a placeholder (`TRL-EXPR-0002`).
+3. **Values.** A workflow, stage or job variable whose value is a literal string without `$(` and `$[` is written under 4.2. A `MacroExpr` value or deferred literal containing `$(` or `$[` cannot be expanded by GitHub; the variable is `dropped` and `TRL-CONV-0003` records it, because GitHub would pass the text through unexpanded. A step `env` value follows the same test, except that typed declared-secret references of rule 5 are translated; a step `env` value of any other expression kind (a reference to `variables`, `parameters`, `env`, `matrix`, `runner`, `run` or `dependencyOutputs`, or a call) is not translated and the step is a placeholder (`TRL-EXPR-0002`).
 4. **Group variables** (`scope: group`) are `dropped` with `TRL-CONV-0003`; the IR spells a group import as a pseudo-variable named after the group, so the emitter MUST discriminate by `scope`, never by name.
-5. **Secrets.** A `Variable` with `SecretRef` creates no `env` entry (Azure does not map secrets into the environment automatically and requires an explicit `env:` mapping, AZ-SEC) and contributes its normalized name to `requiredSecrets`. A step `env` value that is a `secrets` reference (the reader's form for a secret-looking literal) is written as `${{ secrets.<NAME> }}`. A step `env` value that is exactly one macro `$(NAME)`, where `NAME` contains no `.`, is handled as AZ-SEC's canonical pattern (`FOO_ONE: $(SecretOne)`): it becomes `${{ secrets.<NAME> }}`; when `NAME` is not a declared secret variable it is assumed to be a secret defined outside the YAML (UI or variable group) and the emitter records `TRL-CONV-0001` (approximated). `<NAME>` is the `naming.md` "GitHub secret" normalization (`db.password` becomes `DB_PASSWORD`); a change records `TRL-NAME-0001`. Every secret reference records `TRL-EMIT-0008` (info). A macro naming a declared non-secret variable, or a name containing `.` (predefined variables such as `Build.BuildId`), is not translated: the step is a placeholder (`TRL-CONV-0003`).
-6. **Macros in scripts.** In `run` text and `working-directory`, the token `$(NAME)` with `NAME` matching `[A-Za-z_][A-Za-z0-9_.-]*` is an Azure macro when `NAME` contains a `.` or is a variable declared anywhere in the IR; such a step is a placeholder (`TRL-CONV-0003`). Other `$(...)` text (for example `$(date)`, or anything with whitespace) is shell command substitution and is left unchanged. Secrets are never inlined into scripts (INV-04).
+5. **Secrets.** A `Variable` with `SecretRef` creates no `env` entry (AZ-SEC) and contributes its normalized name to `requiredSecrets`. A step `env` typed `secrets` reference, or `MacroExpr` with `declared: true, secret: true` resolving to a declared `SecretRef`, becomes `${{ secrets.<NAME> }}`. Naming.md normalization records `TRL-NAME-0001` when changed, and each emitted secret reference records `TRL-EMIT-0008`. Declared non-secret macro expansion is outside M2-A; it and any unresolved macro make the step a placeholder (`TRL-CONV-0003`). Neither spelling, dots nor undeclared names imply secrecy. VERIFY-22 retains unresolved source behavior for review.
+6. **Macros in scripts.** Non-empty `RunStep.macroRefs` makes the step a placeholder (`TRL-CONV-0003`), whether declared, secret or unresolved. The emitter consumes reader classification, never re-scans `script` or `workingDirectory` to infer macros/secrets. Text not classified as a macro stays intact. Under VERIFY-22 the reader conservatively classifies simple undeclared `$(date)` as unresolved. Secrets are never inlined (INV-04).
 7. A declared variable that is never referenced is still emitted (rule 2), keeping behavior for scripts that read it from the environment.
 
 ### 5.10 Conditions
@@ -342,7 +344,7 @@ Input is `Job.if` or `Step.if` (a `Cond`). Output is `if: ${{ <E> }}` written un
 | `contains(a, b)`, `startsWith(a, b)`, `endsWith(a, b)` | same function names | Both platforms compare as case-insensitive strings (AZ-EXPR, GH-EX). |
 | `lt`, `le`, `gt`, `ge`, `format`, `join` | not translated | `TRL-EXPR-0002`, placeholder. Azure converts the right operand to the left type, GitHub coerces both to numbers (AZ-EXPR, GH-EX); no safe common form exists in M2-A. |
 | `variables` reference `[N]` | `env.<P(N)>` | Rule 4. |
-| other contexts (`parameters`, `secrets`, `matrix`, `runner`, `run`, `dependencyOutputs`, `env` reference) | not translated | `TRL-EXPR-0002`, placeholder. `secrets` is not available in `steps.if` (GH-CX). |
+| `MacroExpr` or other contexts (`parameters`, `secrets`, `matrix`, `runner`, `run`, `dependencyOutputs`, `env` reference) | not translated | `TRL-EXPR-0002`, placeholder. `secrets` is not available in `steps.if` (GH-CX). |
 | string literal | `'...'` with `'` doubled | GH-EX. A literal containing a control character, `$(` or `$[` is not translated (`TRL-EXPR-0002`): GitHub would not expand the Azure macro. |
 | bool literal | `true`, `false` | |
 | number literal | its decimal text | Only if it survives binary64 round trip; else `TRL-EXPR-0002`. |
@@ -355,11 +357,11 @@ Input is `Job.if` or `Step.if` (a `Cond`). Output is `if: ${{ <E> }}` written un
 
 ### 5.11 Timeouts and `continue-on-error`
 
-`Duration` is a Go duration. `timeout-minutes` is its whole minutes; a remainder rounds up and records `TRL-CONV-0001`. A zero or absent duration is omitted. GitHub accepts positive integers only (GH-WS). `continue-on-error: true` is written only for `true`; `false` is the default. Step values equal the job rules.
+`Duration` is a Go duration. `timeout-minutes` is its whole minutes; a remainder rounds up and records `TRL-CONV-0001`. A zero or absent duration is omitted with the reader loss carried; the emitter never invents an Azure timeout. The reader-materialized `1h0m0s` becomes `timeout-minutes: 60`, carrying synthetic/approximated metadata (VERIFY-12). GitHub accepts positive integers only (GH-WS). `continue-on-error: true` is written only for `true`; `false` is the default. Step values follow the same rounding and boolean rules, with no hosted-job default. `Job.allowFailure` is approximated with one `TRL-CONV-0001` (`difference`) per job: under VERIFY-09, GitHub dependents see `needs.<id>.result` as `success` while Azure retains `succeededWithIssues`. Dependent conditions must be reviewed for that distinction; the emitter does not rewrite dependencies silently (AZ-JOBS, GH-WS, GH-EX).
 
 ### 5.12 Permissions
 
-The document always has `permissions:` with exactly `contents: read` (INV-02): the checkout of `self` needs read access to contents and nothing else is required in M2-A. A non-empty `Job.permissions` that grants anything above `contents: read` is not emitted unless `Options.AllowPermissionWidening` is true; without approval the emitter records `TRL-EMIT-0003` (warning, approximated) and the grant is `dropped`. With approval the job gets a job-level `permissions` mapping that lists exactly the IR entries in order, plus `contents: read` first when the job has a checkout step and the IR does not mention `contents` (GitHub sets every unspecified scope to `none` once any is specified, GH-WS), and `TRL-EMIT-0003` is still recorded as the audit trail.
+The document always has top-level `permissions: {}` (INV-02). Every job also has an explicit job-level mapping, `{}` when no scope is needed; a job emitting checkout of `self` receives `contents: read`. Approved IR grants follow declaration order, with the checkout baseline prepended only when `contents` is absent. A grant above the baseline requires `Options.AllowPermissionWidening`; without approval, drop it with `TRL-EMIT-0003` while retaining the checkout baseline. With approval, emit exactly the approved entries and retain `TRL-EMIT-0003` as the audit trail. An approved explicit `contents` entry keeps its IR position/value. Placeholder jobs use `permissions: {}`. Unspecified GitHub scopes become `none` once any scope is named (GH-WS).
 
 ### 5.13 Expression delimiter in literals
 
@@ -369,26 +371,28 @@ GitHub evaluates `${{ ... }}` inside `run`, `env`, `with`, `name`, `if`, `workin
 
 | Situation | Code | Severity (registry) |
 |---|---|---|
-| Synthesized default trigger written; no trigger left (`workflow_dispatch`); pipeline without jobs | `TRL-EMIT-0001` | info |
+| External trigger materialized; no trigger left (`workflow_dispatch`); pipeline without jobs | `TRL-EMIT-0001` | info |
 | Emitted file fails schema/actionlint | `TRL-EMIT-0002` | error |
 | Job-level grant above `contents: read` | `TRL-EMIT-0003` | warning |
 | Action missing from lock / not allowed | `TRL-CAT-0003`, `TRL-CAT-0004` | error |
 | Task step | `TRL-CAT-0001` | warning, needs-manual |
 | `-latest` image pinned | `TRL-CAT-0006` | info |
 | Image or architecture differs | `TRL-CONV-0007` | warning |
-| Implicit default made explicit (default image) | `TRL-CONV-0004` | info |
-| Approximation (retry dropped, rounding, secret assumed, explicit-condition job semantics) | `TRL-CONV-0001` | warning |
+| Implicit default made explicit (reader defaults, carried without duplication) | `TRL-CONV-0004` | info |
+| Approximation (retry dropped, rounding, allowFailure, explicit-condition job semantics) | `TRL-CONV-0001` | warning |
 | Needs-manual construct (placeholder or drop) | `TRL-CONV-0003` | warning |
 | Trigger with no target equivalent | `TRL-CONV-0005` | warning |
 | Unsupported construct dropped | `TRL-CONV-0002` | warning |
 | Expression not translatable | `TRL-EXPR-0002`, `TRL-EXPR-0004` | warning |
 | Name changed or collided | `TRL-NAME-0001`, `TRL-NAME-0002` | info, warning |
 | Projection collision | `TRL-VAR-0004` | warning |
-| Pattern widened or dropped | `TRL-EMIT-0007` (proposed) | warning |
-| `${{` in literal | `TRL-EMIT-0006` (proposed) | warning |
-| Secret reference written | `TRL-EMIT-0008` (proposed) | info |
+| Pattern widened or dropped | `TRL-EMIT-0007` | warning |
+| `${{` in literal | `TRL-EMIT-0006` | warning |
+| Secret reference written | `TRL-EMIT-0008` | info |
 
 ## 7. Test vectors
+
+T1 draft correction log (issue #26): the following vectors now consume synthetic PR defaults, normalized stars, explicit shell options and hosted timeout; permissions are denied globally and granted per job. EMITV-002/006/008/011/031/032/049/054/076/077 and properties 081-083 are corrected for gaps 1-8 and F1-F7, without changing their IDs. Visibility examples explicitly select public targets. These are specification examples, not implementation goldens.
 
 ### 7.1 Conventions
 
@@ -396,7 +400,7 @@ The README convention applies (IDs `EMITV-NNN`, never reused, tests read this fi
 
 Body blocks, by info string:
 
-- ` ```yaml ado ` - the complete Azure Pipelines file (the input). Vectors run `parse -> resolve -> normalize -> emit` with pipeline `id` and `name` both `ci`, source file `azure-pipelines.yml`, the lock of the repository, and default options. The reader's implicit checkout (`implicit-checkout`, "Checkout self") is therefore the first step of every job unless the vector says otherwise; the first user step of a `steps:` or `jobs:` pipeline is `step-2`, and the root `steps:` shape yields the single job `__default` named `Default` (normalize-ado.md).
+- ` ```yaml ado ` - the complete Azure Pipelines file (the input). Vectors run `parse -> resolve -> normalize -> emit` with pipeline `id` and `name` both `ci`, source file `azure-pipelines.yml`, the lock of the repository, and reader `Options.RepositoryType: github`; emitter options default unless explicitly stated. EMITV-026/027/028/036 set `Options.TargetVisibility: public` so their public-only labels are intentional. The reader's implicit checkout (`implicit-checkout`, "Checkout self") is therefore the first step of every job unless the vector says otherwise; the first user step of a `steps:` or `jobs:` pipeline is `step-2`, and the root `steps:` shape yields the single job `__default` named `Default` (normalize-ado.md).
 - ` ```text ir-edit ` - used by vectors whose input cannot be produced by the reader (section 5.13, section 5.12): the named edits are applied to the IR produced by the stated base vector before emission.
 - ` ```yaml gha full ` - the exact output, without the first header line, compared byte for byte.
 - ` ```yaml gha fragment ` - a subset of the output, compared after parsing both documents: every mapping key of the fragment must exist at the same path with a matching value; the value `!absent` asserts that the key is missing; `!any` matches any value; `{}` matches any mapping; sequences must have equal length and match element by element; scalars compare by parsed YAML type and value (`5` is an integer, `'5'` a string). A step mapping with the pseudo-key `placeholder: <CODE>` expands to the placeholder of section 2.5 (`shell: bash` and the two-line `run` naming `<CODE>`); other keys in the same mapping (such as `name`) must also match.
@@ -408,17 +412,17 @@ Body blocks, by info string:
 
 | ID | Input | Expected | Diagnostics | Source |
 |---|---|---|---|---|
-| EMITV-001 | `trigger: [main]`, `vmImage: ubuntu-latest`, one `script` | full golden: name, push, `contents: read`, pinned checkout, `bash` step | `TRL-CAT-0006` | AZ-TRG, GH-WS, GH-RUN, GH-CHK |
-| EMITV-002 | no `trigger` key | `push.branches: ['**']`, no `pull_request` | `TRL-EMIT-0001` | AZ-TRG, GH-WS |
+| EMITV-001 | `trigger: [main]`, `vmImage: ubuntu-latest`, one `script` | full golden: push/PR, global deny, job contents read, checkout, explicit Bash flags/timeout | `TRL-CAT-0006` | AZ-TRG, GH-WS, GH-RUN, GH-CHK |
+| EMITV-002 | no `trigger` key | `push.branches: ['**']`, synthetic `pull_request` | none (reader default carried) | AZ-TRG, GH-WS |
 | EMITV-003 | `trigger: none`, `pr: none` | `on` is `workflow_dispatch:` only | `TRL-EMIT-0001` | AZ-TRG, AZ-PR, GH-WS |
 | EMITV-004 | `trigger` list with a wildcard | `push.branches` in order | none | AZ-TRG, GH-WS |
 | EMITV-005 | branches include and exclude | one `branches` list, `!` pattern last | none | AZ-TRG, GH-WS |
-| EMITV-006 | branches exclude only | `branches-ignore`, no `branches` | none | AZ-TRG, GH-WS |
+| EMITV-006 | branches exclude only | `branches` starts with `**`, then negations | none | AZ-TRG, GH-WS |
 | EMITV-007 | paths include only | `branches: ['**']` plus `paths` | none | AZ-AG, GH-WS |
-| EMITV-008 | paths exclude only | `branches: ['**']` plus `paths-ignore` | none | AZ-TRG, GH-WS |
+| EMITV-008 | paths exclude only | `branches: ['**']` plus `paths` starts with `**`, then negations | none | AZ-TRG, GH-WS |
 | EMITV-009 | branches include, paths include and exclude | `branches`, `paths` with trailing `!` | none | AZ-TRG, GH-WS |
 | EMITV-010 | `trigger: none`, `pr` branch list | `pull_request.branches` only | none | AZ-PR, GH-EV |
-| EMITV-011 | `trigger` without `pr` | no `pull_request` event | none | AZ-GH, GH-EV |
+| EMITV-011 | `trigger` without `pr` | synthetic `pull_request` event | none | AZ-GH, GH-EV |
 | EMITV-012 | tag include and exclude | `push.tags` with `!` | none | AZ-AG, GH-WS |
 | EMITV-013 | `refs/heads/` and `refs/tags/` entries | branch `main`, tag `v1` | none | AZ-TRG, GH-WS |
 | EMITV-014 | pattern with `?` (include) | widened to `*` | `TRL-EMIT-0007` | GH-WS |
@@ -445,18 +449,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo hello
 ```
 
@@ -474,7 +481,7 @@ on:
   push:
     branches:
       - '**'
-  pull_request: !absent
+  pull_request:
   workflow_dispatch: !absent
 ```
 
@@ -513,7 +520,7 @@ on:
   push:
     branches:
       - main
-      - 'releases/*'
+      - 'releases/**'
     paths: !absent
 ```
 
@@ -538,8 +545,8 @@ on:
   push:
     branches:
       - main
-      - 'releases/*'
-      - '!releases/old*'
+      - 'releases/**'
+      - '!releases/old**'
     branches-ignore: !absent
 ```
 
@@ -559,9 +566,10 @@ steps:
 ```yaml gha fragment
 on:
   push:
-    branches-ignore:
-      - 'wip/*'
-    branches: !absent
+    branches:
+      - '**'
+      - '!wip/**'
+    branches-ignore: !absent
 ```
 
 #### EMITV-007
@@ -583,7 +591,7 @@ on:
     branches:
       - '**'
     paths:
-      - 'docs/*.md'
+      - 'docs/**.md'
 ```
 
 #### EMITV-008
@@ -604,9 +612,10 @@ on:
   push:
     branches:
       - '**'
-    paths-ignore:
-      - README.md
-    paths: !absent
+    paths:
+      - '**'
+      - '!README.md'
+    paths-ignore: !absent
 ```
 
 #### EMITV-009
@@ -655,7 +664,7 @@ on:
   pull_request:
     branches:
       - main
-      - 'releases/*'
+      - 'releases/**'
   push: !absent
   workflow_dispatch: !absent
 ```
@@ -676,7 +685,7 @@ on:
   push:
     branches:
       - main
-  pull_request: !absent
+  pull_request:
 ```
 
 #### EMITV-012
@@ -703,8 +712,8 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
-      - '!v*-rc'
+      - 'v**'
+      - '!v**-rc'
 ```
 
 #### EMITV-013
@@ -808,18 +817,20 @@ on:
   pull_request:
     branches:
       - main
-permissions:
-  contents: read
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo hi
 ```
 
@@ -893,8 +904,8 @@ concurrency: !absent
 | EMITV-028 | `macOS-14`, `windows-2025-vs2026` | same-version labels, approximated | `TRL-CONV-0007` x2 | AZ-HOST, GH-RUN |
 | EMITV-029 | retired `vs2017-win2016` image | job placeholder on `ubuntu-24.04` | `TRL-CONV-0003` | AZ-HOST |
 | EMITV-030 | private pool with demands | job placeholder | `TRL-CONV-0003` | AZ-JOBS |
-| EMITV-031 | no `pool` | `ubuntu-24.04` | `TRL-CONV-0004`, `TRL-CAT-0006` | AZ-HOST, GH-RUN |
-| EMITV-032 | job `displayName`, `timeoutInMinutes`, `continueOnError` | `name`, `timeout-minutes`, `continue-on-error` | none | AZ-JOBS, GH-WS |
+| EMITV-031 | no `pool` | `ubuntu-24.04` | `TRL-CAT-0006` (reader default carried) | AZ-HOST, GH-RUN |
+| EMITV-032 | job `displayName`, `timeoutInMinutes`, `continueOnError` | `name`, `timeout-minutes`, `continue-on-error` | `TRL-CONV-0001` | AZ-JOBS, GH-WS |
 | EMITV-033 | matrix strategy | job placeholder | `TRL-CONV-0003` | AZ-JOBS |
 | EMITV-034 | container job | job placeholder | `TRL-CONV-0003` | AZ-JOBS |
 | EMITV-035 | deployment job with environment | job placeholder, no `environment` | `TRL-CONV-0003` | AZ-JOBS |
@@ -1191,6 +1202,11 @@ jobs:
     runs-on: windows-2025-vs2026
 ```
 
+```text prose
+Also run with TargetVisibility private: vs maps to windows-2025 with TRL-CONV-0007; unknown makes vs a job placeholder with TRL-CONV-0003. Apply the same visibility gate to macOS-15/macOS-26 and the macOS-latest alias: public uses Intel, private substitutes the same-version general label with TRL-CONV-0007 (plus alias pin diagnostic when applicable), unknown placeholders. VERIFY-10/11 remain open.
+```
+
+
 #### EMITV-029
 
 ```yaml ado
@@ -1357,8 +1373,8 @@ jobs:
 
 | ID | Input | Expected | Diagnostics | Source |
 |---|---|---|---|---|
-| EMITV-036 | `script` on Linux, Windows and macOS images | shell `bash`, `cmd`, `bash` | none | AZ-SCR, GH-WS |
-| EMITV-037 | `bash`, `pwsh`, `powershell` steps | the same shell names | none | AZ-BASH, GH-WS |
+| EMITV-036 | `script` on Linux, Windows and macOS images | explicit Bash invocation, `cmd`, explicit Bash invocation | none | AZ-SCR, GH-WS |
+| EMITV-037 | `bash`, `pwsh`, `powershell` steps | explicit Bash invocation; unchanged PowerShell names | none | AZ-BASH, GH-WS |
 | EMITV-038 | multi-line script (`\|`) | full golden with a clip block scalar | none | GH-WS |
 | EMITV-039 | multi-line script (`\|-`) | full golden with a strip block scalar | none | GH-WS |
 | EMITV-040 | `workingDirectory` | `working-directory` | none | AZ-SCR, GH-WS |
@@ -1370,7 +1386,7 @@ jobs:
 | EMITV-046 | `checkout: self` with depth, submodules, lfs, persist | `with` keys written | none | AZ-CHK, GH-CHK |
 | EMITV-047 | `checkout` with `path`, and of another repository | two step placeholders | `TRL-CONV-0003` x2 | AZ-CHK |
 | EMITV-048 | script emitting a `##vso` logging command | step placeholder | `TRL-CONV-0003` | n/a |
-| EMITV-049 | Azure macros in a script and a working directory; shell `$(date)` | macro steps are placeholders; `$(date)` unchanged | `TRL-CONV-0003` x2 | AZ-EXPR |
+| EMITV-049 | Azure macros in a script and a working directory; shell `$(date)` | all three macro steps are placeholders | `TRL-CONV-0003` x3 | AZ-EXPR |
 | EMITV-050 | `enabled: false` | `if: ${{ false }}` | none | GH-EX |
 
 #### EMITV-036
@@ -1401,7 +1417,7 @@ jobs:
   lin:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo l
   win:
     steps:
@@ -1411,7 +1427,7 @@ jobs:
   mac:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo m
 ```
 
@@ -1435,7 +1451,7 @@ jobs:
   win:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo b
       - shell: pwsh
         run: Write-Host p
@@ -1463,18 +1479,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: |
           set -e
           echo one
@@ -1500,18 +1519,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: |-
           echo one
           echo two
@@ -1534,7 +1556,7 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         working-directory: src/app
         run: make
 ```
@@ -1556,7 +1578,7 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: ./flaky.sh
 ```
 
@@ -1580,7 +1602,7 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         env:
           MODE: fast
         timeout-minutes: 5
@@ -1647,12 +1669,11 @@ steps:
 ```
 
 ```yaml gha fragment
-permissions:
-  contents: read
+permissions: {}
 jobs:
   __default:
     steps:
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo hi
         uses: !absent
 ```
@@ -1685,6 +1706,11 @@ jobs:
           persist-credentials: true
 ```
 
+```text prose
+Depth variants: fetchDepthSet:true/fetchDepth:0 writes fetch-depth:0; false omits it. refSource:sourceVersion omits ref regardless of its legacy literal; literal with an ordinary literal ref writes it. A macro ref becomes a placeholder, never a secret reference.
+```
+
+
 #### EMITV-047
 
 ```yaml ado
@@ -1710,7 +1736,7 @@ jobs:
     steps:
       - placeholder: TRL-CONV-0003
       - placeholder: TRL-CONV-0003
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo hi
 ```
 
@@ -1754,8 +1780,7 @@ jobs:
     steps:
       - {}
       - placeholder: TRL-CONV-0003
-      - shell: bash
-        run: echo "now $(date)"
+      - placeholder: TRL-CONV-0003
       - placeholder: TRL-CONV-0003
 ```
 
@@ -1777,7 +1802,7 @@ jobs:
     steps:
       - {}
       - if: '${{ false }}'
-        shell: bash
+        shell: 'bash --noprofile --norc {0}'
         run: echo off
 ```
 
@@ -1788,7 +1813,7 @@ jobs:
 | EMITV-051 | pipeline variables with dots and spaces | workflow `env` with Azure's projected names | none | AZ-JOBS, GH-WS |
 | EMITV-052 | stage variables and job variables overriding one | job `env` with stage entries first, job value wins | none | AZ-JOBS |
 | EMITV-053 | step `env` with a secret-looking literal (canary value) | `${{ secrets.DB_PASSWORD }}`, canary absent | `TRL-EMIT-0008` | AZ-SEC, GH-SEC |
-| EMITV-054 | step `env: FOO_TWO: $(SecretTwo)` | `${{ secrets.SECRETTWO }}` | `TRL-CONV-0001`, `TRL-NAME-0001`, `TRL-EMIT-0008` | AZ-SEC, GH-SEC |
+| EMITV-054 | step `env: FOO_TWO: $(SecretTwo)` | undeclared macro placeholder | `TRL-CONV-0003` | AZ-SEC, GH-SEC |
 | EMITV-055 | step `env` with `$(Build.BuildId)` | step placeholder | `TRL-CONV-0003` | AZ-EXPR |
 | EMITV-056 | variable group import and a variable whose value is a macro | both dropped, other variable emitted | `TRL-CONV-0003` x2 | AZ-JOBS |
 | EMITV-057 | step `env` values that YAML could reinterpret | full golden with every value quoted | none | Y12, GH-WS |
@@ -1871,7 +1896,7 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         env:
           DB_PASSWORD: '${{ secrets.DB_PASSWORD }}'
         run: ./deploy.sh
@@ -1899,14 +1924,13 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
-        env:
-          FOO_TWO: '${{ secrets.SECRETTWO }}'
+      - placeholder: TRL-CONV-0003
 ```
 
 ```text prose
-requiredSecrets is exactly ["SECRETTWO"]. The env key FOO_TWO keeps its spelling; the secret name is the naming.md GitHub-secret normalization of "SecretTwo".
+SecretTwo has no declaration: its MacroExpr has declared:false and secret:false. requiredSecrets is empty; no secret name is inferred from spelling. A separate declared-secret case sets a pipeline Variable with SecretRef name SecretTwo and the macro classification to declared:true, secret:true; that case emits FOO_TWO: ${{ secrets.SECRETTWO }} and records TRL-NAME-0001 and TRL-EMIT-0008, without TRL-CONV-0001. A declared non-secret macro remains a placeholder in M2-A.
 ```
+
 
 #### EMITV-055
 
@@ -1981,18 +2005,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         env:
           A: 'yes'
           B: 'on'
@@ -2036,18 +2063,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         env:
           K1: '*star'
           K2: 'a: b'
@@ -2081,20 +2111,23 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+  pull_request:
+permissions: {}
 env:
   'NO': x
 jobs:
   __default:
     name: Default
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout self
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         run: echo hi
 ```
 
@@ -2162,7 +2195,7 @@ jobs:
   __default:
     steps:
       - {}
-      - shell: bash
+      - shell: 'bash --noprofile --norc {0}'
         if: !absent
       - if: '${{ always() }}'
       - if: '${{ failure() }}'
@@ -2550,11 +2583,11 @@ options: AllowPermissionWidening = false
 ```
 
 ```yaml gha fragment
-permissions:
-  contents: read
+permissions: {}
 jobs:
   __default:
-    permissions: !absent
+    permissions:
+      contents: read
 ```
 
 #### EMITV-077
@@ -2566,8 +2599,7 @@ options: AllowPermissionWidening = true
 ```
 
 ```yaml gha fragment
-permissions:
-  contents: read
+permissions: {}
 jobs:
   __default:
     permissions:
@@ -2644,19 +2676,19 @@ Property over every vector and over corpus pipelines that contain planted canary
 #### EMITV-081
 
 ```text prose
-Property over every vector that emits a uses line: the value matches ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+@[0-9a-f]{40}$, is followed by " # " and a version, and both the SHA and the version equal the entry of catalog/github-actions/actions.lock.yaml for that action name. A lock entry whose runsUsing is not node24, composite or docker is never used. Removing actions/checkout from the lock yields TRL-CAT-0003 and no uses line.
+Property over every vector that emits a uses line: the value matches ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+@[0-9a-f]{40}$, is followed by " # " and a version, and both the SHA and the version equal the entry of catalog/github-actions/actions.lock.yaml for that action name. A lock entry whose runsUsing is not node24, composite or docker is never used. Removing actions/checkout from the lock yields TRL-CAT-0003, no uses line, and a step placeholder with disposition placeholder; the file is written for review unless Strict is true, which suppresses it.
 ```
 
 #### EMITV-082
 
 ```text prose
-Property: emitting the same IR twice in one process, in a fresh process, with different GOMAXPROCS values, with ordered maps built through different insertion histories that compare equal, and on Linux, macOS and Windows runners produces identical bytes, identical diagnostics in identical order, and identical dispositions. The file uses LF line endings and ends with exactly one LF.
+Property: emitting the same IR twice in one process, in a fresh process, with different GOMAXPROCS values, with identical OrderedMap/array declaration order but varied unordered lock-map insertion history, and on Linux, macOS and Windows runners produces identical bytes, identical diagnostics in identical order, and identical dispositions. The file uses LF line endings and ends with exactly one LF.
 ```
 
 #### EMITV-083
 
 ```text prose
-Property over every vector: (1) the output validates against the SchemaStore GitHub workflow schema and actionlint reports nothing (INV-10); (2) re-parsing the output yields the job set, the needs graph, the step count and order, the env maps and the presence of every if that the dispositions announce, with nothing extra; (3) every pipeline, trigger, variable, stage, job and step of the IR has exactly one disposition and every output job and step maps back to one IR node (INV-12).
+Property over every vector: (1) the output validates against the SchemaStore GitHub workflow schema and actionlint reports nothing (INV-10); (2) re-parsing the output yields the job set, the needs graph, the step count and order, the env maps and the presence of every if that the dispositions announce, with nothing extra; (3) evaluate the three-part INV-12 predicate using dispositions and writer outputElements, including inputs, scoped IDs and synthetic feature IDs; re-parsing is an independent schema/structure oracle, not the conservation mechanism.
 ```
 
 ## 8. Unconfirmed platform facts
@@ -2665,18 +2697,18 @@ Each item is tracked as an issue. Until closed, the implementation treats the st
 
 | ID | Fact to confirm | Choice made here | Vectors |
 |---|---|---|---|
-| VERIFY-01 | Whether Azure `*` in branch/path filters matches `/` ("zero or more characters", AZ-GH) | Follow the IR dialect (`*` stops at `/`); risk of under-triggering for `releases/*` | EMITV-004, 005 |
+| VERIFY-01 | Whether Azure `*` in branch/path filters matches `/` ("zero or more characters", AZ-GH) | Reader maps Azure star runs to IR `**`, marks widening; emitter consumes normalized globs | EMITV-004, 005 |
 | VERIFY-02 | Whether Azure accepts `refs/heads/<name>` as a branch filter spelling equal to `<name>` | Strip the prefix | EMITV-013 |
 | VERIFY-03 | Whether an Azure trigger with `tags` and no `branches` also fires for branch pushes | Add the `'**'` branch guard (fires for both) | EMITV-012 |
 | VERIFY-04 | Azure path-filter model (order-free, "exclude cannot be re-included unless deeper") against GitHub's ordered model | Includes before excludes, as the reader produces | EMITV-009 |
 | VERIFY-05 | Whether a step's own `env` values are visible in its `if` (GH-CX lists `env` without saying) | Only workflow and job `env` are referenced | EMITV-062 |
 | VERIFY-06 | Azure `eq` with a boolean/number right operand: AZ-EXPR states both "converts the right operand to the left type" and "implicitly converted to numbers" | Compare strings, literal written as `'true'`/`'1'` | EMITV-066 |
-| VERIFY-07 | Whether Azure's Bash steps run with `errexit`/`pipefail` (GitHub's `bash` does) | Grade `exact`, no diagnostic | EMITV-036 |
+| VERIFY-07 | Whether Azure's Bash steps run with `errexit`/`pipefail` (GitHub's `bash` does) | Reader records both flags false; emit custom Bash without `-e` or `pipefail` | EMITV-036 |
 | VERIFY-08 | PowerShell `ErrorActionPreference` and exit-code handling on both platforms | Grade `exact`, no diagnostic | EMITV-037 |
-| VERIFY-09 | Result seen by dependents of a job with `continue-on-error` (GitHub `needs.<id>.result`) against Azure's "succeeded with issues" | Grade `approximated` without a diagnostic | EMITV-032 |
+| VERIFY-09 | Result seen by dependents of a job with `continue-on-error` (GitHub `needs.<id>.result`) against Azure's "succeeded with issues" | Grade `approximated`, one `TRL-CONV-0001` per job; review dependent conditions | EMITV-032 |
 | VERIFY-10 | Architecture of Azure macOS images (Intel per AZ-HOST) and the lifetime of GitHub's `-intel` labels | `macos-<n>-intel` for 15 and 26 | EMITV-026, 027, 028 |
-| VERIFY-11 | `windows-2025-vs2026` availability only for public repositories (GH-RUN) | Emit it with `TRL-CONV-0007` | EMITV-028 |
-| VERIFY-12 | Azure default job timeout (60 minutes on hosted agents for private projects, AZ-JOBS) against GitHub's 360 | Absent stays absent | EMITV-032 |
+| VERIFY-11 | `windows-2025-vs2026` availability only for public repositories (GH-RUN) | Gate Windows/Intel macOS labels by visibility; private substitution with diagnostic, unknown placeholder | EMITV-028 |
+| VERIFY-12 | Azure default job timeout (60 minutes on hosted agents for private projects, AZ-JOBS) against GitHub's 360 | Reader materializes omitted hosted-job default as synthetic/approximated `1h0m0s`; emit 60; self-hosted/unknown unset with loss | EMITV-032 |
 | VERIFY-13 | Azure's default checkout depth (a pipeline setting, AZ-CHK) | Omit `fetch-depth` (action default 1) | EMITV-046 |
 | VERIFY-14 | `submodules: recursive` is folded to `true` by the reader (normalize-ado.md) | Emit `true` | EMITV-046 |
 | VERIFY-15 | That GitHub offers no escape for `${{` in `run`, `env`, `name` | Never emit such literals | EMITV-078, 079 |
@@ -2686,11 +2718,11 @@ Each item is tracked as an issue. Until closed, the implementation treats the st
 | VERIFY-19 | Which YAML version GitHub's workflow parser applies | Quote for both 1.1 and 1.2 | EMITV-057, 059 |
 | VERIFY-20 | Azure's PR activity set against GitHub's default (`opened`, `synchronize`, `reopened`) | Default types | EMITV-010 |
 | VERIFY-21 | That `contents: read` is sufficient for `actions/checkout` of the same repository in every trigger of M2-A | Assumed sufficient | EMITV-001 |
-| VERIFY-22 | That Azure leaves an undefined `$(name)` macro unchanged in a script | `$(date)`-style text with no dot and no declared variable is kept | EMITV-049 |
+| VERIFY-22 | That Azure leaves an undefined `$(name)` macro unchanged in a script | Reader marks undeclared simple macros unresolved, including `$(date)`; placeholder, never an inferred secret | EMITV-049 |
 
-## 9. Proposed diagnostic codes
+## 9. Registered emitter diagnostic codes
 
-The registry is not edited here. These entries follow the registry schema of [diagnostics.md](diagnostics.md) section 6 and would extend its `EMIT` table; the count line there changes from 166 to 169.
+These entries are reserved in `internal/diag/registry.yaml` now, following [diagnostics.md](diagnostics.md) section 6, and documented by `go run ./tools/docsgen -out docs/diagnostics`. Registration does not imply implementation of the draft emitter. The registry uses `title` and `remediation`, not a separate description field.
 
 | Code | Sev | Fid | Exit | Title | Remediation |
 |---|---|---|---|---|---|
@@ -2698,13 +2730,13 @@ The registry is not edited here. These entries follow the registry schema of [di
 | TRL-EMIT-0007 | warning | ap | - | Trigger pattern widened or dropped because GitHub has no equivalent syntax | Review `params.pattern` and `params.action`; the trigger now fires on a superset of refs or paths. |
 | TRL-EMIT-0008 | info | - | - | Secret reference emitted; the secret must exist on the target | Create the secret named in `params.secret` before enabling the workflow; no value was read or written. |
 
-Parameters: `TRL-EMIT-0006` has `field` (one of `script`, `env`, `name`, `variable`, `workingDirectory`, `ref`); `TRL-EMIT-0007` has `pattern`, `kind` (`branch`, `tag`, `path`), `action`; `TRL-EMIT-0008` has `secret` (the normalized GitHub name). Per [diagnostics.md](diagnostics.md) rule 5.7 the emitted set must be a subset of the registry, so these entries are added together with the implementation.
+Parameters: `TRL-EMIT-0006` has `field` (one of `script`, `env`, `name`, `variable`, `workingDirectory`, `ref`); `TRL-EMIT-0007` has `pattern`, `kind` (`branch`, `tag`, `path`), `action`; `TRL-EMIT-0008` has `secret` (the normalized GitHub name). Per [diagnostics.md](diagnostics.md) rule 5.7 the emitted set must be a subset of the registry, so these entries are registered with the specification before implementation.
 
 Observation on existing codes: the remediation of `TRL-EXPR-0004` says the original text is kept in a comment, and this emitter never copies source text into the file (INV-11, section 2.5), so that sentence should read "original text is kept in the report".
 
 ## 10. Observations on `ir.md` and `normalize-ado.md` (non-normative)
 
-Found while writing this specification; neither file is edited here. Items marked **blocks** change what a faithful emitter can do without a decision.
+Historical pre-T1 findings. O-1/2/3/5/6/7 are resolved at the specification level by T1 (synthetic triggers, normalized globs, binding.synthetic, checkout depth/ref source, reader runner defaults and shell options). Their old behavior below is historical; sections 2-5 and the updated IR/normalizer contracts take precedence. O-4/8/9/10 remain for later work.
 
 | ID | Where | Observation | Emitter behavior chosen | Suggested resolution |
 |---|---|---|---|---|
