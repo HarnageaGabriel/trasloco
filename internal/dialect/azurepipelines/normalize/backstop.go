@@ -309,11 +309,22 @@ type backstop struct {
 	leafChanges int
 	// noTaint suspends ts for the structural leaf being walked.
 	noTaint bool
+	// scanRefs is true while walking a free-text leaf (a script, an opaque
+	// value or a string literal) whose references to renamed IDs (#12) and to
+	// short/numeric/boolean-like secret variables (#13) are recorded.
+	scanRefs bool
+	// renameNeedles and shortNames are the free-text spellings to search for.
+	renameNeedles []nameNeedle
+	shortNames    []nameNeedle
+	// refSeen de-duplicates a (node, kind) hit; refOrder keeps the walk order.
+	refSeen  map[*ir.Metadata]map[refKind]bool
+	refOrder []refHit
 }
 
 func (c *conv) finalScrub(p *ir.Pipeline) {
-	b := &backstop{hitSet: map[*ir.Metadata]bool{}, raise: map[*ir.Metadata]bool{}, ts: c.ts}
+	b := &backstop{hitSet: map[*ir.Metadata]bool{}, raise: map[*ir.Metadata]bool{}, ts: c.ts, refSeen: map[*ir.Metadata]map[refKind]bool{}}
 	ids := captureIDPlan(p)
+	b.renameNeedles, b.shortNames = c.referenceNeedles(ids)
 	if c.ts != nil {
 		b.work += c.ts.buildWork
 	}
@@ -324,6 +335,9 @@ func (c *conv) finalScrub(p *ir.Pipeline) {
 	c.work += b.work
 	for _, node := range b.hit {
 		c.recordBackstop(node, p)
+	}
+	for _, hit := range b.refOrder {
+		c.emitReferenceLoss(hit, p)
 	}
 	for node := range b.raise { //trasloco:unordered-ok idempotent per-node fidelity raise
 		node.Fidelity = maxFidelity(node.Fidelity, diag.FidelityNeedsManual)
@@ -554,6 +568,9 @@ func (b *backstop) walk(v reflect.Value, pairs bool) {
 	switch v.Kind() {
 	case reflect.String:
 		if v.CanSet() {
+			if b.scanRefs {
+				b.noteReferences(v.String())
+			}
 			// Enum-typed (named string) fields are structural: never tainted.
 			if out := b.textTaint(v.String(), pairs, v.Type() == stringType); out != v.String() {
 				v.SetString(out)
@@ -724,10 +741,11 @@ func (b *backstop) walkStruct(v reflect.Value, pairs bool) {
 		}
 		// A number literal's text is structural: replacing it would break the
 		// decimal-string contract.
-		savedNoTaint := b.noTaint
+		savedNoTaint, savedScan := b.noTaint, b.scanRefs
 		b.noTaint = b.noTaint || structuralString(t.Name(), field.Name) || normalizerConstant(v, t.Name(), field.Name)
+		b.scanRefs = referenceField(t.Name(), field.Name)
 		b.walk(v.Field(i), fieldPairs)
-		b.noTaint = savedNoTaint
+		b.noTaint, b.scanRefs = savedNoTaint, savedScan
 		b.flags = inner
 	}
 	if t == inputType && v.CanAddr() {
@@ -765,10 +783,17 @@ func (c *conv) recordBackstop(node *ir.Metadata, p *ir.Pipeline) {
 }
 
 // addSecretLoss appends a secretMaterial loss to a node's provider extension
-// and emits the matching finding. A node that already carries the loss is left
-// alone. A node without an origin uses src.
+// and emits the matching finding.
 func (c *conv) addSecretLoss(node *ir.Metadata, src diag.Source, chain []diag.Source) {
-	const detail = secretDetail
+	c.addNodeLoss(node, "ir", "secretMaterial", secretDetail, src, chain)
+}
+
+// addNodeLoss appends a loss to a node's provider extension and emits the
+// matching finding. A node that already carries the same (construct, property)
+// loss is left alone. A node without an origin uses src. The detail is scrubbed
+// before it is stored, so a diagnostic never carries secret material.
+func (c *conv) addNodeLoss(node *ir.Metadata, construct, property, detail string, src diag.Source, chain []diag.Source) {
+	detail = c.sanitize(detail)
 	if node.Origin != nil {
 		src = node.Origin.Source
 	}
@@ -781,14 +806,14 @@ func (c *conv) addSecretLoss(node *ir.Metadata, src diag.Source, chain []diag.So
 		_ = json.Unmarshal(raw, &bag)
 	}
 	for _, existing := range bag.Losses {
-		if existing.Construct == "ir" && existing.Property == "secretMaterial" {
+		if existing.Construct == construct && existing.Property == property {
 			return
 		}
 	}
 	a := c.newAcc(src)
 	a.chain = chain
-	a.lose(codeExt, "ir", "secretMaterial", src, detail)
-	bag.Losses = append(bag.Losses, loss{Construct: "ir", Property: "secretMaterial", Detail: detail})
+	a.lose(codeExt, construct, property, src, detail)
+	bag.Losses = append(bag.Losses, loss{Construct: construct, Property: property, Detail: detail})
 	encoded, err := json.Marshal(bag)
 	if err != nil {
 		c.err = err

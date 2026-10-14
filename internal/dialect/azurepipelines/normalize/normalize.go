@@ -130,6 +130,11 @@ type conv struct {
 	taint      []string
 	taintWhole []string
 	ts         *taintSet
+	// shortSecretNames holds the declared secret keys whose literal value is
+	// short, small-numeric or boolean-like (the classes the taint pass replaces
+	// on whole-leaf equality only). References to them by name are flagged.
+	shortSecretNames []string
+	shortSecretSet   map[string]bool
 	// parts memoizes scrubbed components (see part): distinct tainted
 	// components keep distinct scrubbed spellings, and partsUsed holds them.
 	parts     map[string]map[string]string
