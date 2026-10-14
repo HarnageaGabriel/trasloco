@@ -56,13 +56,16 @@ fetch_all_releases() {
   printf '%s' "${combined}"
 }
 
+# github_curl passes the token through a curl config read from stdin, so it never
+# appears in curl's argv. Use it for api.github.com calls only: release asset
+# downloads run without an Authorization header.
 github_curl() {
-  local curl_headers=()
   if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
-    curl_headers+=(--header "Authorization: Bearer ${TRASLOCO_GITHUB_TOKEN}")
+    printf 'header = "Authorization: Bearer %s"\n' "${TRASLOCO_GITHUB_TOKEN}" |
+      curl --fail --location --silent --show-error --retry 3 -K - "$@"
+  else
+    curl --fail --location --silent --show-error --retry 3 "$@"
   fi
-  curl --fail --location --silent --show-error --retry 3 \
-    ${curl_headers[@]+"${curl_headers[@]}"} "$@"
 }
 
 verify_archive_checksum() {
@@ -139,6 +142,9 @@ else
   exit 64
 fi
 
+# Every API call is done: drop the token before any release asset download.
+unset TRASLOCO_GITHUB_TOKEN
+
 case "$(uname -s)" in
   Linux*) os=linux ;;
   Darwin*) os=darwin ;;
@@ -158,10 +164,9 @@ base_url="https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/download/${v
 work_dir=$(mktemp -d "${RUNNER_TEMP%/}/trasloco.XXXXXX")
 cleanup() { rm -rf -- "${work_dir}"; }
 trap cleanup EXIT
-github_curl --output "${work_dir}/${archive}" "${base_url}/${archive}"
-github_curl --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
-github_curl --output "${work_dir}/checksums.txt.sigstore.json" "${base_url}/checksums.txt.sigstore.json"
-unset TRASLOCO_GITHUB_TOKEN
+curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/${archive}" "${base_url}/${archive}"
+curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
+curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/checksums.txt.sigstore.json" "${base_url}/checksums.txt.sigstore.json"
 
 if ! command -v cosign >/dev/null 2>&1; then
   echo "cosign is required to verify checksums.txt" >&2

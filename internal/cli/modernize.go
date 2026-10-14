@@ -70,9 +70,10 @@ rewrite self-check failure (or, with
 --strict, an Azure Pipelines file has parser errors, including constructs the
 parser rejects).
 
-Precedence: exit 1 wins over exit 5. With --check or --write, an unreadable or
-undecodable discovered file, or an unreadable directory, makes the scan
-incomplete and exits 1. The report still lists every finding produced.`,
+Precedence: exit 1 wins over exit 5. With --check or --write, a discovered file
+that cannot be read, decoded, or is too large to scan, or an unreadable
+directory, makes the scan incomplete and exits 1. The report still lists every
+finding produced.`,
 		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -167,6 +168,9 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 				strictFailed = true
 				result.warnings = append(result.warnings, modernizeWarning{Code: d.Code, Severity: string(d.Severity), Path: file.display, Line: 1, Column: 1, Message: d.Message})
 				_, _ = fmt.Fprintf(a.io.Err, "warning: %s:1:1: %s: %s\n", file.display, d.Code, d.Message)
+				if file.explicit || options.check || options.write {
+					ioFailed++
+				}
 				continue
 			}
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)

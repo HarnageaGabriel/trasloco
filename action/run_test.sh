@@ -16,12 +16,31 @@ EOF
 
 cat > "${stub_dir}/curl" <<'EOF'
 #!/usr/bin/env bash
+state=${TEST_STATE_DIR}
+count_file="${state}/curl-count"
+count=0
+[[ -f "${count_file}" ]] && count=$(<"${count_file}")
+printf '%s' "$((count + 1))" > "${count_file}"
+printf '%s\n' "$@" > "${state}/curl-argv-${count}"
+: > "${state}/curl-stdin-${count}"
 output=
-url=${!#}
+url=
+config_stdin=0
 while (($#)); do
-  if [[ "$1" == --output ]]; then output=$2; shift 2; else shift; fi
+  case "$1" in
+    --output) output=$2 ;;
+    -K) [[ "${2:-}" == "-" ]] && config_stdin=1 ;;
+  esac
+  url=$1
+  shift
 done
+if [[ "${config_stdin}" == 1 ]]; then
+  cat > "${state}/curl-stdin-${count}"
+fi
 case "${url}" in
+  https://api.github.com/*)
+    printf '%s\n' '[{"tag_name":"v0.2.0","prerelease":false,"draft":false}]'
+    ;;
   */checksums.txt)
     printf '%s  %s\n' e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 trasloco_0.2.0_linux_amd64.tar.gz > "${output}"
     ;;
@@ -68,7 +87,7 @@ run_action() {
     TRASLOCO_INPUT_FORMAT=text \
     TRASLOCO_FAIL_ON_FINDINGS=true \
     TRASLOCO_STRICT="${1}" \
-    TRASLOCO_VERSION=v0.2.0 \
+    TRASLOCO_VERSION="${3:-v0.2.0}" \
     COSIGN_FAIL="${2:-0}" \
     bash "${repo_root}/action/run.sh"
 }
@@ -80,6 +99,38 @@ grep -Fx -- --strict "${state_dir}/args" >/dev/null
 grep -F -- 'release.yml@refs/tags/v0.2.0' "${state_dir}/cosign-args" >/dev/null
 grep -F -- '--bundle' "${state_dir}/cosign-args" >/dev/null
 grep -A3 '^  strict:' "${repo_root}/action.yml" | grep -F "default: 'true'" >/dev/null
+
+# Asset downloads run without the token: no curl argv carries it or an
+# Authorization header.
+if grep -qF -- 'super-secret-token' "${state_dir}"/curl-argv-*; then
+  echo "token leaked into curl argv" >&2
+  exit 1
+fi
+if grep -qF -- 'Authorization' "${state_dir}"/curl-argv-*; then
+  echo "Authorization header leaked into curl argv" >&2
+  exit 1
+fi
+
+# A vMAJOR alias forces a releases API call: the token arrives through curl's -K
+# stdin config, never argv, and the following asset downloads stay plain.
+rm -f "${state_dir}"/curl-*
+run_action true 0 v0 >/dev/null
+grep -qF -- '-K' "${state_dir}/curl-argv-0"
+grep -qF -- 'header = "Authorization: Bearer super-secret-token"' "${state_dir}/curl-stdin-0"
+if grep -qF -- 'super-secret-token' "${state_dir}"/curl-argv-*; then
+  echo "token leaked into curl argv" >&2
+  exit 1
+fi
+if grep -qF -- 'Authorization' "${state_dir}/curl-argv-0" \
+  "${state_dir}/curl-argv-1" "${state_dir}/curl-argv-2" "${state_dir}/curl-argv-3"; then
+  echo "Authorization header leaked into curl argv" >&2
+  exit 1
+fi
+if grep -qF -- 'Authorization' "${state_dir}/curl-stdin-1" \
+  "${state_dir}/curl-stdin-2" "${state_dir}/curl-stdin-3"; then
+  echo "asset download carried an Authorization header" >&2
+  exit 1
+fi
 
 rm -f "${state_dir}/args" "${state_dir}/token"
 if output=$(run_action true 1 2>&1); then

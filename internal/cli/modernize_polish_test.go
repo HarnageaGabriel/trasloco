@@ -9,6 +9,8 @@ import (
 	"unicode/utf16"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 )
 
 func encodeUTF16(text string, littleEndian, bom bool) []byte {
@@ -152,5 +154,25 @@ func TestModernizeCheckFailsClosedOnUnreadableSubdirectory(t *testing.T) {
 	code, out, stderr := executeModernize(t, "modernize", "--check")
 	if code != ExitError || !strings.Contains(out, "pipeline.yml") || !strings.Contains(stderr, "blocked") {
 		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeCheckFailsClosedOnOversizedDiscoveredFile(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy})
+	oversized := filepath.Join(root, "oversized.yml")
+	if err := os.WriteFile(oversized, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(oversized, yamlx.DefaultSizeLimit+1); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitError || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "oversized.yml") {
+		t.Fatalf("--check exit = %d; stdout:\n%s; stderr:\n%s", code, out, stderr)
+	}
+	code, out, stderr = executeModernize(t, "modernize")
+	if code != ExitOK || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "oversized.yml") {
+		t.Fatalf("default exit = %d; stdout:\n%s; stderr:\n%s", code, out, stderr)
 	}
 }
