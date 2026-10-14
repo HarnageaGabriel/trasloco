@@ -29,6 +29,10 @@ func (c *conv) condition(value *ast.Expression, a *acc) *ir.Cond {
 			a.lose(codeExt, "condition", "secretMaterial", value.Source, detail)
 			a.needsManual()
 		}
+		if name, ok := c.shortSecretReference(&converted); ok {
+			a.lose(codeExt, "condition", propertyShortSecretRef, value.Source, shortSecretRefDetail(name))
+			a.needsManual()
+		}
 		return &ir.Cond{Phase: ir.PhaseRuntime, Expr: &converted}
 	}
 	retained := a.scrubRetained("condition", value.Source, value.Value).(string)
