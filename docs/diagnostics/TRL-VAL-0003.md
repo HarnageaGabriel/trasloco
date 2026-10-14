@@ -16,5 +16,5 @@ Supply via `secrets set`; workflows stay gated.
 ## Example
 
 ```json
-{"code": "TRL-VAL-0003", "severity": "warning", "params": {"secret": "<secret>"}}
+{"code": "TRL-VAL-0003", "severity": "warning", "params": {}}
 ```

@@ -1240,7 +1240,8 @@
                       "exitClass":  "none",
                       "remediation":  "Create the secret named in `params.secret` before enabling the workflow; no value was read or written.",
                       "since":  "0.1.0",
-                      "status":  "active"
+                      "status":  "active",
+                      "params":  ["secret"]
                   },
                   {
                       "code":  "TRL-VAL-0001",
@@ -1271,7 +1272,6 @@
                       "remediation":  "Supply via `secrets set`; workflows stay gated.",
                       "since":  "0.1.0",
                       "status":  "active",
-                      "params":  ["secret"],
                       "fidelity":  "needs-manual"
                   },
                   {

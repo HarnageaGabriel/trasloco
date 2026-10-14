@@ -15,5 +15,5 @@ Create the secret named in `params.secret` before enabling the workflow; no valu
 ## Example
 
 ```json
-{"code": "TRL-EMIT-0008", "severity": "info", "params": {}}
+{"code": "TRL-EMIT-0008", "severity": "info", "params": {"secret": "<secret>"}}
 ```
