@@ -54,31 +54,36 @@ type nameNeedle struct {
 // referenceNeedles returns the renamed-ID spellings (#12) and the secret
 // variable names (#13) to search for while the backstop walks the free text.
 func (c *conv) referenceNeedles(ids *idPlan) (renamed, short []nameNeedle) {
-	seen := map[string]bool{}
-	add := func(list *[]nameNeedle, spelling, orig string) {
-		if spelling == "" || seen[spelling] {
+	// One spelling can be both a renamed ID and a declared short-secret
+	// name; each list de-duplicates on its own so both reasons are reported.
+	seen := map[refKind]map[string]bool{}
+	add := func(kind refKind, list *[]nameNeedle, spelling, orig string) {
+		if seen[kind] == nil {
+			seen[kind] = map[string]bool{}
+		}
+		if spelling == "" || seen[kind][spelling] {
 			return
 		}
-		seen[spelling] = true
+		seen[kind][spelling] = true
 		*list = append(*list, nameNeedle{lower: strings.ToLower(spelling), orig: orig})
 	}
 	for _, orig := range c.predictedRenamed(ids.stages) {
-		add(&renamed, orig, orig)
+		add(refRenamed, &renamed, orig, orig)
 	}
 	for _, orig := range c.predictedRenamed(ids.jobs) {
-		add(&renamed, orig, orig)
+		add(refRenamed, &renamed, orig, orig)
 	}
 	// Components scrubbed before composition keep the unqualified spelling in
 	// free text (a qualified job ID would otherwise hide it).
 	for _, namespace := range []string{"stage", "job", "step"} {
 		for _, orig := range slices.Sorted(maps.Keys(c.parts[namespace])) {
 			if c.parts[namespace][orig] != c.ts.apply(orig) {
-				add(&renamed, orig, orig)
+				add(refRenamed, &renamed, orig, orig)
 			}
 		}
 	}
 	for _, name := range c.shortSecretNames {
-		add(&short, name, name)
+		add(refShort, &short, name, name)
 	}
 	return renamed, short
 }
@@ -116,11 +121,29 @@ func (b *backstop) noteReferences(value string) {
 	if value == "" || len(b.renameNeedles) == 0 && len(b.shortNames) == 0 {
 		return
 	}
+	// The scan is needles x text. Bound it with the pair scanner budget and
+	// charge the passes actually made to the shared work counter, so it is
+	// bounded and visible to the scaling tests. A leaf above the pair scanner
+	// bound is not scanned at all.
+	if len(value) > maxScanBytes {
+		b.work += maxScanBytes
+		return
+	}
+	limit := (workFactor*len(value) + workSlack) / len(value)
+	renamed := b.renameNeedles
+	if len(renamed) > limit {
+		renamed = renamed[:limit]
+	}
+	short := b.shortNames
+	if extra := limit - len(renamed); len(short) > extra {
+		short = short[:max(extra, 0)]
+	}
+	b.work += (len(renamed) + len(short)) * len(value)
 	lower := strings.ToLower(value)
-	if name, ok := matchIdentifier(lower, b.renameNeedles); ok {
+	if name, ok := matchIdentifier(lower, renamed); ok {
 		b.noteReference(refRenamed, name)
 	}
-	if name, ok := matchNameReference(lower, b.shortNames); ok {
+	if name, ok := matchNameReference(lower, short); ok {
 		b.noteReference(refShort, name)
 	}
 }
@@ -240,13 +263,20 @@ func (c *conv) isShortSecretName(name string) bool {
 	return false
 }
 
+// renamedReferenceDetail is the finding detail of a free-text reference to
+// an ID renamed after a secret scrubbing collision (#12). It names no ID: a
+// short, small-numeric or boolean-like secret value survives scrubbing
+// inside an ID spelling, so any spelling carried here could be a declared
+// secret value. The finding source position identifies the node.
+const renamedReferenceDetail = "free-text reference to an ID renamed after a secret scrubbing collision cannot be re-pointed; verify the references in this node manually"
+
 // emitReferenceLoss records the loss and finding for one detected reference.
 func (c *conv) emitReferenceLoss(hit refHit, p *ir.Pipeline) {
 	var property, detail string
 	switch hit.kind {
 	case refRenamed:
 		property = propertyRenamedReference
-		detail = fmt.Sprintf("free-text reference to ID %q was renamed after a secret scrubbing collision and cannot be re-pointed; verify the reference manually", hit.name)
+		detail = renamedReferenceDetail
 	case refShort:
 		property = propertyShortSecretRef
 		detail = shortSecretRefDetail(hit.name)
