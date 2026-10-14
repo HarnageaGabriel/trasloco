@@ -292,6 +292,10 @@ func orderedLists(values ...any) ir.OrderedMap[any] {
 	return out
 }
 
+// runner materializes the runner requirement for a node. declared is only
+// meaningful when pool is nil: a deployment lifecycle hook declares a pool that
+// cannot be collapsed onto the single IR job runner, so it suppresses the
+// hosted default without inventing a runner.
 func (c *conv) runner(pool *ast.Pool, declared bool, a *acc) ir.RunnerReq {
 	if pool == nil {
 		if declared {
@@ -327,15 +331,24 @@ func (c *conv) jobTimeout(a *acc, value *ast.Scalar, construct string, pool *ast
 	if agentlessPool(pool) {
 		return nil
 	}
-	_, knownHosted := hosted.ImageOS(runner.Image)
-	if knownHosted && runner.Pool == "" {
+	// An unnamed pool and the Microsoft-hosted "Azure Pipelines" pool are both
+	// hosted: an omitted job timeout defaults to one hour. Any other pool name is
+	// self-hosted and never receives the default.
+	_, knownHostedImage := hosted.ImageOS(runner.Image)
+	if knownHostedImage && (runner.Pool == "" || hosted.IsHostedPoolName(runner.Pool)) {
 		const detail = "omitted timeout on a Microsoft-hosted job is materialized as 60 minutes (VERIFY-12)"
 		a.keep("synthetic.timeout", detail)
 		a.note(codeSynth, construct, "timeoutInMinutes", a.source, detail)
 		a.withFidelity(diag.FidelityApproximated)
 		return &ir.Duration{Duration: time.Hour}
 	}
-	const detail = "omitted job timeout on a self-hosted or unknown runner cannot be materialized"
+	// A nil pool with an unresolved runner means the only declared pool sits on a
+	// deployment lifecycle hook that cannot be flattened here; say so instead of
+	// blaming a self-hosted pool.
+	detail := "omitted job timeout on a self-hosted or unknown runner cannot be materialized"
+	if pool == nil {
+		detail = "omitted job timeout on a deployment-hook runner cannot be materialized"
+	}
 	a.lose(codeExt, construct, "timeoutInMinutes", a.source, detail)
 	return nil
 }
