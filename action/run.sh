@@ -27,14 +27,9 @@ select_major_release() {
 # prints one JSON array holding every page's releases.
 fetch_all_releases() {
   local repository=$1
-  local curl_headers=()
   local page=1 max_pages=20 body page_state combined='[]'
-  if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
-    curl_headers+=(--header "Authorization: Bearer ${TRASLOCO_GITHUB_TOKEN}")
-  fi
   while [[ "${page}" -le "${max_pages}" ]]; do
-    body=$(curl --fail --location --silent --show-error --retry 3 \
-      ${curl_headers[@]+"${curl_headers[@]}"} \
+    body=$(github_curl \
       "https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}") || return 1
     page_state=$(printf '%s' "${body}" | node -e '
       const pageData = JSON.parse(require("fs").readFileSync(0, "utf8"));
@@ -59,6 +54,15 @@ fetch_all_releases() {
     echo "warning: stopped after ${max_pages} pages of releases" >&2
   fi
   printf '%s' "${combined}"
+}
+
+github_curl() {
+  local curl_headers=()
+  if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
+    curl_headers+=(--header "Authorization: Bearer ${TRASLOCO_GITHUB_TOKEN}")
+  fi
+  curl --fail --location --silent --show-error --retry 3 \
+    ${curl_headers[@]+"${curl_headers[@]}"} "$@"
 }
 
 verify_archive_checksum() {
@@ -90,9 +94,9 @@ verify_archive_checksum() {
 }
 
 main() {
-if [[ -n "${TRASLOCO_GITHUB_TOKEN:-}" ]]; then
-  echo "::add-mask::${TRASLOCO_GITHUB_TOKEN}"
-fi
+# github.token is masked by the runner.
+# Keep the token out of every child process; curl gets it only as a header.
+export -n TRASLOCO_GITHUB_TOKEN 2>/dev/null || true
 
 case "${TRASLOCO_INPUT_FORMAT:-}" in
   text|sarif) ;;
@@ -101,6 +105,10 @@ esac
 case "${TRASLOCO_FAIL_ON_FINDINGS:-}" in
   true|false) ;;
   *) echo "fail-on-findings must be true or false" >&2; exit 64 ;;
+esac
+case "${TRASLOCO_STRICT:-}" in
+  true|false) ;;
+  *) echo "strict must be true or false" >&2; exit 64 ;;
 esac
 if [[ ! "${TRASLOCO_ACTION_REPOSITORY:-}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
   echo "invalid action repository" >&2
@@ -150,8 +158,20 @@ base_url="https://github.com/${TRASLOCO_ACTION_REPOSITORY}/releases/download/${v
 work_dir=$(mktemp -d "${RUNNER_TEMP%/}/trasloco.XXXXXX")
 cleanup() { rm -rf -- "${work_dir}"; }
 trap cleanup EXIT
-curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/${archive}" "${base_url}/${archive}"
-curl --fail --location --silent --show-error --retry 3 --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
+github_curl --output "${work_dir}/${archive}" "${base_url}/${archive}"
+github_curl --output "${work_dir}/checksums.txt" "${base_url}/checksums.txt"
+github_curl --output "${work_dir}/checksums.txt.sigstore.json" "${base_url}/checksums.txt.sigstore.json"
+unset TRASLOCO_GITHUB_TOKEN
+
+if ! command -v cosign >/dev/null 2>&1; then
+  echo "cosign is required to verify checksums.txt" >&2
+  exit 1
+fi
+cosign verify-blob \
+  --bundle "${work_dir}/checksums.txt.sigstore.json" \
+  --certificate-identity "https://github.com/HarnageaGabriel/trasloco/.github/workflows/release.yml@refs/tags/${version}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "${work_dir}/checksums.txt"
 
 verify_archive_checksum "${work_dir}/${archive}" "${work_dir}/checksums.txt" "${archive}"
 
@@ -166,6 +186,7 @@ fi
 
 args=(modernize --format "${TRASLOCO_INPUT_FORMAT}")
 if [[ "${TRASLOCO_FAIL_ON_FINDINGS}" == true ]]; then args+=(--check); fi
+if [[ "${TRASLOCO_STRICT}" == true ]]; then args+=(--strict); fi
 args+=(-- "${TRASLOCO_INPUT_PATH}")
 if [[ "${TRASLOCO_INPUT_FORMAT}" == sarif ]]; then
   status=0

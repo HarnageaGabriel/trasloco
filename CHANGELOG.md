@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `modernize --check` now exits 1 when a discovered file cannot be read or
+  decoded, or a scanned directory cannot be traversed, while retaining findings
+  from the rest of the scan (#59).
+- The GitHub Action verifies the signed checksum bundle before trusting release
+  checksums, enables strict parsing by default, and removes its GitHub token from
+  the trasloco child process environment (#60).
+- CI uses the shared coverage-floor script, including its temporary `cache`
+  exemption, instead of a divergent inline copy (#61).
+
 ## [0.2.0] - 2026-10-13
 
 ### Added
