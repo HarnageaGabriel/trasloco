@@ -188,6 +188,137 @@ func TestReviewR10SnapshotIndexIsSharedButNeverStale(t *testing.T) {
 	}
 }
 
+// TestReviewR10BindingIndexRejectsStaleSharedPosition covers the key check
+// bindingIndex runs on a shared index. A clone holds the parent's map by
+// reference, so a binding the parent appends after the clone lands in that map
+// at a position the clone does not have -- and the position the clone does have
+// may carry a different key. Without the check the lookup trusts the stale
+// position and answers with the wrong binding, which nothing else observes.
+func TestReviewR10BindingIndexRejectsStaleSharedPosition(t *testing.T) {
+	var p Table
+	add(&p, Candidate{Name: "a", ComparisonKey: key("a"), Value: "va", Available: true, CompileVisible: true})
+	add(&p, Candidate{Name: "b", ComparisonKey: key("b"), Value: "vb", Available: true, CompileVisible: true})
+	c := cloneTable(p)
+	if !c.sharedIndex {
+		t.Fatal("the clone does not share the parent's index")
+	}
+	add(&p, Candidate{Name: "x", ComparisonKey: key("x"), Value: "vx", Available: true, CompileVisible: true})
+	add(&c, Candidate{Name: "y", ComparisonKey: key("y"), Value: "vy", Available: true, CompileVisible: true})
+
+	// the shared map now names x at index 2, a position c does not have; the key
+	// at that position is y, so the lookup must fall back to the scan and miss
+	if i, ok := bindingIndex(&c, key("x"), nil); ok || i != 0 {
+		t.Fatalf("bindingIndex(c, x) = %d, %t; want 0, false (x lives in p only)", i, ok)
+	}
+	if i, ok := bindingIndex(&p, key("x"), nil); !ok || i != 2 {
+		t.Fatalf("bindingIndex(p, x) = %d, %t; want 2, true", i, ok)
+	}
+	for _, tc := range []struct{ name, want string }{{"y", "vy"}, {"a", "va"}, {"b", "vb"}} {
+		candidate, ok := lookup(&c, tc.name, PhaseMacro)
+		if !ok || candidate.Value != tc.want {
+			t.Fatalf("c %s = %#v, %t; want %q", tc.name, candidate, ok, tc.want)
+		}
+	}
+	if _, ok := lookup(&c, "x", PhaseMacro); ok {
+		t.Fatal("c resolved x, which only p has")
+	}
+	for _, tc := range []struct{ name, want string }{{"x", "vx"}, {"a", "va"}, {"b", "vb"}} {
+		candidate, ok := lookup(&p, tc.name, PhaseMacro)
+		if !ok || candidate.Value != tc.want {
+			t.Fatalf("p %s = %#v, %t; want %q", tc.name, candidate, ok, tc.want)
+		}
+	}
+}
+
+// TestReviewR10ManyStepsIndexWorkStaysLinear is the deterministic guard for the
+// per-step index rebuild #11 removed: rebuilding inside cloneTable wrote one
+// index entry per binding per clone, so N variables and M steps paid N*M of
+// them, while the shared index is built once and copied only on a clone's first
+// write. Two assertions pin that: every clone must hand back the parent's own
+// map (a rebuild hands back a private one), and the clones must add nothing to
+// indexBuilds, whose total stays within c*(N+M) -- a rebuild that counted its
+// entries would blow the bound.
+func TestReviewR10ManyStepsIndexWorkStaysLinear(t *testing.T) {
+	const (
+		variables = 120
+		steps     = 40
+	)
+	work := &evaluationWork{}
+	var state Table
+	for i := 0; i < variables; i++ {
+		name := "v" + strconv.Itoa(i)
+		addWithWork(&state, Candidate{Name: name, ComparisonKey: key(name), Value: name, Available: true, CompileVisible: true}, work)
+	}
+	if work.indexBuilds != variables {
+		t.Fatalf("index builds after %d variables = %d, want %d", variables, work.indexBuilds, variables)
+	}
+	for step := 0; step < steps; step++ {
+		snapshot := cloneTable(state)
+		if snapshot.bindingIndex == nil || !snapshot.sharedIndex {
+			t.Fatalf("step %d: the snapshot does not share the parent's index", step)
+		}
+		shared := snapshot.bindingIndex
+		if len(shared) != len(state.Bindings) {
+			t.Fatalf("step %d: snapshot index has %d keys for %d bindings", step, len(shared), len(state.Bindings))
+		}
+		// the step adds nothing to its snapshot, exactly like the evaluator: the
+		// job state grows and the next snapshot inherits it. A rebuild would show
+		// up here, because the map the snapshot handed out is not the one the
+		// parent writes into unless the clone shares it.
+		name := "s" + strconv.Itoa(step)
+		addWithWork(&state, Candidate{Name: name, ComparisonKey: key(name), Value: name, Available: true, CompileVisible: true}, work)
+		if len(shared) != len(state.Bindings) {
+			t.Fatalf("step %d: the snapshot's index is not the parent's (%d keys for %d bindings)", step, len(shared), len(state.Bindings))
+		}
+	}
+	t.Logf("index builds for %d variables and %d steps = %d", variables, steps, work.indexBuilds)
+	if want := variables + steps; work.indexBuilds != want {
+		t.Fatalf("index builds = %d, want %d (one per binding, none per clone)", work.indexBuilds, want)
+	}
+	if limit := 4 * (variables + steps); work.indexBuilds > limit {
+		t.Fatalf("index builds = %d, want at most %d", work.indexBuilds, limit)
+	}
+}
+
+// TestReviewR10IndexBuildsCountBothPaths pins the accounting the scaling guard
+// reads: a table that has bindings but no map counts every binding it indexes,
+// and the first write to a clone counts the shared map it copies. Neither path
+// changes a value, so the counters cannot alter any output.
+func TestReviewR10IndexBuildsCountBothPaths(t *testing.T) {
+	work := &evaluationWork{}
+	var base Table
+	for i := 0; i < 5; i++ {
+		name := "v" + strconv.Itoa(i)
+		addWithWork(&base, Candidate{Name: name, ComparisonKey: key(name), Value: name, Available: true, CompileVisible: true}, work)
+	}
+	if want := 5; work.indexBuilds != want {
+		t.Fatalf("index builds for five appended bindings = %d, want %d", work.indexBuilds, want)
+	}
+	// an unindexed table with bindings builds its index from every binding
+	rebuild := Table{Bindings: make([]Binding, len(base.Bindings))}
+	copy(rebuild.Bindings, base.Bindings)
+	addWithWork(&rebuild, Candidate{Name: "w", ComparisonKey: key("w"), Value: "w", Available: true, CompileVisible: true}, work)
+	built := 5 + 5 + 1
+	if work.indexBuilds != built {
+		t.Fatalf("index builds after a fresh build over five bindings = %d, want %d", work.indexBuilds, built)
+	}
+	// a clone copies the shared map before its first write
+	clone := cloneTable(base)
+	addWithWork(&clone, Candidate{Name: "c", ComparisonKey: key("c"), Value: "c", Available: true, CompileVisible: true}, work)
+	if want := built + len(base.bindingIndex) + 1; work.indexBuilds != want {
+		t.Fatalf("index builds after a copy-on-write = %d, want %d", work.indexBuilds, want)
+	}
+	if len(base.bindingIndex) != len(base.Bindings) || clone.sharedIndex {
+		t.Fatal("the copy-on-write changed the parent's index or left the clone sharing")
+	}
+	if _, ok := lookup(&base, "c", PhaseMacro); ok {
+		t.Fatal("the clone's write leaked into the parent")
+	}
+	if candidate, ok := lookup(&clone, "c", PhaseMacro); !ok || candidate.Value != "c" {
+		t.Fatalf("clone c = %#v, %t; want c", candidate, ok)
+	}
+}
+
 // TestReviewR10FindingCacheKeepsDistinctFindings guards the pre-construction
 // dedup of TRL-VAR-0016: only an identical code, origin and name may collapse.
 func TestReviewR10FindingCacheKeepsDistinctFindings(t *testing.T) {

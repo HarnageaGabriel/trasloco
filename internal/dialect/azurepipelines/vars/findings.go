@@ -20,6 +20,13 @@ type findingKey struct {
 // otherwise pay that cost for every occurrence. A finding is remembered only
 // once the collector stored it: a repeat the per-code cap suppressed is passed
 // through again, so the suppressed count keeps counting distinct occurrences.
+//
+// The cache assumes a precondition that holds for every run today: the
+// collector's redactor variant set is fixed while a table is evaluated, so no
+// secret is added between two equal keys and the instance the cache skips would
+// have rendered exactly like the stored one. Adding a secret during evaluation
+// would break that (the cached hit is never re-redacted), so a future
+// Redactor.Add on this path must invalidate the cache or bypass it.
 type findingCache struct {
 	seen map[findingKey]bool //trasloco:unordered-ok membership lookups only
 }

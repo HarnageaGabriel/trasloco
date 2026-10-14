@@ -618,11 +618,18 @@ func addWithWork(table *Table, candidate Candidate, work *evaluationWork) {
 			key := table.Bindings[i].Candidates[0].ComparisonKey
 			if _, exists := table.bindingIndex[key]; !exists {
 				table.bindingIndex[key] = i
+				if work != nil {
+					work.indexBuilds++
+				}
 			}
 		}
 	} else if table.sharedIndex {
 		// the index still belongs to the table this one was cloned from:
 		// copy it before writing this table's own bindings into it
+		if work != nil {
+			// the copy writes one entry per shared key
+			work.indexBuilds += len(table.bindingIndex)
+		}
 		table.bindingIndex = maps.Clone(table.bindingIndex)
 		table.sharedIndex = false
 	}
@@ -644,6 +651,9 @@ func addWithWork(table *Table, candidate Candidate, work *evaluationWork) {
 	table.Bindings = append(table.Bindings, Binding{Name: candidate.Name, Candidates: []Candidate{candidate}, Effective: 0, Ambiguous: candidate.Contested})
 	table.Bindings[len(table.Bindings)-1].note(0)
 	table.bindingIndex[candidate.ComparisonKey] = len(table.Bindings) - 1
+	if work != nil {
+		work.indexBuilds++
+	}
 }
 
 // bindingIndex finds a binding by comparison key. It never mutates the table: a

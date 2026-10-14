@@ -137,6 +137,12 @@ type evaluationWork struct {
 	// candidateSteps counts candidates touched by effective lookups and by
 	// shadowing updates.
 	candidateSteps int
+	// indexBuilds counts binding-index entries the evaluator wrote: one per
+	// existing binding when an unindexed table builds its index, every entry of
+	// the map a clone copies before its first write, and one per appended
+	// binding. Cloning alone writes none, so the counter is what makes a
+	// per-step snapshot's index work observable; it never changes any output.
+	indexBuilds int
 }
 
 // scan records n bytes examined by a substring search; a nil counter is a no-op.
@@ -147,7 +153,7 @@ func (w *evaluationWork) scan(n int) {
 }
 
 func (w *evaluationWork) total() int {
-	return w.lineBytes + w.scanBytes + w.bindingScans + w.candidateSteps
+	return w.lineBytes + w.scanBytes + w.bindingScans + w.candidateSteps + w.indexBuilds
 }
 
 // EnvMapping is one entry of a step's env: mapping. The key is never
