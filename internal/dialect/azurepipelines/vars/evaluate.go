@@ -2,6 +2,7 @@ package vars
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
@@ -414,6 +415,7 @@ func evaluateSteps(g *Graph, parent Table, stage, job string, unit jobUnit, depl
 	leg := unit.leg
 	state := cloneTable(parent)
 	expander := newMacroExpander(&state)
+	var once findingCache
 	for index, step := range listItems(unit.steps) {
 		props := stepProps(step)
 		table := cloneTable(state)
@@ -424,13 +426,13 @@ func evaluateSteps(g *Graph, parent Table, stage, job string, unit jobUnit, depl
 		stateChanged := false
 		for _, event := range mutationsWithExpander(step, expander, stage, job, leg, index, g.agentOS) {
 			if event.stepWarning {
-				findings.Add(diag.MustNew("TRL-VAR-0016", diag.WithSource(event.candidate.Origin), diag.WithArgs(map[string]any{"name": "(macro values may inject logging commands)"})))
+				once.addName(findings, "TRL-VAR-0016", event.candidate.Origin, "(macro values may inject logging commands)")
 				continue
 			}
 			if !ValidName(event.bareName) {
 				// A logging command with an unusable name (a help string, say) is
 				// reported as unprovable rather than aborting the evaluation.
-				findings.Add(diag.MustNew("TRL-VAR-0016", diag.WithSource(event.candidate.Origin), diag.WithArgs(map[string]any{"name": displayName(event.bareName)})))
+				once.addName(findings, "TRL-VAR-0016", event.candidate.Origin, displayName(event.bareName))
 				continue
 			}
 			if !applyMutation(&state, event, props, findings) {
@@ -438,7 +440,7 @@ func evaluateSteps(g *Graph, parent Table, stage, job string, unit jobUnit, depl
 			}
 			stateChanged = true
 			if event.unprovable || event.diagnostic {
-				findings.Add(diag.MustNew("TRL-VAR-0016", diag.WithSource(event.candidate.Origin), diag.WithArgs(map[string]any{"name": displayName(event.bareName)})))
+				once.addName(findings, "TRL-VAR-0016", event.candidate.Origin, displayName(event.bareName))
 			}
 			if !event.output {
 				continue
@@ -618,6 +620,11 @@ func addWithWork(table *Table, candidate Candidate, work *evaluationWork) {
 				table.bindingIndex[key] = i
 			}
 		}
+	} else if table.sharedIndex {
+		// the index still belongs to the table this one was cloned from:
+		// copy it before writing this table's own bindings into it
+		table.bindingIndex = maps.Clone(table.bindingIndex)
+		table.sharedIndex = false
 	}
 	if i, ok := bindingIndex(table, candidate.ComparisonKey, work); ok {
 		binding := &table.Bindings[i]
@@ -639,12 +646,22 @@ func addWithWork(table *Table, candidate Candidate, work *evaluationWork) {
 	table.bindingIndex[candidate.ComparisonKey] = len(table.Bindings) - 1
 }
 
-// bindingIndex finds a binding by comparison key. It never mutates the table:
-// a table without an index falls back to a (counted) linear scan.
+// bindingIndex finds a binding by comparison key. It never mutates the table: a
+// table without an index, or an indexed position that does not validate, falls
+// back to a (counted) linear scan.
 func bindingIndex(table *Table, comparisonKey string, work *evaluationWork) (int, bool) {
 	if table.bindingIndex != nil {
 		i, ok := table.bindingIndex[comparisonKey]
-		return i, ok
+		if !ok {
+			return 0, false
+		}
+		// A shared index may name a position this table does not have, because
+		// the table it was cloned from appended a binding after the clone. A
+		// live position always carries the key, because bindings only grow at
+		// the end and a key never moves.
+		if i < len(table.Bindings) && table.Bindings[i].Candidates[0].ComparisonKey == comparisonKey {
+			return i, true
+		}
 	}
 	for i := range table.Bindings {
 		if work != nil {

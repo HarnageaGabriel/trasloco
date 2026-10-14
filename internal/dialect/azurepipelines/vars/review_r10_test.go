@@ -13,7 +13,7 @@ import (
 // reservedMarkerWork runs the logging markers of one script through the same
 // scan, readonly lookup and ingestion the evaluator uses and returns all
 // counted work.
-func reservedMarkerWork(t *testing.T, name string, count int, perLine bool) int {
+func reservedMarkerWork(t *testing.T, name string, count int, perLine bool) *evaluationWork {
 	t.Helper()
 	var script string
 	if perLine {
@@ -35,7 +35,7 @@ func reservedMarkerWork(t *testing.T, name string, count int, perLine bool) int 
 	if len(table.Bindings) != 1 || len(table.Bindings[0].Candidates) != count {
 		t.Fatalf("bindings = %d, want one with %d candidates", len(table.Bindings), count)
 	}
-	return counter.total()
+	return counter
 }
 
 func TestReviewR10ReservedNameMarkersScaleLinearly(t *testing.T) {
@@ -43,8 +43,9 @@ func TestReviewR10ReservedNameMarkersScaleLinearly(t *testing.T) {
 		for _, name := range []string{"path.x", "x"} {
 			small := reservedMarkerWork(t, name, 500, perLine)
 			large := reservedMarkerWork(t, name, 1000, perLine)
-			t.Logf("%s perLine=%t: %d -> %d", name, perLine, small, large)
-			assertLinearGrowth(t, small, large)
+			t.Logf("%s perLine=%t: %d -> %d", name, perLine, small.total(), large.total())
+			assertLinearGrowth(t, small.total(), large.total())
+			assertWorkBudget(t, 1000, large)
 		}
 	}
 }
@@ -115,6 +116,139 @@ func TestReviewR10CloneTableIndexesMatchLinearScan(t *testing.T) {
 	bare := Table{Bindings: base.Bindings}
 	if i, ok := bindingIndex(&bare, key("v3"), nil); !ok || bare.bindingIndex != nil || base.Bindings[i].Name != "v3" {
 		t.Fatalf("read-only fallback failed: %d, %t, index stored = %t", i, ok, bare.bindingIndex != nil)
+	}
+}
+
+// TestReviewR10StepSnapshotLookupsStayLinear pins the read cost of the tables
+// the evaluator stores for every step: a snapshot cloned from the job state
+// must answer each macro reference with an index hit, not with a scan over its
+// bindings. Without that, N variables and N references in each of M steps cost
+// O(N*N*M) counted binding scans instead of O(N*M); the counters of the logging
+// budget tests never reach this path.
+func TestReviewR10StepSnapshotLookupsStayLinear(t *testing.T) {
+	const (
+		variables  = 200
+		references = 200
+		steps      = 8
+	)
+	work := &evaluationWork{}
+	var state Table
+	for i := 0; i < variables; i++ {
+		name := "v" + strconv.Itoa(i)
+		add(&state, Candidate{Name: name, ComparisonKey: key(name), Value: name, Available: true, CompileVisible: true})
+	}
+	for step := 0; step < steps; step++ {
+		snapshot := cloneTable(state)
+		for r := 0; r < references; r++ {
+			name := "v" + strconv.Itoa(r)
+			candidate, ok := lookupWork(&snapshot, name, PhaseMacro, work)
+			if !ok || candidate.Value != name {
+				t.Fatalf("step %d: %s = %#v, %t", step, name, candidate, ok)
+			}
+		}
+		// the step mutates the state the next snapshot is cloned from
+		name := "s" + strconv.Itoa(step)
+		add(&state, Candidate{Name: name, ComparisonKey: key(name), Value: name, Available: true, CompileVisible: true})
+	}
+	t.Logf("lookups=%d scans=%d", steps*references, work.bindingScans)
+	if want := 3 * (variables + references); work.bindingScans > want {
+		t.Fatalf("binding scans for %d variables and %d references per step = %d, want at most %d", variables, references, work.bindingScans, want)
+	}
+}
+
+// TestReviewR10SnapshotIndexIsSharedButNeverStale proves a clone may share the
+// parent's index: bindings are append-only, so a position the clone knows can
+// never start naming a different binding, and a position the parent added after
+// the clone was taken is rejected by the lookup's own check.
+func TestReviewR10SnapshotIndexIsSharedButNeverStale(t *testing.T) {
+	var parent Table
+	for i := 0; i < 8; i++ {
+		name := "v" + strconv.Itoa(i)
+		add(&parent, Candidate{Name: name, ComparisonKey: key(name), Value: "old" + strconv.Itoa(i), Available: true, CompileVisible: true})
+	}
+	snapshot := cloneTable(parent)
+	// the parent grows both ways: new candidates for existing bindings and a
+	// binding the snapshot never had
+	for i := 0; i < 8; i++ {
+		name := "v" + strconv.Itoa(i)
+		add(&parent, Candidate{Name: name, ComparisonKey: key(name), Value: "new" + strconv.Itoa(i), Available: true, CompileVisible: true})
+	}
+	add(&parent, Candidate{Name: "late", ComparisonKey: key("late"), Value: "late", Available: true, CompileVisible: true})
+	for i := 0; i < 8; i++ {
+		name := "v" + strconv.Itoa(i)
+		if candidate, ok := lookup(&snapshot, name, PhaseMacro); !ok || candidate.Value != "old"+strconv.Itoa(i) {
+			t.Fatalf("snapshot %s = %#v, %t; want old%d", name, candidate, ok, i)
+		}
+	}
+	if _, ok := lookup(&snapshot, "late", PhaseMacro); ok {
+		t.Fatal("the snapshot resolved a binding the parent added after the clone")
+	}
+	if candidate, ok := lookup(&parent, "v0", PhaseMacro); !ok || candidate.Value != "new0" {
+		t.Fatalf("parent v0 = %#v, %t; want new0", candidate, ok)
+	}
+}
+
+// TestReviewR10FindingCacheKeepsDistinctFindings guards the pre-construction
+// dedup of TRL-VAR-0016: only an identical code, origin and name may collapse.
+func TestReviewR10FindingCacheKeepsDistinctFindings(t *testing.T) {
+	collector := diag.NewCollector()
+	var cache findingCache
+	origin := diag.Source{File: "p.yml", Line: 3, Col: 5}
+	cache.addName(collector, "TRL-VAR-0016", origin, "x")
+	cache.addName(collector, "TRL-VAR-0016", origin, "x")
+	cache.addName(collector, "TRL-VAR-0016", origin, "y")
+	cache.addName(collector, "TRL-VAR-0016", diag.Source{File: "p.yml", Line: 4, Col: 1}, "x")
+	cache.addName(collector, "TRL-VAR-0015", origin, "x")
+	if got := len(collector.List()); got != 4 {
+		t.Fatalf("stored diagnostics = %d, want 4: %v", got, codes(collector.List()))
+	}
+	if got := countCode(collector.List(), "TRL-VAR-0016"); got != 3 {
+		t.Fatalf("TRL-VAR-0016 = %d, want 3", got)
+	}
+	if got := len(collector.Suppressed()); got != 0 {
+		t.Fatalf("suppressed = %v, want none", collector.Suppressed())
+	}
+}
+
+// TestReviewR10FindingCacheKeepsSuppressedCounts keeps the per-code cap
+// semantics the collector had before the cache: a finding the cap suppressed is
+// not remembered as stored, so its repeats still count as suppressed.
+func TestReviewR10FindingCacheKeepsSuppressedCounts(t *testing.T) {
+	collector := diag.NewCollector(diag.WithPerCodeCap(1))
+	var cache findingCache
+	origin := diag.Source{File: "p.yml", Line: 3, Col: 5}
+	cache.addName(collector, "TRL-VAR-0016", origin, "a")
+	cache.addName(collector, "TRL-VAR-0016", origin, "b")
+	cache.addName(collector, "TRL-VAR-0016", origin, "b")
+	if got := countCode(collector.List(), "TRL-VAR-0016"); got != 1 {
+		t.Fatalf("stored TRL-VAR-0016 = %d, want 1", got)
+	}
+	if got := collector.Suppressed()["TRL-VAR-0016"]; got != 2 {
+		t.Fatalf("suppressed TRL-VAR-0016 = %d, want 2 (the cache must not change it)", got)
+	}
+}
+
+// BenchmarkEvaluateManyStepsSharedState measures the per-step snapshot the
+// evaluator takes of the job table: every step deep-copies the bindings the
+// previous steps added. It exercises the clone path that must not also rebuild
+// a binding index per step.
+func BenchmarkEvaluateManyStepsSharedState(b *testing.B) {
+	for _, steps := range []int{200, 400, 800} {
+		b.Run(strconv.Itoa(steps), func(b *testing.B) {
+			items := make([]ast.Step, steps)
+			for i := range items {
+				script := "# ##vso[task.setvariable variable=v" + strconv.Itoa(i) + "]1"
+				items[i] = &ast.ScriptStep{Kind: ast.ScriptBash, Script: scalarNode(script)}
+			}
+			pipeline := &ast.Pipeline{Shape: ast.ShapeSteps, Steps: list[ast.Step](items...)}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := Evaluate(pipeline, Context{AgentOS: AgentOSLinux}, diag.NewCollector()); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 

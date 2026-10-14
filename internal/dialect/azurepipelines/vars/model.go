@@ -113,6 +113,12 @@ type Table struct {
 	Scope        Scope
 	Bindings     []Binding
 	bindingIndex map[string]int //trasloco:unordered-ok lookup-only acceleration
+	// sharedIndex marks bindingIndex as still owned by the table this one was
+	// cloned from. Bindings only ever grow at the end, so every position the
+	// clone copied keeps its key: a lookup validates the position before
+	// trusting it, and the first mutation copies the shared map before writing
+	// (copy-on-write).
+	sharedIndex bool
 	// Env holds the step-level env: mapping, with values kept as written.
 	Env []EnvMapping
 	// MissingGroups lists imported groups the context did not supply; names
@@ -285,13 +291,18 @@ func cloneCandidate(in Candidate) Candidate {
 	return out
 }
 
+// cloneTable deep-copies a table's bindings and shares its lookup index
+// read-only. Positions are append-only, so the prefix the clone copied keeps the
+// same key -> position mapping; a lookup validates the position and falls back to
+// a scan on a mismatch, which is what stops a position the parent appended after
+// the clone was taken from naming a binding the clone does not have. Sharing
+// keeps the per-step snapshots the evaluator stores from each paying for a
+// second index, and the first mutation of a table whose index is shared copies
+// it first (copy-on-write), so neither side observes the other's additions.
 func cloneTable(in Table) Table {
-	out := Table{Scope: in.Scope, Bindings: make([]Binding, len(in.Bindings)), bindingIndex: make(map[string]int, len(in.Bindings)), Env: append([]EnvMapping(nil), in.Env...), MissingGroups: append([]string(nil), in.MissingGroups...)}
+	out := Table{Scope: in.Scope, Bindings: make([]Binding, len(in.Bindings)), bindingIndex: in.bindingIndex, sharedIndex: in.bindingIndex != nil, Env: append([]EnvMapping(nil), in.Env...), MissingGroups: append([]string(nil), in.MissingGroups...)}
 	for i, binding := range in.Bindings {
 		out.Bindings[i] = Binding{Name: binding.Name, Effective: binding.Effective, Ambiguous: binding.Ambiguous, Candidates: make([]Candidate, len(binding.Candidates))}
-		if _, exists := out.bindingIndex[binding.Candidates[0].ComparisonKey]; !exists {
-			out.bindingIndex[binding.Candidates[0].ComparisonKey] = i
-		}
 		for j, candidate := range binding.Candidates {
 			out.Bindings[i].Candidates[j] = cloneCandidate(candidate)
 			out.Bindings[i].note(j)
