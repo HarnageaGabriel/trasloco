@@ -11,7 +11,7 @@
 
 ## Remediation
 
-Rewrite manually; original text kept in a comment.
+Rewrite manually; the original text is kept in the report.
 
 ## Example
 

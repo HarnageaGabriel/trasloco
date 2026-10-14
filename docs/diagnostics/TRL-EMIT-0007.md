@@ -16,5 +16,5 @@ Review `params.pattern` and `params.action`; the trigger now fires on a superset
 ## Example
 
 ```json
-{"code": "TRL-EMIT-0007", "severity": "warning", "params": {}}
+{"code": "TRL-EMIT-0007", "severity": "warning", "params": {"pattern": "<pattern>", "kind": "<kind>", "action": "<action>"}}
 ```

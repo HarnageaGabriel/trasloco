@@ -194,7 +194,7 @@ Fidelity grades are those of [README.md](README.md). "Exact" means equivalent wi
 | `Job.needs`, stage `dependsOn`, `barrier` | `needs:` (always a block list) | exact | GH-WS, AZ-JOBS | Section 5.4. |
 | `Job.if` | `if:` | exact or approximated | GH-WS, GH-EX, AZ-COND | Section 5.10; default `success()` is omitted. |
 | `Job.runner` | `runs-on:` | exact or approximated | AZ-HOST, GH-RUN | Section 5.5. |
-| `Job.timeout` | `timeout-minutes:` | exact | GH-WS, AZ-JOBS | Whole minutes; seconds round up (approximated, `TRL-CONV-0001`). The reader-materialized hosted default emits 60 with carried approximated fidelity (VERIFY-12); absent remains absent with the reader loss, never an emitter-side Azure default. |
+| `Job.timeout` | `timeout-minutes:` | exact or approximated | GH-WS, AZ-JOBS | Whole minutes; seconds round up (approximated, `TRL-CONV-0001`). The reader-materialized hosted default emits 60 with carried approximated fidelity (VERIFY-12); absent remains absent with the reader loss, never an emitter-side Azure default. |
 | `Job.allowFailure` | `continue-on-error: true` | approximated | GH-WS, AZ-JOBS | GitHub reports dependent `needs.<id>.result` as `success`, versus Azure `succeededWithIssues`; record one `TRL-CONV-0001` per job. VERIFY-09. |
 | `Job.variables`, `Stage.variables`, `Pipeline.variables` | `env` (job, job, workflow) | exact | AZ-JOBS | Section 5.9. |
 | `Job.permissions` | none unless approved | approximated | GH-WS | Section 5.12. |

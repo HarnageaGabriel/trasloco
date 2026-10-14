@@ -16,5 +16,5 @@ Rewrite the value without `${{`; GitHub evaluates it before the shell or the act
 ## Example
 
 ```json
-{"code": "TRL-EMIT-0006", "severity": "warning", "params": {}}
+{"code": "TRL-EMIT-0006", "severity": "warning", "params": {"field": "<field>"}}
 ```

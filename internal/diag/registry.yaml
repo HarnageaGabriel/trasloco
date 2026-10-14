@@ -558,7 +558,7 @@
                       "title":  "Expression cannot be translated",
                       "severity":  "warning",
                       "exitClass":  "none",
-                      "remediation":  "Rewrite manually; original text kept in a comment.",
+                      "remediation":  "Rewrite manually; the original text is kept in the report.",
                       "since":  "0.1.0",
                       "status":  "active",
                       "fidelity":  "unsupported"
@@ -1217,6 +1217,7 @@
                       "remediation":  "Rewrite the value without `${{`; GitHub evaluates it before the shell or the action sees it, and offers no escape.",
                       "since":  "0.1.0",
                       "status":  "active",
+                      "params":  ["field"],
                       "fidelity":  "needs-manual"
                   },
                   {
@@ -1228,6 +1229,7 @@
                       "remediation":  "Review `params.pattern` and `params.action`; the trigger now fires on a superset of refs or paths.",
                       "since":  "0.1.0",
                       "status":  "active",
+                      "params":  ["pattern", "kind", "action"],
                       "fidelity":  "approximated"
                   },
                   {
@@ -1269,6 +1271,7 @@
                       "remediation":  "Supply via `secrets set`; workflows stay gated.",
                       "since":  "0.1.0",
                       "status":  "active",
+                      "params":  ["secret"],
                       "fidelity":  "needs-manual"
                   },
                   {
