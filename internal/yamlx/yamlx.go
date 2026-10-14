@@ -99,7 +99,8 @@ const runeStride = 128
 // buildRunePrefixes records the number of code-point starts (excluding
 // carriage returns) at every runeStride boundary of data.
 func buildRunePrefixes(data []byte) []int32 {
-	prefixes := make([]int32, 1, len(data)/runeStride+2)
+	// No capacity hint: CodeQL flags size arithmetic on input length (go/allocation-size-overflow).
+	prefixes := []int32{0}
 	count := int32(0)
 	for start := 0; start < len(data); start += runeStride {
 		end := min(start+runeStride, len(data))
