@@ -107,10 +107,16 @@ func (c *conv) expression(node adoexpr.Expr) (ir.Expr, bool) {
 	}
 }
 
-// secretComparand reports a reference whose last path element is
-// secret-classified.
+// secretComparand reports a reference or macro that is secret-classified.
 func secretComparand(e ir.Expr) bool {
-	return e.Kind == ir.ExprRef && e.Ref != nil && len(e.Ref.Path) > 0 && secretName(e.Ref.Path[len(e.Ref.Path)-1])
+	switch e.Kind {
+	case ir.ExprRef:
+		return e.Ref != nil && len(e.Ref.Path) > 0 && secretName(e.Ref.Path[len(e.Ref.Path)-1])
+	case ir.ExprMacro:
+		return e.Macro != nil && e.Macro.Secret
+	default:
+		return false
+	}
 }
 
 // redactSecretComparisons replaces, in place, every non-reference string

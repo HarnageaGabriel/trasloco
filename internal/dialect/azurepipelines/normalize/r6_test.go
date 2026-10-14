@@ -68,3 +68,20 @@ func TestConditionSecretComparisonCanaries(t *testing.T) {
 		})
 	}
 }
+
+func TestRedactSecretMacroComparison(t *testing.T) {
+	expr := ir.Expr{Kind: ir.ExprCall, Call: &ir.CallExpr{
+		Function: ir.FunctionEqual,
+		Args: []ir.Expr{
+			{Kind: ir.ExprMacro, Macro: &ir.MacroExpr{Name: "TOKEN", Declared: true, Secret: true}},
+			ir.StringLiteral("macro-comparison-canary"),
+		},
+	}}
+
+	if !redactSecretComparisons(&expr) {
+		t.Fatal("secret macro comparison was not redacted")
+	}
+	if got := expr.Call.Args[1].Literal.String; got != redact.Replacement() {
+		t.Fatalf("comparison literal = %q, want redaction placeholder", got)
+	}
+}
