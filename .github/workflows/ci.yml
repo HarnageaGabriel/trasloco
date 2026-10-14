@@ -45,35 +45,7 @@ jobs:
         run: go test ./...
       - name: Coverage floors (CONVENTIONS.md)
         if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import collections
-          import pathlib
-          import sys
-
-          totals = collections.defaultdict(lambda: [0, 0])
-          for line in pathlib.Path("coverage.out").read_text().splitlines()[1:]:
-              location, statements, count = line.rsplit(" ", 2)
-              package = location.rsplit("/", 1)[0]
-              totals[package][0] += int(statements)
-              totals[package][1] += int(statements) if int(count) else 0
-          failures = []
-          critical = {"httpx", "ledger", "redact", "credpool", "ratelimit"}
-          exempt = set()
-          for package, (total, covered) in sorted(totals.items()):
-              floor = 80 if package.rsplit("/", 1)[-1] in critical else 70
-              percent = 100 * covered / total if total else 100
-              print(f"{package}: {percent:.1f}% (floor {floor}%)")
-              if package.rsplit("/", 1)[-1] in exempt:
-                  continue
-              if total and 100 * covered < floor * total:
-                  failures.append(package)
-          if not totals:
-              sys.exit("Empty coverage profile")
-          if failures:
-              sys.exit("Coverage below floor: " + ", ".join(failures))
-          PY
+        run: python3 scripts/cover-floors.py
 
   lint:
     name: Lint
@@ -86,6 +58,8 @@ jobs:
           cache: true
       - name: Check deterministic ordering
         run: go run ./tools/orderlint ./...
+      - name: Action script test
+        run: bash action/run_test.sh
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.14.0

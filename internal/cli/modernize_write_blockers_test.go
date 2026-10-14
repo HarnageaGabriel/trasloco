@@ -91,10 +91,9 @@ func TestModernizeOversizedDiagnostic(t *testing.T) {
 	for _, mode := range [][]string{{}, {"--write"}, {"--write", "--strict"}} {
 		args := append([]string{"modernize", "--format", "json", path}, mode...)
 		code, output, stderr := executeModernize(t, args...)
-		wantExit := ExitOK
-		if len(mode) == 2 {
-			wantExit = ExitError
-		}
+		// An oversized file is an incomplete scan wherever the path is
+		// named explicitly, so every mode fails closed.
+		wantExit := ExitError
 		var report modernizeJSONReport
 		if err := json.Unmarshal([]byte(output), &report); err != nil {
 			t.Fatal(err)

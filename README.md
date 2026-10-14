@@ -98,6 +98,7 @@ Or add the GitHub Action to an existing workflow:
   with:
     path: .
     fail-on-findings: true
+    strict: true
 ```
 
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
@@ -110,10 +111,10 @@ Look up any retired task and its replacement on the
 
 Exit status 5 means actionable retired tasks remain; 0 means the check passed.
 The installation guide also covers Azure Pipelines and SARIF upload. The Action
-and Azure Pipelines snippet verify
-the archive against `checksums.txt` from the same release only; the full Linux,
-macOS, and Windows recipes also verify the signed checksum bundle and require
-an authenticated GitHub CLI for `gh attestation verify`.
+verifies the signed checksum bundle with cosign and then the archive checksum;
+the Azure Pipelines snippet checks only the archive checksum. The full Linux,
+macOS, and Windows recipes additionally require an authenticated GitHub CLI for
+`gh attestation verify`.
 
 ## Design goals
 
