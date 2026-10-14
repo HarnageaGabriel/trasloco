@@ -51,7 +51,7 @@ func TestNestedEachFailsFast(t *testing.T) {
 	if !hasCode(collector, "TRL-TPL-0003") {
 		t.Fatalf("diagnostics = %v, want TRL-TPL-0003", codes(collector))
 	}
-	if state.nodes != 31510 || state.bytes != 20972175 {
+	if state.nodes != 31462 || state.bytes != 20971665 {
 		t.Fatalf("nested each budget = nodes %d, bytes %d", state.nodes, state.bytes)
 	}
 }
@@ -79,7 +79,7 @@ func TestRepeatedTemplateInclusionFailsFast(t *testing.T) {
 
 func TestSmallBudgetAndIterationLimits(t *testing.T) {
 	collector, state, err := resolveBudget(t, nestedEachPipeline(10, 3), nil, Options{MaxExpandedBytes: 4096})
-	if !errors.Is(err, ErrExpansionLimit) || state.bytes != 4690 || state.nodes != 15 {
+	if !errors.Is(err, ErrExpansionLimit) || state.bytes != 4695 || state.nodes != 15 {
 		t.Fatalf("small budget = nodes %d, bytes %d, err %v", state.nodes, state.bytes, err)
 	}
 	if !hasCode(collector, "TRL-TPL-0003") {

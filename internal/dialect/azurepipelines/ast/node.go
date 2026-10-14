@@ -124,6 +124,10 @@ type Scalar struct {
 	Value string
 	// Null is true when the scalar was written as null, `~` or left empty.
 	Null bool
+	// Quoted is true when the scalar was written in single or double quotes. The
+	// value alone cannot tell `60` from `'60'`; consumers that infer a type from a
+	// free-form value use this flag (ADR 0009).
+	Quoted bool
 	// Directives are the `${{ }}` occurrences (and a whole-value `$[ ]`) found in
 	// Value, in order.
 	Directives []*Directive
