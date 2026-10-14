@@ -29,6 +29,9 @@ func (c *conv) addTaint(key, value string) {
 	if trimmed == "" {
 		return
 	}
+	if shortSecretValue(value) {
+		c.addShortSecretName(key)
+	}
 	// Whole-leaf tracking is unconditional for a declared secret: booleans,
 	// decimals, exponent forms, short values and surrounding whitespace must
 	// not escape through a typed or canonicalized carrier.
@@ -61,6 +64,43 @@ func (c *conv) addTaint(key, value string) {
 			c.taint = append(c.taint, form)
 		}
 	}
+}
+
+// shortSecretValue reports a declared secret value whose occurrences inside
+// longer text are not replaced: under minTaintBytes, a decimal under
+// minNumericSubstring characters (in any tracked spelling), or a boolean-like
+// word. References to such a variable by name are flagged for manual review.
+func shortSecretValue(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	if numericText(trimmed) {
+		if len(trimmed) < minNumericSubstring {
+			return true
+		}
+		canon, ok := canonicalDecimal(trimmed)
+		return ok && len(canon) < minNumericSubstring
+	}
+	if nonSecretValue(trimmed) {
+		return true
+	}
+	return len(trimmed) < minTaintBytes
+}
+
+// addShortSecretName records a secret key for the #13 reference scan, once.
+func (c *conv) addShortSecretName(name string) {
+	if name == "" {
+		return
+	}
+	if c.shortSecretSet == nil {
+		c.shortSecretSet = map[string]bool{}
+	}
+	if c.shortSecretSet[name] {
+		return
+	}
+	c.shortSecretSet[name] = true
+	c.shortSecretNames = append(c.shortSecretNames, name)
 }
 
 // addTaintAny records the literal leaves of a free-form default whose key (or
