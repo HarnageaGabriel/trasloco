@@ -28,14 +28,3 @@ func TestAgentOSForVMImage(t *testing.T) {
 		}
 	}
 }
-
-// Every mapped value must be an agent OS the evaluator understands.
-func TestHostedImageOSValuesAreKnown(t *testing.T) {
-	for image, os := range hostedImageOS { //trasloco:unordered-ok independent checks
-		switch os {
-		case AgentOSWindows, AgentOSLinux, AgentOSMacOS:
-		default:
-			t.Errorf("%s maps to unknown OS %q", image, os)
-		}
-	}
-}

@@ -3,9 +3,11 @@ package normalize
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
 	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/ast"
+	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/hosted"
 	"github.com/HarnageaGabriel/trasloco/internal/ir"
 	"github.com/HarnageaGabriel/trasloco/internal/redact"
 )
@@ -21,9 +23,10 @@ func (c *conv) job(source *ast.JobDef, inherited *ast.Pool) ir.Job {
 	job.Needs = dependencyNames(source.DependsOn)
 	job.If = c.condition(source.Condition, a)
 	job.AllowFailure = c.flag(a, source.ContinueOnError, "job", "continueOnError")
-	job.Timeout = c.timeout(a, source.TimeoutInMinutes, "job")
 	job.Variables = c.variables(source.Variables, ir.ScopeJob, id)
-	job.Runner = c.runner(firstPool(source.Pool, inherited), a)
+	pool := firstPool(source.Pool, inherited)
+	job.Runner = c.runner(pool, pool != nil, a)
+	job.Timeout = c.jobTimeout(a, source.TimeoutInMinutes, "job", pool, job.Runner)
 	job.Container = c.container(source.Container, a)
 	job.Services = c.services(source.Services, source.ServiceSpecs, a)
 	job.Matrix = c.matrix(source.Strategy, a)
@@ -38,7 +41,8 @@ func (c *conv) job(source *ast.JobDef, inherited *ast.Pool) ir.Job {
 func (c *conv) jobFromRoot(root *ast.Pipeline) ir.Job {
 	a := c.newAcc(root.Source).in(root.Chain)
 	job := ir.NewJob(implicitID, "Default")
-	job.Runner = c.runner(root.Pool, a)
+	job.Runner = c.runner(root.Pool, root.Pool != nil, a)
+	job.Timeout = c.jobTimeout(a, nil, "job", root.Pool, job.Runner)
 	job.Container = c.container(root.Container, a)
 	job.Services = c.services(root.Services, root.ServiceSpecs, a)
 	job.Matrix = c.matrix(root.Strategy, a)
@@ -61,9 +65,10 @@ func (c *conv) deployment(source *ast.Deployment, inherited *ast.Pool) ir.Job {
 	job.Needs = dependencyNames(source.DependsOn)
 	job.If = c.condition(source.Condition, a)
 	job.AllowFailure = c.flag(a, source.ContinueOnError, "job", "continueOnError")
-	job.Timeout = c.timeout(a, source.TimeoutInMinutes, "deployment")
 	job.Variables = c.variables(source.Variables, ir.ScopeJob, id)
-	job.Runner = c.runner(firstPool(source.Pool, inherited), a)
+	pool := firstPool(source.Pool, inherited)
+	job.Runner = c.runner(pool, pool != nil || deploymentHookPoolDeclared(source.Strategy), a)
+	job.Timeout = c.jobTimeout(a, source.TimeoutInMinutes, "deployment", pool, job.Runner)
 	job.Container = c.container(source.Container, a)
 	job.Services = c.services(source.Services, source.ServiceSpecs, a)
 	environment := "environment"
@@ -287,17 +292,28 @@ func orderedLists(values ...any) ir.OrderedMap[any] {
 	return out
 }
 
-func (c *conv) runner(pool *ast.Pool, a *acc) ir.RunnerReq {
+// runner materializes the runner requirement for a node. declared is only
+// meaningful when pool is nil: a deployment lifecycle hook declares a pool that
+// cannot be collapsed onto the single IR job runner, so it suppresses the
+// hosted default without inventing a runner.
+func (c *conv) runner(pool *ast.Pool, declared bool, a *acc) ir.RunnerReq {
 	if pool == nil {
-		return ir.RunnerReq{}
+		if declared {
+			return ir.RunnerReq{}
+		}
+		const detail = "omitted Azure pool uses the Microsoft-hosted ubuntu-latest runner"
+		a.keep("synthetic.runner", detail)
+		a.note(codeSynth, "runner", "pool", a.source, detail)
+		return ir.RunnerReq{Image: "ubuntu-latest", OS: "linux"}
 	}
 	c.unknown(a, "pool", pool.Extra)
-	if pool.Name != nil && strings.EqualFold(pool.Name.Value, "server") && pool.VMImage == nil {
+	if agentlessPool(pool) {
 		a.keep("pool", "server")
 		a.lose(codeExt, "pool", "server", pool.Source, "agentless server pool has no runner requirement")
 		return ir.RunnerReq{}
 	}
 	out := ir.RunnerReq{Pool: scalarOr(pool.Name, ""), Image: scalarOr(pool.VMImage, "")}
+	out.OS, _ = hosted.ImageOS(out.Image)
 	if pool.Demands != nil {
 		for _, item := range pool.Demands.Items {
 			if item.Value != nil {
@@ -306,6 +322,63 @@ func (c *conv) runner(pool *ast.Pool, a *acc) ir.RunnerReq {
 		}
 	}
 	return out
+}
+
+func (c *conv) jobTimeout(a *acc, value *ast.Scalar, construct string, pool *ast.Pool, runner ir.RunnerReq) *ir.Duration {
+	if value != nil {
+		return c.timeout(a, value, construct)
+	}
+	if agentlessPool(pool) {
+		return nil
+	}
+	// An unnamed pool and the Microsoft-hosted "Azure Pipelines" pool are both
+	// hosted: an omitted job timeout defaults to one hour. Any other pool name is
+	// self-hosted and never receives the default.
+	_, knownHostedImage := hosted.ImageOS(runner.Image)
+	if knownHostedImage && (runner.Pool == "" || hosted.IsHostedPoolName(runner.Pool)) {
+		const detail = "omitted timeout on a Microsoft-hosted job is materialized as 60 minutes (VERIFY-12)"
+		a.keep("synthetic.timeout", detail)
+		a.note(codeSynth, construct, "timeoutInMinutes", a.source, detail)
+		a.withFidelity(diag.FidelityApproximated)
+		return &ir.Duration{Duration: time.Hour}
+	}
+	// A nil pool with an unresolved runner means the only declared pool sits on a
+	// deployment lifecycle hook that cannot be flattened here; say so instead of
+	// blaming a self-hosted pool.
+	detail := "omitted job timeout on a self-hosted or unknown runner cannot be materialized"
+	if pool == nil {
+		detail = "omitted job timeout on a deployment-hook runner cannot be materialized"
+	}
+	a.lose(codeExt, construct, "timeoutInMinutes", a.source, detail)
+	return nil
+}
+
+func agentlessPool(pool *ast.Pool) bool {
+	return pool != nil && pool.Name != nil && strings.EqualFold(strings.TrimSpace(pool.Name.Value), "server") && pool.VMImage == nil
+}
+
+// deploymentHookPoolDeclared reports whether any lifecycle hook declares a
+// pool. Hook pools cannot be collapsed into the single flattened IR job runner,
+// but their presence must prevent inventing the global hosted default.
+func deploymentHookPoolDeclared(strategy *ast.DeploymentStrategy) bool {
+	if strategy == nil {
+		return false
+	}
+	for _, lifecycle := range []*ast.Lifecycle{strategy.RunOnce, strategy.Rolling, strategy.Canary} {
+		if lifecycle == nil {
+			continue
+		}
+		hooks := []*ast.Hook{lifecycle.PreDeploy, lifecycle.Deploy, lifecycle.RouteTraffic, lifecycle.PostRouteTraffic}
+		if lifecycle.On != nil {
+			hooks = append(hooks, lifecycle.On.Failure, lifecycle.On.Success)
+		}
+		for _, hook := range hooks {
+			if hook != nil && hook.Pool != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *conv) matrix(strategy *ast.Strategy, a *acc) *ir.Matrix {

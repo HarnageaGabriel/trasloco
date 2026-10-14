@@ -261,7 +261,7 @@ func TestResolverBoundaryAndOriginChain(t *testing.T) {
 }
 
 func TestDeferredExpressionsAreNotLosses(t *testing.T) {
-	data := []byte("variables:\n  later: $[ variables.source ]\nsteps:\n- task: Bash@3\n  inputs:\n    script: $(script)\n  env:\n    MODE: $(mode)\n")
+	data := []byte("variables:\n  later: $[ variables.source ]\njobs:\n- job: deferred\n  pool: {vmImage: ubuntu-latest}\n  timeoutInMinutes: 30\n  steps:\n  - task: Bash@3\n    inputs:\n      script: $(script)\n    env:\n      MODE: $(mode)\n")
 	parsed := parse.Source("pipeline.yml", data, diag.NewCollector())
 	// GitHub keeps the synthesized default PR trigger exact, so the pipeline stays
 	// exact and only the deferred diagnostics are asserted here.
