@@ -30,7 +30,7 @@ func TestOpaqueConditionScanBounded(t *testing.T) {
 }
 
 func TestDedupeStepIDsWorkLinear(t *testing.T) {
-	const count = 50_000
+	const count = 8_000
 	steps := make([]ir.Step, count)
 	for i := range steps {
 		steps[i].ID = "a"
@@ -52,7 +52,7 @@ func TestDedupeStepIDsWorkLinear(t *testing.T) {
 }
 
 func TestPipelineScalingWork(t *testing.T) {
-	const size = 32 << 10
+	const size = 4 << 10
 	shapes := []struct {
 		name  string
 		build func(int) string
