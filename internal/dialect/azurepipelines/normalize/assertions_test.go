@@ -387,6 +387,8 @@ func TestCheckoutFetchDepth(t *testing.T) {
   fetchDepth: 1
 - checkout: self
   fetchDepth: $(DEPTH)
+- checkout: self
+  fetchDepth: -1
 `)
 	var checkouts []ir.Step
 	for _, step := range jobByID(t, got, implicitID).Steps {
@@ -394,8 +396,8 @@ func TestCheckoutFetchDepth(t *testing.T) {
 			checkouts = append(checkouts, step)
 		}
 	}
-	if len(checkouts) != 4 {
-		t.Fatalf("checkouts = %d, want 4", len(checkouts))
+	if len(checkouts) != 5 {
+		t.Fatalf("checkouts = %d, want 5", len(checkouts))
 	}
 	if d, set := checkouts[0].Checkout.FetchDepth, checkouts[0].Checkout.FetchDepthSet; d != 0 || set {
 		t.Fatalf("absent depth = %d, %v; want 0, false", d, set)
@@ -411,6 +413,12 @@ func TestCheckoutFetchDepth(t *testing.T) {
 	}
 	if !hasLoss(t, checkouts[3].Metadata, "fetchDepth") {
 		t.Fatal("non-literal depth did not record a loss")
+	}
+	if d, set := checkouts[4].Checkout.FetchDepth, checkouts[4].Checkout.FetchDepthSet; d != 0 || set {
+		t.Fatalf("negative fetchDepth = %d, %v; want 0, false", d, set)
+	}
+	if !hasLoss(t, checkouts[4].Metadata, "fetchDepth") {
+		t.Fatal("negative fetchDepth did not record a loss")
 	}
 }
 

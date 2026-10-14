@@ -267,16 +267,16 @@ func TestTaintSourceByteBoundIsConservative(t *testing.T) {
 
 func TestSecretEqualToShellKeepsStructure(t *testing.T) {
 	tests := []struct {
-		name, step, want string
+		name, secret, step, want string
 	}{
-		{"bash", "bash: echo safe", "bash"},
-		{"pwsh", "pwsh: echo safe", "pwsh"},
-		{"powershell", "powershell: echo safe", "powershell"},
-		{"azure-default", "script: echo safe", "azure-default"},
+		{"bash", "bash", "bash: echo safe", "bash"},
+		{"pwsh", "pwsh", "pwsh: echo safe", "pwsh"},
+		{"powershell", "powershell", "powershell: echo safe", "powershell"},
+		{"generic ubuntu", "bash", "script: echo safe", "bash"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := normalizeText(t, "parameters:\n- name: dbPassword\n  type: string\n  default: "+tt.name+"\nsteps:\n- "+tt.step+"\n")
+			got := normalizeText(t, "parameters:\n- name: dbPassword\n  type: string\n  default: "+tt.secret+"\nsteps:\n- "+tt.step+"\n")
 			step := got.Jobs[0].Steps[len(got.Jobs[0].Steps)-1]
 			if step.Run == nil || string(step.Run.Shell) != tt.want {
 				t.Fatalf("shell = %#v, want %q", step.Run, tt.want)

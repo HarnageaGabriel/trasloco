@@ -549,6 +549,8 @@ func (c *conv) variables(values *ast.Variables, scope ir.VariableScope, scopeID 
 	if values == nil {
 		return nil
 	}
+	c.pushMacroScope(values)
+	defer c.popMacroScope()
 	var out []ir.Variable
 	add := func(name, value string, source diag.Source, chain []diag.Source, readonly bool) {
 		a := c.newAcc(source).in(chain)
@@ -567,11 +569,15 @@ func (c *conv) variables(values *ast.Variables, scope ir.VariableScope, scopeID 
 			})
 			return
 		}
+		if expr, ok := c.wholeMacro(a, "variable-expression", "value", source, value); ok {
+			out = append(out, ir.Variable{Metadata: a.metadata(), Name: name, Scope: scope, ScopeID: scopeID, Value: &expr})
+			return
+		}
 		if strings.Contains(value, "$(") || strings.HasPrefix(strings.TrimSpace(value), "$[") {
 			a.lose(codeDeferred, "variable-expression", "value", source, "Azure variable expression is preserved for the later precedence pass")
 		}
-		expr := ir.StringLiteral(a.scrub("variable", "value", source, value))
-		out = append(out, ir.Variable{Metadata: a.metadata(), Name: name, Scope: scope, ScopeID: scopeID, Value: &expr})
+		literal := ir.StringLiteral(a.scrub("variable", "value", source, value))
+		out = append(out, ir.Variable{Metadata: a.metadata(), Name: name, Scope: scope, ScopeID: scopeID, Value: &literal})
 	}
 	if values.Map != nil {
 		for _, entry := range values.Map.Entries {
