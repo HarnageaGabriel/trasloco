@@ -42,6 +42,20 @@ const (
 // references, `extends` or `${{ }}` directives.
 var ErrNeedsResolver = errors.New("pipeline contains unresolved template constructs")
 
+// RepositoryType is the hosting provider of the pipeline's repository. The
+// caller supplies it; the normalizer never inspects remotes. The zero value is
+// RepositoryUnknown.
+type RepositoryType string
+
+// Repository hosting types recognized for provider-default trigger synthesis.
+const (
+	RepositoryGitHub        RepositoryType = "github"
+	RepositoryBitbucket     RepositoryType = "bitbucket"
+	RepositoryAzureReposGit RepositoryType = "azureReposGit"
+	RepositoryOther         RepositoryType = "other"
+	RepositoryUnknown       RepositoryType = "unknown"
+)
+
 // Options configures Pipeline.
 type Options struct {
 	// ID is the stable pipeline identity. Empty derives it from the file name.
@@ -57,6 +71,11 @@ type Options struct {
 	SourceChain func(diag.Source) []diag.Source
 	// Collector receives every finding. Nil keeps findings only in the result.
 	Collector *diag.Collector
+	// RepositoryType is the hosting provider of the pipeline's repository. It
+	// selects the provider-default triggers the source omits. The zero value
+	// RepositoryUnknown synthesizes the default PR trigger with approximated
+	// fidelity (fire more often, never less).
+	RepositoryType RepositoryType
 }
 
 // Pipeline normalizes a resolved pipeline. The returned IR passes ir.Validate.

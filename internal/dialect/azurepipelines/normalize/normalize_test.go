@@ -263,18 +263,26 @@ func TestResolverBoundaryAndOriginChain(t *testing.T) {
 func TestDeferredExpressionsAreNotLosses(t *testing.T) {
 	data := []byte("variables:\n  later: $[ variables.source ]\nsteps:\n- task: Bash@3\n  inputs:\n    script: $(script)\n  env:\n    MODE: $(mode)\n")
 	parsed := parse.Source("pipeline.yml", data, diag.NewCollector())
-	got, err := Pipeline(context.Background(), parsed, Options{})
+	// GitHub keeps the synthesized default PR trigger exact, so the pipeline stays
+	// exact and only the deferred diagnostics are asserted here.
+	got, err := Pipeline(context.Background(), parsed, Options{RepositoryType: RepositoryGitHub})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Fidelity != diag.FidelityExact || got.Variables[0].Fidelity != diag.FidelityExact {
 		t.Fatalf("deferred expressions changed fidelity: pipeline=%s variable=%s", got.Fidelity, got.Variables[0].Fidelity)
 	}
-	if len(got.Diagnostics) != 3 {
-		t.Fatalf("diagnostics = %d, want 3", len(got.Diagnostics))
-	}
+	var deferred []diag.Diagnostic
 	for _, finding := range got.Diagnostics {
-		if finding.Code != codeDeferred || finding.Severity != diag.SeverityInfo {
+		if finding.Code == codeDeferred {
+			deferred = append(deferred, finding)
+		}
+	}
+	if len(deferred) != 3 {
+		t.Fatalf("deferred diagnostics = %d, want 3 (%v)", len(deferred), got.Diagnostics)
+	}
+	for _, finding := range deferred {
+		if finding.Severity != diag.SeverityInfo {
 			t.Fatalf("deferred diagnostic = %s/%s", finding.Code, finding.Severity)
 		}
 	}

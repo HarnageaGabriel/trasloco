@@ -335,16 +335,20 @@ func (c *conv) inputDefault(a *acc, name string, value *ast.Any, kind ir.InputTy
 func (c *conv) triggers(root *ast.Pipeline) []ir.Trigger {
 	var out []ir.Trigger
 	if root.Trigger == nil {
-		// Azure runs CI on every branch when `trigger` is absent. The trigger is
-		// synthesized, so it is not bound to the YAML (IR rule 8).
-		t := c.trigger("ci", ir.TriggerPush, nil, root.Pos)
-		t.Binding.InYAML = false
-		out = append(out, t)
+		// Azure runs CI on every branch when `trigger` is absent. The default is
+		// not written in source, so it is synthesized (ir.md section 4).
+		out = append(out, c.defaultTrigger(root, "ci", ir.TriggerPush, diag.FidelityExact,
+			"default CI trigger: Azure triggers on every branch when trigger is omitted"))
 	} else if root.Trigger.Form != ast.TriggerNone {
 		out = append(out, c.trigger("ci", ir.TriggerPush, root.Trigger, root.Trigger.Pos))
 	}
-	if root.PR != nil && root.PR.Form != ast.TriggerNone {
+	switch {
+	case root.PR != nil && root.PR.Form != ast.TriggerNone:
 		out = append(out, c.trigger("pr", ir.TriggerPR, root.PR, root.PR.Pos))
+	case root.PR == nil:
+		if t, ok := c.defaultPRTrigger(root); ok {
+			out = append(out, t)
+		}
 	}
 	if root.Schedules != nil {
 		for i, item := range root.Schedules.Items {
@@ -408,19 +412,60 @@ func (c *conv) trigger(id string, kind ir.TriggerKind, source *ast.Trigger, pos 
 			a.lose(codeExt, "trigger", "drafts", source.Drafts.Source, "draft PR inclusion has no IR field")
 		}
 		c.unknown(a, "trigger", source.Extra)
-	} else {
-		a.keep("synthesized", "default CI trigger: Azure triggers on every branch when trigger is omitted")
 	}
 	out.Metadata = a.metadata()
 	return out
+}
+
+// defaultTrigger builds a provider-default trigger the source omits. The trigger
+// is not written in source YAML, so its binding records the synthesis (ir.md
+// section 4) and the reader records TRL-CONV-0004.
+func (c *conv) defaultTrigger(root *ast.Pipeline, id string, kind ir.TriggerKind, fidelity diag.Fidelity, note string) ir.Trigger {
+	a := c.newAcc(root.Source).in(root.Chain).withFidelity(fidelity)
+	a.keep("synthesized", note)
+	a.note(codeSynth, "trigger", string(kind), root.Source, note)
+	return ir.Trigger{
+		Metadata: a.metadata(),
+		ID:       id,
+		Kind:     kind,
+		Binding:  ir.TriggerBinding{InYAML: false, Synthetic: true},
+	}
+}
+
+// defaultPRTrigger synthesizes the repository-type-dependent default PR trigger
+// Azure Pipelines applies when `pr` is omitted (normalize-ado.md).
+func (c *conv) defaultPRTrigger(root *ast.Pipeline) (ir.Trigger, bool) {
+	repo := c.opts.RepositoryType
+	if repo == "" {
+		repo = RepositoryUnknown // the documented zero value
+	}
+	switch repo {
+	case RepositoryAzureReposGit:
+		// Azure Repos Git owns PR validation with branch policies, so no YAML pr
+		// trigger is synthesized; record why with TRL-CONV-0004.
+		c.newAcc(root.Source).in(root.Chain).note(codeSynth, "trigger", "pr", root.Source,
+			"Azure Repos Git uses branch policies for pull request validation; no pr trigger is synthesized")
+		return ir.Trigger{}, false
+	case RepositoryGitHub, RepositoryBitbucket:
+		// Only these two hosting types have an exact unfiltered default PR
+		// trigger; every other value is unconfirmed.
+		return c.defaultTrigger(root, "pr", ir.TriggerPR, diag.FidelityExact,
+			"default PR trigger: Azure validates pull requests to all branches when pr is omitted"), true
+	default:
+		// other, unknown and unrecognized spellings: the provider default is
+		// unconfirmed here, so fire more often, never less, and mark the
+		// synthesized trigger approximated.
+		return c.defaultTrigger(root, "pr", ir.TriggerPR, diag.FidelityApproximated,
+			"default PR trigger: pull request validation for all branches (repository type unknown)"), true
+	}
 }
 
 func (c *conv) filterGlobs(a *acc, filter *ast.Filter) []ir.Glob {
 	if filter == nil {
 		return nil
 	}
-	var out []ir.Glob
-	appendList := func(list *ast.List[*ast.Scalar], exclude bool) {
+	var includes, excludes []ir.Glob
+	appendList := func(list *ast.List[*ast.Scalar], exclude bool, out *[]ir.Glob) {
 		if list == nil {
 			return
 		}
@@ -430,15 +475,74 @@ func (c *conv) filterGlobs(a *acc, filter *ast.Filter) []ir.Glob {
 			}
 			// The component is scrubbed before the "!" prefix is composed.
 			pattern := c.part(a, "glob", item.Value.Value, item.Value.Source)
+			if normalized, widened := translateGlob(pattern); widened {
+				a.lose(codeApprox, "glob", "pattern", item.Value.Source,
+					"Azure `*` matches across `/`; normalized to the IR `**` (VERIFY-01)")
+				pattern = normalized
+			}
 			if exclude {
 				pattern = "!" + pattern
 			}
-			out = append(out, ir.Glob{Pattern: pattern, Original: item.Value.Value})
+			*out = append(*out, ir.Glob{Pattern: pattern, Original: c.sanitize(item.Value.Value)})
 		}
 	}
-	appendList(filter.Include, false)
-	appendList(filter.Exclude, true)
+	appendList(filter.Include, false, &includes)
+	appendList(filter.Exclude, true, &excludes)
+	var out []ir.Glob
+	if len(includes) == 0 && len(excludes) != 0 {
+		// A list with no positive pattern matches every value: materialize the
+		// implicit `**` include the IR requires (ir.md section 4).
+		a.note(codeSynth, "glob", "include", filter.Source,
+			"filter list contains no positive pattern; materialized an implicit `**` include")
+		out = append(out, ir.Glob{Pattern: "**", Original: "**"})
+	}
+	out = append(out, includes...)
+	out = append(out, excludes...)
 	return out
+}
+
+// translateGlob maps Azure Pipelines wildcard semantics onto the IR glob
+// dialect. Azure `*` crosses `/`, so every unescaped star run outside a
+// character class becomes `**` (idempotent: `*`, `**` and `***` all
+// normalize to `**`); `?`, character classes and `\` escapes are preserved.
+// Inside an unescaped `[...]` class a `*` is a literal member, so it is copied
+// verbatim: it neither widens nor marks the pattern changed. It reports whether
+// the pattern changed.
+func translateGlob(pattern string) (string, bool) {
+	var b strings.Builder
+	b.Grow(len(pattern))
+	changed := false
+	inClass := false
+	for i := 0; i < len(pattern); i++ {
+		ch := pattern[i]
+		switch {
+		case ch == '\\':
+			b.WriteByte(ch)
+			if i+1 < len(pattern) {
+				i++
+				b.WriteByte(pattern[i])
+			}
+		case ch == '[' && !inClass:
+			inClass = true
+			b.WriteByte(ch)
+		case ch == ']' && inClass:
+			inClass = false
+			b.WriteByte(ch)
+		case ch == '*' && !inClass:
+			run := 1
+			for i+1 < len(pattern) && pattern[i+1] == '*' {
+				i++
+				run++
+			}
+			b.WriteString("**")
+			if run != 2 {
+				changed = true
+			}
+		default:
+			b.WriteByte(ch)
+		}
+	}
+	return b.String(), changed
 }
 
 func (c *conv) variables(values *ast.Variables, scope ir.VariableScope, scopeID string) []ir.Variable {

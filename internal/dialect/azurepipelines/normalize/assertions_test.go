@@ -437,12 +437,109 @@ jobs:
 	}
 }
 
+// TestFilterGlobsScrubsOriginal pins the trigger namespace of IR rule 7 at the
+// construction site: filterGlobs scrubs Glob.Original itself, not only the
+// whole-pipeline backstop pass. This covers include and exclude entries.
+func TestFilterGlobsScrubsOriginal(t *testing.T) {
+	const secret = "release/internalsecret"
+	parsed := parse.Source("pipeline.yml",
+		[]byte("trigger:\n  branches:\n    include: ["+secret+"]\n    exclude: ["+secret+"]\n"), diag.NewCollector())
+	if parsed.Trigger == nil || parsed.Trigger.Branches == nil {
+		t.Fatal("trigger filter not parsed")
+	}
+	c := &conv{}
+	c.own = diag.NewCollector()
+	c.ts = newTaintSet([]string{secret}, []string{secret})
+	globs := c.filterGlobs(c.newAcc(diag.Source{File: "pipeline.yml"}), parsed.Trigger.Branches)
+	if len(globs) != 2 {
+		t.Fatalf("globs = %+v", globs)
+	}
+	for _, glob := range globs {
+		if strings.Contains(glob.Original, secret) {
+			t.Fatalf("declared secret left in Glob.Original: %+v", glob)
+		}
+		if strings.Contains(glob.Pattern, secret) {
+			t.Fatalf("declared secret left in Glob.Pattern: %+v", glob)
+		}
+	}
+}
+
+// TestTriggerGlobSecretsNeverReachIR pins IR rule 7 for the trigger namespace:
+// a declared-secret value used as a branch, path or tag pattern is scrubbed
+// from both Glob.Pattern and Glob.Original, in include and exclude lists alike,
+// for CI, PR and schedule triggers and for repository resource triggers.
+func TestTriggerGlobSecretsNeverReachIR(t *testing.T) {
+	const secret = "release/internalsecret"
+	got := normalizeText(t, `variables:
+- name: apiToken
+  value: `+secret+`
+trigger:
+  branches:
+    include: [`+secret+`]
+    exclude: [`+secret+`]
+  paths:
+    include: [`+secret+`]
+  tags:
+    include: [`+secret+`]
+pr:
+  branches:
+    include: [`+secret+`]
+    exclude: [`+secret+`]
+  paths:
+    include: [`+secret+`]
+schedules:
+- cron: "0 0 * * *"
+  branches:
+    include: [`+secret+`]
+    exclude: [`+secret+`]
+resources:
+  repositories:
+  - repository: other
+    type: git
+    name: proj/repo
+    trigger:
+      branches:
+        include: [`+secret+`]
+        exclude: [`+secret+`]
+      tags:
+        include: [`+secret+`]
+steps:
+- script: echo hi
+`)
+	if out := canonical(t, got); strings.Contains(out, secret) {
+		t.Fatalf("declared secret leaked into trigger globs:\n%s", out)
+	}
+	if len(got.Triggers) == 0 {
+		t.Fatal("no triggers normalized")
+	}
+	seen := 0
+	for _, trigger := range got.Triggers {
+		globs := append(append(append([]ir.Glob{}, trigger.Filters.Branches...), trigger.Filters.Paths...), trigger.Filters.Tags...)
+		for _, glob := range globs {
+			seen++
+			if strings.Contains(glob.Original, secret) || strings.Contains(glob.Pattern, secret) {
+				t.Fatalf("declared secret in trigger glob: %+v", glob)
+			}
+		}
+	}
+	if seen != 12 {
+		t.Fatalf("glob coverage = %d, want 12 branches/paths/tags across ci, pr, schedule and repository triggers", seen)
+	}
+}
+
 func TestSplitOptionsAndTriggerSynthesis(t *testing.T) {
 	if got := splitOptions(`--name "a b" --cpus 2`); strings.Join(got, "|") != "--name|a b|--cpus|2" {
 		t.Fatalf("options = %q", got)
 	}
 	got := normalizeText(t, "steps:\n- script: echo\n")
-	if len(got.Triggers) != 1 || got.Triggers[0].Binding.InYAML {
-		t.Fatalf("synthesized trigger = %+v", got.Triggers)
+	// trigger and pr are both omitted: the default CI and PR triggers are
+	// synthesized and bound to provisioning rather than the YAML.
+	if len(got.Triggers) != 2 {
+		t.Fatalf("synthesized triggers = %+v", got.Triggers)
+	}
+	for _, trigger := range got.Triggers {
+		if trigger.Binding.InYAML || !trigger.Binding.Synthetic {
+			t.Fatalf("synthesized trigger binding = %+v", trigger.Binding)
+		}
 	}
 }
