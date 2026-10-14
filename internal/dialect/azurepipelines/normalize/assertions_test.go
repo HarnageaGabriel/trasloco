@@ -442,7 +442,14 @@ func TestSplitOptionsAndTriggerSynthesis(t *testing.T) {
 		t.Fatalf("options = %q", got)
 	}
 	got := normalizeText(t, "steps:\n- script: echo\n")
-	if len(got.Triggers) != 1 || got.Triggers[0].Binding.InYAML {
-		t.Fatalf("synthesized trigger = %+v", got.Triggers)
+	// trigger and pr are both omitted: the default CI and PR triggers are
+	// synthesized and bound to provisioning rather than the YAML.
+	if len(got.Triggers) != 2 {
+		t.Fatalf("synthesized triggers = %+v", got.Triggers)
+	}
+	for _, trigger := range got.Triggers {
+		if trigger.Binding.InYAML || !trigger.Binding.Synthetic {
+			t.Fatalf("synthesized trigger binding = %+v", trigger.Binding)
+		}
 	}
 }

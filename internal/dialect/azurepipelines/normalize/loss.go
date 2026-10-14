@@ -10,6 +10,10 @@ import (
 const (
 	codeExt      = "TRL-CONV-0008"
 	codeDeferred = "TRL-CONV-0009"
+	// codeSynth records implicit source semantics made explicit (ir.md section 4).
+	codeSynth = "TRL-CONV-0004"
+	// codeApprox records a conversion approximation, here the VERIFY-01 star widening.
+	codeApprox = "TRL-CONV-0001"
 )
 
 type loss struct {
@@ -51,12 +55,30 @@ func (a *acc) lose(code, category, property string, source diag.Source, detail s
 		a.losses = append(a.losses, record)
 		a.f = maxFidelity(a.f, diag.FidelityApproximated)
 	}
+	a.finding(code, category, property, source, detail)
+}
+
+// note reports a finding that makes implicit source semantics explicit
+// (TRL-CONV-0004) without lowering the node fidelity or recording a loss.
+func (a *acc) note(code, category, property string, source diag.Source, detail string) {
+	a.finding(code, a.c.sanitize(category), a.c.sanitize(property), source, a.c.sanitize(detail))
+}
+
+// finding reports one diagnostic anchored at the node's source and resource.
+func (a *acc) finding(code, category, property string, source diag.Source, detail string) {
 	finding := diag.MustNew(code, diag.WithSource(a.c.source(source)), diag.WithResource(a.c.resource),
 		diag.WithMessage(detail), diag.WithParams(map[string]any{"construct": category, "property": property}))
 	a.c.own.Add(finding)
 	if a.c.opts.Collector != nil {
 		a.c.opts.Collector.Add(finding)
 	}
+}
+
+// withFidelity raises the accumulator fidelity without recording a loss. It is
+// used for synthesized nodes whose fidelity the reader policy sets.
+func (a *acc) withFidelity(f diag.Fidelity) *acc {
+	a.f = maxFidelity(a.f, f)
+	return a
 }
 
 func (a *acc) metadata() ir.Metadata {
