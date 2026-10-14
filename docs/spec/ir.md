@@ -84,12 +84,12 @@ Normalization MUST materialize provider defaults:
 | `id` | string | yes | Stable trigger identity. |
 | `kind` | enum | yes | `push`, `pr`, `schedule`, `manual`, `upstream`, `webhook`, or `other`. |
 | `filters` | `TriggerFilters` | no | Normalized branch, tag, path, and activity filters. |
-| `binding` | `TriggerBinding` | yes | `inYaml: true` if the target definition belongs in emitted YAML; `false` if the provisioning plan owns it. |
+| `binding` | `TriggerBinding` | yes | `inYaml: true` if emitted in YAML. When false, `synthetic` distinguishes a reader-synthesized provider default from a trigger owned by provisioning. |
 | `schedule` | `Schedule` | iff schedule | Schedule payload. |
 | `upstream` | string | upstream | Stable upstream pipeline reference. |
 | `other` | `Raw` | iff other | Preserved event without a portable kind. |
 
-`TriggerFilters.branches`, `tags`, and `paths` contain `Glob` objects; `actions` contains normalized provider event activities. A `Glob` has normalized `pattern` and exact `original`. The normalized dialect is gitignore-style: `/` separator, `*` excludes `/`, `**` crosses separators, `?` matches one non-`/` character, `[abc]`/`[!abc]` are character classes, leading `!` negates, and `\` escapes the next metacharacter. Lists are evaluated in order, so later patterns may re-include. Parsers MUST diagnose source behavior not expressible by this dialect.
+`TriggerFilters.branches`, `tags`, and `paths` contain `Glob` objects; `actions` contains normalized provider event activities. A `Glob` has normalized `pattern` and exact `original`. The normalized dialect is gitignore-style: `/` separator, `*` excludes `/`, `**` crosses separators, `?` matches one non-`/` character, `[abc]`/`[!abc]` are character classes, leading `!` negates, and `\` escapes the next metacharacter. Lists are evaluated in order, so later patterns may re-include. A list without a positive pattern materializes an implicit `**` include and records `TRL-CONV-0004`. Azure `*` maps to IR `**` (VERIFY-01; fire more often, never less). Parsers MUST diagnose unexpressible behavior.
 
 `Schedule` fields are `cron`, `timezone`, `original`, and `onlyIfChanged`. `cron` is POSIX five-field minute/hour/day-of-month/month/day-of-week syntax; seconds and provider macros are not portable. `timezone` is an IANA name, including `Etc/UTC`; fixed local aliases are invalid. `original` retains the source expression. `onlyIfChanged` states whether unchanged source suppresses the scheduled run.
 
@@ -138,8 +138,10 @@ Normalization MUST materialize provider defaults:
 
 | Kind / payload | Fields and semantics |
 |---|---|
-| `run` / `run` | `script`, explicit `shell`, optional `workingDirectory`, and ordered recognized protocol `operations`. Script text remains intact until a target-specific safe rewrite. |
-| `checkout` / `checkout` | `repository`, required expression `ref`, optional `path`, non-negative `fetchDepth`, booleans `submodules`, `lfs`, `persistCredentials`, and optional source `prMergeRef`. |
+| `run` / `run` | `script`, explicit `shell`, `shellOptions` (`errexit`, `pipefail`), optional `workingDirectory`, ordered recognized protocol `operations`, and `macroRefs` (`MacroExpr`). |
+| `checkout` / `checkout` | `repository`, expression `ref`, optional `path`, non-negative `fetchDepth` plus `fetchDepthSet`, booleans `submodules`, `lfs`, `persistCredentials`, optional source `prMergeRef`, and `refSource` (`literal` or `sourceVersion`). |
+
+A reader MUST synthesize provider defaults and record `TRL-CONV-0004`: GitHub and Bitbucket omitted `pr` means all branches; Azure Repos Git uses branch policies and gets none; unknown repository types synthesize `pr` with `fidelity: approximated`.
 | `artifactPublish` / `artifactPublish` | Artifact `name` and path expression `path`. |
 | `artifactRestore` / `artifactRestore` | Artifact `name` and destination expression `path`. |
 | `cache` / `cache` | Key expression `key`, ordered `restoreKeys`, path expressions `paths`, and `save` intent. |
