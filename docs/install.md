@@ -105,8 +105,12 @@ Every archive also has an SPDX JSON SBOM beside it.
 ## Check Azure Pipelines
 
 The command accepts files or directories. It exits 5 when `--check` finds an
-actionable retired task, 0 when none remain, 64 for invalid usage, and 1 for a
-named-path I/O error (or a parse failure with `--strict`).
+actionable retired task, 0 when none remain, 64 for invalid usage, and 1 for an
+I/O error. With `--check` or `--write`, any discovered file that cannot be read,
+decoded, or is too large to scan, or any directory that cannot be traversed,
+makes the scan incomplete and exits 1; findings from files that were scanned are
+still reported. A parse failure also exits 1 with `--strict`. Exit 1 takes
+precedence over exit 5.
 
 ```sh
 trasloco modernize --check --format text -- .
@@ -147,11 +151,12 @@ Exit 5 means actionable retired tasks remain and fails the script step.
 
 ## GitHub Action
 
-The composite action downloads the runner's release archive, verifies it
-against `checksums.txt` from the same release (no cosign or attestation check;
-see [Download and verify](#download-and-verify) for the full verification), and
-fails closed before running the binary. It needs no
-secret; the check itself only contacts GitHub Releases for those downloads.
+The composite action downloads the runner's release archive and checksum files,
+verifies the Sigstore bundle for `checksums.txt` with cosign, then verifies the
+archive's SHA-256 checksum before running it. It does not perform the additional
+GitHub artifact attestation check shown in [Download and verify](#download-and-verify).
+The automatically provided GitHub token is used only for release API calls and
+downloads and is removed from the environment before trasloco runs.
 Optional SARIF upload sends the result to GitHub code scanning.
 
 ```yaml
@@ -184,6 +189,11 @@ steps:
 ```
 
 Set `fail-on-findings: false` to report findings without `--check`. The optional
+`strict` input defaults to `true`; set it to `false` to report pipeline parse
+errors without failing. With `strict: true`, a pipeline that cannot be parsed
+makes the run exit 1 and, with `format: sarif`, the SARIF file is then not
+uploaded, because only complete reports (exit 0 or 5) are uploaded to code
+scanning. The optional
 `version` input selects an exact `vMAJOR.MINOR.PATCH` tag or a `vMAJOR` alias.
 With its default empty value, the action uses its own ref: `@v0.2.0` downloads
 that exact release, while `@v0` resolves the highest non-prerelease, non-draft

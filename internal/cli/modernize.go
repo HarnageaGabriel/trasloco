@@ -70,9 +70,10 @@ rewrite self-check failure (or, with
 --strict, an Azure Pipelines file has parser errors, including constructs the
 parser rejects).
 
-Precedence: exit 1 wins over exit 5. If a named path cannot be read and
-retired tasks are also found, the report still lists every finding but the
-command exits 1.`,
+Precedence: exit 1 wins over exit 5. With --check or --write, a discovered file
+that cannot be read, decoded, or is too large to scan, or an unreadable
+directory, makes the scan incomplete and exits 1. The report still lists every
+finding produced.`,
 		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -128,7 +129,7 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		return fmt.Errorf("load catalog: %w", err)
 	}
 
-	files, notices, pathFailures := pipelineFiles(paths, options.write)
+	files, notices, pathFailures := pipelineFiles(paths, options.check || options.write)
 	for _, notice := range notices {
 		_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: %s\n", notice)
 	}
@@ -167,10 +168,13 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 				strictFailed = true
 				result.warnings = append(result.warnings, modernizeWarning{Code: d.Code, Severity: string(d.Severity), Path: file.display, Line: 1, Column: 1, Message: d.Message})
 				_, _ = fmt.Fprintf(a.io.Err, "warning: %s:1:1: %s: %s\n", file.display, d.Code, d.Message)
+				if file.explicit || options.check || options.write {
+					ioFailed++
+				}
 				continue
 			}
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: %s: %v\n", file.display, readErr)
-			if file.explicit || options.write {
+			if file.explicit || options.check || options.write {
 				ioFailed++
 			}
 			continue
@@ -179,7 +183,7 @@ func runModernize(ctx context.Context, a *app, options modernizeOptions, paths [
 		data, readErr = decodeModernizeData(data)
 		if readErr != nil {
 			_, _ = fmt.Fprintf(a.io.Err, "trasloco: warning: skipped %s: %v\n", file.display, readErr)
-			if file.explicit {
+			if file.explicit || options.check || options.write {
 				ioFailed++
 			}
 			continue
@@ -280,8 +284,8 @@ type scanFile struct {
 
 // pipelineFiles lists the YAML files under paths. Notices are problems with
 // single paths that do not stop the scan; failures counts unreadable named
-// paths (and traversal failures in write mode) for exit 1 after the report.
-func pipelineFiles(paths []string, write bool) ([]scanFile, []string, int) {
+// paths (and traversal failures in fail-closed modes) for exit 1 after the report.
+func pipelineFiles(paths []string, failClosed bool) ([]scanFile, []string, int) {
 	cwd, _ := os.Getwd()
 	seen := make(map[string]bool)
 	var files []scanFile
@@ -321,7 +325,7 @@ func pipelineFiles(paths []string, write bool) ([]scanFile, []string, int) {
 		err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				notices = append(notices, fmt.Sprintf("cannot read %s: %v", path, walkErr))
-				if write {
+				if failClosed {
 					failures++
 				}
 				return nil

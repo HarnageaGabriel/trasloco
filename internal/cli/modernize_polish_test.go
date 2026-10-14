@@ -1,11 +1,16 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf16"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/HarnageaGabriel/trasloco/internal/yamlx"
 )
 
 func encodeUTF16(text string, littleEndian, bom bool) []byte {
@@ -96,5 +101,78 @@ func TestModernizePartialRunExitPrecedence(t *testing.T) {
 	_, help, _ := executeModernize(t, "modernize", "--help")
 	if !strings.Contains(help, "Precedence: exit 1 wins over exit 5") {
 		t.Errorf("help does not document precedence:\n%s", help)
+	}
+}
+
+func TestModernizeCheckFailsClosedOnUndecodableDiscoveredFile(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy})
+	if err := os.WriteFile(filepath.Join(root, "bad.yml"), []byte{0xff, 0xfe, 'x'}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitError || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "bad.yml") {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeCheckFailsClosedOnUnreadableDiscoveredFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows chmod does not reliably deny reads")
+	}
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy, "unreadable.yml": retiredCopy})
+	path := filepath.Join(root, "unreadable.yml")
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("chmod does not deny reads for this user")
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitError || !strings.Contains(out, "pipeline.yml") || !strings.Contains(stderr, "unreadable.yml") {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeCheckFailsClosedOnUnreadableSubdirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows chmod does not reliably deny traversal")
+	}
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy, "blocked/nested.yml": retiredCopy})
+	path := filepath.Join(root, "blocked")
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
+	if entries, err := os.ReadDir(path); err == nil {
+		_ = entries
+		t.Skip("chmod does not deny traversal for this user")
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitError || !strings.Contains(out, "pipeline.yml") || !strings.Contains(stderr, "blocked") {
+		t.Fatalf("exit = %d\nstdout:\n%s\nstderr:\n%s", code, out, stderr)
+	}
+}
+
+func TestModernizeCheckFailsClosedOnOversizedDiscoveredFile(t *testing.T) {
+	root := writeTree(t, map[string]string{"pipeline.yml": retiredCopy})
+	oversized := filepath.Join(root, "oversized.yml")
+	if err := os.WriteFile(oversized, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(oversized, yamlx.DefaultSizeLimit+1); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	code, out, stderr := executeModernize(t, "modernize", "--check")
+	if code != ExitError || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "oversized.yml") {
+		t.Fatalf("--check exit = %d; stdout:\n%s; stderr:\n%s", code, out, stderr)
+	}
+	code, out, stderr = executeModernize(t, "modernize")
+	if code != ExitOK || !strings.Contains(out, "CopyFiles@1") || !strings.Contains(stderr, "oversized.yml") {
+		t.Fatalf("default exit = %d; stdout:\n%s; stderr:\n%s", code, out, stderr)
 	}
 }
