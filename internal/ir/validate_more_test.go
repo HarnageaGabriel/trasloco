@@ -2,6 +2,7 @@ package ir
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,6 +145,126 @@ func TestValidateVariableAndExprShapes(t *testing.T) {
 	got := codes(Validate(p))
 	if !got["TRL-VAL-0012"] || !got["TRL-VAL-0010"] {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestValidateAdditiveIRFields(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(*Pipeline)
+		code   string
+	}{
+		{
+			name: "synthetic trigger cannot be in YAML",
+			mutate: func(p *Pipeline) {
+				p.Triggers = []Trigger{{
+					Metadata: DefaultMetadata(),
+					Kind:     TriggerPush,
+					Binding:  TriggerBinding{InYAML: true, Synthetic: true},
+				}}
+			},
+			code: "TRL-VAL-0012",
+		},
+		{
+			name: "source version may retain ignored literal ref",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefSourceVersion, 0, false)
+			},
+		},
+		{
+			name: "unknown checkout ref source",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep("branchTip", 0, false)
+			},
+			code: "TRL-VAL-0012",
+		},
+		{
+			name: "fetch depth cannot be negative",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0] = checkoutStep(CheckoutRefLiteral, -1, true)
+			},
+			code: "TRL-VAL-0012",
+		},
+		{
+			name: "classified macros",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0].Env.Set("MACRO", Expr{Kind: ExprMacro, Macro: &MacroExpr{Name: "TOKEN", Declared: true, Secret: true}})
+				p.Jobs[0].Steps[0].Run.MacroRefs = []MacroRef{
+					{Name: "TOKEN", Declared: true, Secret: true},
+					{Name: "UNRESOLVED"},
+				}
+			},
+		},
+		{
+			name: "macro expression name required",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0].Env.Set("MACRO", Expr{Kind: ExprMacro, Macro: &MacroExpr{Declared: true}})
+			},
+			code: "TRL-VAL-0007",
+		},
+		{
+			name: "macro expression secret must be declared",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0].Env.Set("MACRO", Expr{Kind: ExprMacro, Macro: &MacroExpr{Name: "TOKEN", Secret: true}})
+			},
+			code: "TRL-VAL-0012",
+		},
+		{
+			name: "embedded macro name required",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0].Run.MacroRefs = []MacroRef{{Declared: true}}
+			},
+			code: "TRL-VAL-0007",
+		},
+		{
+			name: "embedded secret macro must be declared",
+			mutate: func(p *Pipeline) {
+				p.Jobs[0].Steps[0].Run.MacroRefs = []MacroRef{{Name: "TOKEN", Secret: true}}
+			},
+			code: "TRL-VAL-0012",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := validPipeline()
+			tc.mutate(p)
+			got := Validate(p)
+			if tc.code == "" && len(got) != 0 {
+				t.Fatalf("unexpected diagnostics: %v", got)
+			}
+			if tc.code != "" && !codes(got)[tc.code] {
+				t.Fatalf("missing %s in %v", tc.code, got)
+			}
+		})
+	}
+}
+
+func TestAdditiveIRFieldsOmitZeroValues(t *testing.T) {
+	encoded, err := json.Marshal(validPipeline())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"synthetic", "fetchDepthSet", "refSource", "shellOptions", "macroRefs", "macro"} {
+		if strings.Contains(string(encoded), `"`+field+`"`) {
+			t.Fatalf("zero-value field %q was not omitted: %s", field, encoded)
+		}
+	}
+}
+
+func checkoutStep(refSource CheckoutRefSource, fetchDepth int, fetchDepthSet bool) Step {
+	return Step{
+		Metadata: DefaultMetadata(),
+		ID:       "compile",
+		Name:     "compile",
+		Kind:     StepCheckout,
+		If:       SuccessCondition(PhaseRuntime),
+		Checkout: &CheckoutStep{
+			Repository:    "self",
+			Ref:           StringLiteral("$(Build.SourceVersion)"),
+			RefSource:     refSource,
+			FetchDepth:    fetchDepth,
+			FetchDepthSet: fetchDepthSet,
+		},
 	}
 }
 
