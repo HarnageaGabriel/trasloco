@@ -240,6 +240,10 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 	case *ast.ScriptStep:
 		step.Kind = ir.StepRun
 		shell := mapShell(value.Kind)
+		// generic `script:` keeps the unresolved shell for secret detection:
+		// the agent may use any of the three continuation styles, and the
+		// conservative false positive is deliberate (docs/spec/normalize-ado.md).
+		guardShell := shell
 		if value.Kind == ast.ScriptCmd {
 			if os, ok := hostedShellOS(c.activeRunner); ok {
 				switch os {
@@ -262,7 +266,7 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 		if step.Run.Shell == "bash" {
 			step.Run.ShellOptions = &ir.ShellOptions{}
 		}
-		step.Run.Operations, step.Run.Script = c.protocolOperations(step.Run.Script, a, value.Source, shell)
+		step.Run.Operations, step.Run.Script = c.protocolOperations(step.Run.Script, a, value.Source, guardShell)
 		step.Run.Script = a.scrub("script", "script", value.Source, step.Run.Script)
 		step.Run.MacroRefs = append(
 			c.macroRefs(a, "script", value.Source, step.Run.Script),
@@ -326,7 +330,7 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 			resource := c.repoByAlias[repo]
 			found := resource != nil && resource.Ref != nil
 			if found {
-				if expr, ok := c.wholeMacro(a, "checkout", "ref", resource.Ref.Source, resource.Ref.Value); ok {
+				if expr, ok := c.wholeMacroRoot(a, "checkout", "ref", resource.Ref.Source, resource.Ref.Value); ok {
 					checkout.Ref = expr
 				} else {
 					checkout.Ref = stringExpr(a.scrub("checkout", "ref", resource.Ref.Source, resource.Ref.Value))

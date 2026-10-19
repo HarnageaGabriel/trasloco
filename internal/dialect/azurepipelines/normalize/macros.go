@@ -58,16 +58,43 @@ func (c *conv) classifyMacro(name string) (declared, secret bool) {
 	return false, false
 }
 
+// classifyMacroRoot classifies a macro against the pipeline-root variable
+// scope only. Resources are pipeline-level declarations, so a repository
+// resource ref cannot depend on a stage or job variable.
+func (c *conv) classifyMacroRoot(name string) (declared, secret bool) {
+	if len(c.macroScopes) == 0 {
+		return false, false
+	}
+	if declaration, ok := c.macroScopes[0][strings.ToLower(name)]; ok {
+		return true, declaration.secret
+	}
+	return false, false
+}
+
 func (c *conv) wholeMacro(a *acc, construct, property string, source diag.Source, value string) (ir.Expr, bool) {
-	match := providerMacroWhole.FindStringSubmatch(strings.TrimSpace(value))
+	return c.wholeMacroWith(a, construct, property, source, value, c.classifyMacro)
+}
+
+func (c *conv) wholeMacroRoot(a *acc, construct, property string, source diag.Source, value string) (ir.Expr, bool) {
+	return c.wholeMacroWith(a, construct, property, source, value, c.classifyMacroRoot)
+}
+
+func (c *conv) wholeMacroWith(a *acc, construct, property string, source diag.Source, value string, classify func(string) (bool, bool)) (ir.Expr, bool) {
+	match := providerMacroWhole.FindStringSubmatch(value)
 	if match == nil {
 		return ir.Expr{}, false
 	}
-	declared, secret := c.classifyMacro(match[1])
+	name := match[1]
+	if safeText(name) != name {
+		// The name is credential-shaped: never put it in a MacroExpr. The
+		// caller's literal path records the usual scrub loss.
+		return ir.Expr{}, false
+	}
+	declared, secret := classify(name)
 	if !declared {
 		a.lose(codeDeferred, construct, property, source, "undeclared Azure macro is retained with unresolved classification (VERIFY-22)")
 	}
-	return ir.Expr{Kind: ir.ExprMacro, Macro: &ir.MacroExpr{Name: match[1], Declared: declared, Secret: secret}}, true
+	return ir.Expr{Kind: ir.ExprMacro, Macro: &ir.MacroExpr{Name: name, Declared: declared, Secret: secret}}, true
 }
 
 func (c *conv) macroRefs(a *acc, property string, source diag.Source, text string) []ir.MacroRef {
@@ -75,14 +102,24 @@ func (c *conv) macroRefs(a *acc, property string, source diag.Source, text strin
 	if len(matches) == 0 {
 		return nil
 	}
-	c.work += len(text)
+	// Every occurrence is scanned and listed, but an undeclared macro records
+	// at most one deferred loss per property and distinct name.
+	c.work += len(text) + len(matches)
 	out := make([]ir.MacroRef, 0, len(matches))
+	lost := map[string]bool{}
 	for _, match := range matches {
-		declared, secret := c.classifyMacro(match[1])
-		if !declared {
-			a.lose(codeDeferred, "script", property, source, "undeclared Azure macro is retained with unresolved classification (VERIFY-22)")
+		name := match[1]
+		if safeText(name) != name {
+			// Credential-shaped name: skip the ref; the caller scrubbed the
+			// text and recorded the usual scrub loss.
+			continue
 		}
-		out = append(out, ir.MacroRef{Name: match[1], Declared: declared, Secret: secret})
+		declared, secret := c.classifyMacro(name)
+		if !declared && !lost[strings.ToLower(name)] {
+			a.lose(codeDeferred, "script", property, source, "undeclared Azure macro is retained with unresolved classification (VERIFY-22)")
+			lost[strings.ToLower(name)] = true
+		}
+		out = append(out, ir.MacroRef{Name: name, Declared: declared, Secret: secret})
 	}
 	return out
 }

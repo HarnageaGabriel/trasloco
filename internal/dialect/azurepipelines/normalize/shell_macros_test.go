@@ -536,3 +536,371 @@ func assertUnresolvedMacroDiagnostic(t *testing.T, pipeline *ir.Pipeline, name s
 		t.Fatalf("no unresolved macro diagnostic for %q", name)
 	}
 }
+
+func TestJobContainerEnvSeesJobVariables(t *testing.T) {
+	cases := []struct {
+		name string
+		yaml string
+		job  string
+	}{
+		{
+			"job",
+			`jobs:
+- job: j
+  variables:
+    V: visible
+  container:
+    image: example/image:1
+    env:
+      X: $(V)
+  steps:
+  - script: echo ok
+`,
+			"j",
+		},
+		{
+			"deployment",
+			`jobs:
+- deployment: d
+  environment: e
+  variables:
+    V: visible
+  container:
+    image: example/image:1
+    env:
+      X: $(V)
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - script: echo ok
+`,
+			"d",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeText(t, tc.yaml)
+			assertValidIR(t, got)
+			job := jobByID(t, got, tc.job)
+			if job.Container == nil {
+				t.Fatal("container missing")
+			}
+			expr, ok := job.Container.Env.Get("X")
+			if !ok || expr.Kind != ir.ExprMacro || expr.Macro == nil || expr.Macro.Name != "V" || !expr.Macro.Declared || expr.Macro.Secret {
+				t.Fatalf("container env = %+v, %v", expr, ok)
+			}
+		})
+	}
+
+	t.Run("jobFromRoot", func(t *testing.T) {
+		got := normalizeText(t, `variables:
+  V: visible
+container:
+  image: example/image:1
+  env:
+    X: $(V)
+steps:
+- script: echo ok
+`)
+		assertValidIR(t, got)
+		job := jobByID(t, got, implicitID)
+		if job.Container == nil {
+			t.Fatal("container missing")
+		}
+		expr, ok := job.Container.Env.Get("X")
+		if !ok || expr.Kind != ir.ExprMacro || expr.Macro == nil || expr.Macro.Name != "V" || !expr.Macro.Declared {
+			t.Fatalf("root container env = %+v, %v", expr, ok)
+		}
+	})
+
+	t.Run("lifecycle hook step", func(t *testing.T) {
+		got := normalizeText(t, `jobs:
+- deployment: d
+  environment: e
+  variables:
+    V: visible
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - script: echo ok
+          name: hook
+          env:
+            X: $(V)
+`)
+		assertValidIR(t, got)
+		expr, ok := stepByID(t, got, "d", "hook").Env.Get("X")
+		if !ok || expr.Kind != ir.ExprMacro || expr.Macro == nil || expr.Macro.Name != "V" || !expr.Macro.Declared {
+			t.Fatalf("hook env = %+v, %v", expr, ok)
+		}
+	})
+}
+
+func TestMacroScopeMixedDeclarationForms(t *testing.T) {
+	got := normalizeText(t, `variables:
+  ROOT_MAP: root
+jobs:
+- job: j
+  variables:
+  - name: JOB_LIST
+    value: list
+  steps:
+  - script: echo $(ROOT_MAP) $(JOB_LIST) $(root_map)
+`)
+	assertValidIR(t, got)
+	refs := runStepByID(t, got, "j", "step-1").MacroRefs
+	want := []ir.MacroRef{
+		{Name: "ROOT_MAP", Declared: true},
+		{Name: "JOB_LIST", Declared: true},
+		{Name: "root_map", Declared: true},
+	}
+	if len(refs) != len(want) {
+		t.Fatalf("macroRefs = %+v, want %+v", refs, want)
+	}
+	for i := range want {
+		if refs[i] != want[i] {
+			t.Fatalf("macroRefs[%d] = %+v, want %+v", i, refs[i], want[i])
+		}
+	}
+}
+
+func TestMacroNamesAreCaseInsensitive(t *testing.T) {
+	got := normalizeText(t, `variables:
+  myVar: visible
+steps:
+- script: echo $(MYVAR)
+`)
+	assertValidIR(t, got)
+	ref := runStepByID(t, got, implicitID, "step-2").MacroRefs[0]
+	if ref.Name != "MYVAR" || !ref.Declared || ref.Secret {
+		t.Fatalf("case-insensitive macro = %+v", ref)
+	}
+}
+
+func TestBashCommandSubstitutionIsNotAnUndefinedMacro(t *testing.T) {
+	got := normalizeText(t, `steps:
+- bash: |
+    echo $(date) "$(( 1+2 ))"
+`)
+	assertValidIR(t, got)
+	refs := runStepByID(t, got, implicitID, "step-2").MacroRefs
+	if len(refs) != 1 || refs[0] != (ir.MacroRef{Name: "date"}) {
+		t.Fatalf("bash macroRefs = %+v, want only the undeclared date macro", refs)
+	}
+}
+
+func TestWhitespacePaddedWholeMacroStaysLiteral(t *testing.T) {
+	got := normalizeText(t, `variables:
+  PLAIN: visible
+steps:
+- script: echo ok
+  env:
+    PADDED: " $(PLAIN)"
+`)
+	assertValidIR(t, got)
+	expr, ok := stepByID(t, got, implicitID, "step-2").Env.Get("PADDED")
+	if !ok || expr.Kind != ir.ExprLiteral || expr.Literal == nil || expr.Literal.String != " $(PLAIN)" {
+		t.Fatalf("padded env = %+v, %v", expr, ok)
+	}
+}
+
+func TestUndeclaredSecretNamedMacrosAreNotSecret(t *testing.T) {
+	got := normalizeText(t, `resources:
+  repositories:
+  - repository: tools
+    type: git
+    name: proj/tools
+    ref: $(apiKey)
+steps:
+- checkout: tools
+- script: echo ok
+  name: env
+  env:
+    API: $(apiKey)
+    TOKEN: $(token)
+- task: Example@1
+  name: task
+  inputs:
+    api: $(apiKey)
+    token: $(token)
+`)
+	assertValidIR(t, got)
+	checkout := stepByID(t, got, implicitID, "step-1").Checkout.Ref
+	if checkout.Kind != ir.ExprMacro || checkout.Macro == nil || checkout.Macro.Name != "apiKey" || checkout.Macro.Declared || checkout.Macro.Secret {
+		t.Fatalf("checkout ref = %+v", checkout)
+	}
+	env := stepByID(t, got, implicitID, "env").Env
+	for _, key := range []string{"API", "TOKEN"} {
+		expr, ok := env.Get(key)
+		if !ok || expr.Kind != ir.ExprMacro || expr.Macro == nil || expr.Macro.Declared || expr.Macro.Secret {
+			t.Fatalf("env %s = %+v, %v", key, expr, ok)
+		}
+	}
+	var task *ir.ActionStep
+	for _, step := range jobByID(t, got, implicitID).Steps {
+		if step.ID == "task" {
+			task = step.Action
+		}
+	}
+	if task == nil {
+		t.Fatal("task missing")
+	}
+	for _, key := range []string{"api", "token"} {
+		expr, ok := task.With.Get(key)
+		if !ok || expr.Kind != ir.ExprMacro || expr.Macro == nil || expr.Macro.Declared || expr.Macro.Secret {
+			t.Fatalf("task input %s = %+v, %v", key, expr, ok)
+		}
+	}
+}
+
+func TestVariableExpansionNeverInfersSecret(t *testing.T) {
+	got := normalizeText(t, `variables:
+  WRAPPER: $(OTHER_SECRET)
+steps:
+- script: echo ok
+`)
+	assertValidIR(t, got)
+	var wrapper *ir.Variable
+	for i := range got.Variables {
+		if got.Variables[i].Name == "WRAPPER" {
+			wrapper = &got.Variables[i]
+		}
+	}
+	if wrapper == nil {
+		t.Fatal("WRAPPER variable missing")
+	}
+	// Intentional: a value that references another macro is not inferred to
+	// be secret; only declared secret classification propagates.
+	if wrapper.Secret || wrapper.SecretRef != nil {
+		t.Fatalf("WRAPPER secret = %v / %+v", wrapper.Secret, wrapper.SecretRef)
+	}
+	if wrapper.Value == nil || wrapper.Value.Kind != ir.ExprMacro || wrapper.Value.Macro == nil || wrapper.Value.Macro.Name != "OTHER_SECRET" || wrapper.Value.Macro.Declared || wrapper.Value.Macro.Secret {
+		t.Fatalf("WRAPPER value = %+v", wrapper.Value)
+	}
+}
+
+func TestCredentialShapedMacroNameFallsBackToLiteral(t *testing.T) {
+	name := "ghp_" + strings.Repeat("a", 36)
+	got := normalizeText(t, `steps:
+- script: echo $(`+name+`)
+  name: scripted
+  env:
+    VALUE: $(`+name+`)
+`)
+	assertValidIR(t, got)
+	if strings.Contains(canonical(t, got), name) {
+		t.Fatal("credential-shaped macro name leaked into IR")
+	}
+	step := stepByID(t, got, implicitID, "scripted")
+	if step.Run == nil || len(step.Run.MacroRefs) != 0 {
+		t.Fatalf("script macroRefs = %+v", step.Run)
+	}
+	if !hasLoss(t, step.Metadata, "script") {
+		t.Fatalf("script losses = %v, want the usual scrub loss", lossProperties(t, step.Metadata))
+	}
+	expr, ok := step.Env.Get("VALUE")
+	if !ok || expr.Kind != ir.ExprLiteral || expr.Literal == nil || strings.Contains(expr.Literal.String, name) {
+		t.Fatalf("credential-shaped env = %+v, %v", expr, ok)
+	}
+	if !hasLoss(t, step.Metadata, "VALUE") {
+		t.Fatalf("env losses = %v, want the usual scrub loss", lossProperties(t, step.Metadata))
+	}
+}
+
+func TestUndeclaredMacroWorkAndLossesBounded(t *testing.T) {
+	const count = 20_000
+	shape := func(macros bool) string {
+		var out strings.Builder
+		out.WriteString("steps:\n- script: |\n")
+		for i := 0; i < count; i++ {
+			if macros {
+				out.WriteString("    echo $(UNDECLARED)\n")
+			} else {
+				out.WriteString("    echo ok\n")
+			}
+		}
+		return out.String()
+	}
+	_, plainWork := pipelineWorkOf(t, shape(false))
+	got, macroWork := pipelineWorkOf(t, shape(true))
+	if plainWork == 0 || macroWork > 6*plainWork {
+		t.Fatalf("work ratio too high: %d macros vs %d plain bytes", macroWork, plainWork)
+	}
+	refs := runStepByID(t, got, implicitID, "step-2").MacroRefs
+	if len(refs) != count {
+		t.Fatalf("macroRefs = %d, want every occurrence (%d)", len(refs), count)
+	}
+	losses := 0
+	for _, finding := range got.Diagnostics {
+		if finding.Code == codeDeferred && finding.Params["property"] == "script" {
+			losses++
+		}
+	}
+	if losses != 1 {
+		t.Fatalf("deferred script losses = %d, want 1 for one distinct macro name", losses)
+	}
+}
+
+func TestRepositoryResourceRefUsesPipelineRootScope(t *testing.T) {
+	got := normalizeText(t, `variables:
+  ROOT: main
+resources:
+  repositories:
+  - repository: rooted
+    type: git
+    name: proj/rooted
+    ref: $(ROOT)
+  - repository: staged
+    type: git
+    name: proj/staged
+    ref: $(STAGE_ONLY)
+stages:
+- stage: s
+  variables:
+    STAGE_ONLY: main
+  jobs:
+  - job: j
+    steps:
+    - checkout: rooted
+      name: rooted
+    - checkout: staged
+      name: staged
+`)
+	assertValidIR(t, got)
+	rooted := stepByID(t, got, "s.j", "rooted").Checkout.Ref
+	if rooted.Kind != ir.ExprMacro || rooted.Macro == nil || rooted.Macro.Name != "ROOT" || !rooted.Macro.Declared {
+		t.Fatalf("root ref = %+v", rooted)
+	}
+	staged := stepByID(t, got, "s.j", "staged").Checkout.Ref
+	if staged.Kind != ir.ExprMacro || staged.Macro == nil || staged.Macro.Name != "STAGE_ONLY" || staged.Macro.Declared || staged.Macro.Secret {
+		t.Fatalf("stage-only ref = %+v", staged)
+	}
+}
+
+func TestGenericScriptResolvedShellWithSecretNamedShell(t *testing.T) {
+	tests := []struct{ name, page, pool, want string }{
+		{"bash", "bash", "ubuntu-latest", "bash"},
+		{"cmd", "cmd", "windows-latest", "cmd"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeText(t, `parameters:
+- name: dbPassword
+  type: string
+  default: `+tt.page+`
+jobs:
+- job: j
+  pool:
+    vmImage: `+tt.pool+`
+  steps:
+  - script: echo safe
+`)
+			assertValidIR(t, got)
+			run := runStepByID(t, got, "j", "step-1")
+			if run.Shell != ir.Shell(tt.want) {
+				t.Fatalf("shell = %s, want %s", run.Shell, tt.want)
+			}
+		})
+	}
+}
