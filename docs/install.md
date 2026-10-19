@@ -149,6 +149,46 @@ steps:
 
 Exit 5 means actionable retired tasks remain and fails the script step.
 
+## Pre-commit
+
+If your repository already uses [pre-commit](https://pre-commit.com/), run the
+check as part of every commit:
+
+```yaml
+repos:
+  - repo: https://github.com/HarnageaGabriel/trasloco
+    rev: vX.Y.Z  # a release after v0.2.1; `pre-commit autoupdate` pins the latest
+    hooks:
+      - id: trasloco-modernize
+```
+
+The hook ships from the first trasloco release after v0.2.1, so point `rev` at
+a tag published after that, or set `rev` to the latest release and let
+`pre-commit autoupdate` keep it current.
+The hook runs `trasloco modernize --check --` on every committed YAML file
+(`types: [yaml]`). Files that are not Azure Pipelines, such as GitHub Actions
+workflows or `.golangci.yml`, are ignored by default: trasloco scans the file,
+finds no Azure Pipelines task references and exits 0. The hook fails when the
+commit leaves actionable retired task versions: pre-commit reports it as failed
+once trasloco exits 5, and passes on exit 0. Any other non-zero exit, such as
+a file that cannot be read or decoded, also fails the commit.
+
+To match the GitHub Action's default strictness, add `--strict`, so a file
+trasloco cannot parse fails the commit as well:
+
+```yaml
+      - id: trasloco-modernize
+        args: ['--strict', '--']
+```
+
+Any `args` you set in your `.pre-commit-config.yaml` replace the hook's
+defaults, so when you pass your own arguments, keep `--` last: trasloco
+checks the files that follow it.
+
+Because the hook uses `language: golang`, pre-commit builds trasloco from source
+when it first installs the hook, so Go (see [go.mod](../go.mod)) must be
+installed.
+
 ## GitHub Action
 
 The composite action downloads the runner's release archive and checksum files,
