@@ -15,6 +15,7 @@ func TestTargetPackage(t *testing.T) {
 		"example.com/project/internal/ir":         true,
 		"example.com/project/internal/dialect/gh": true,
 		"example.com/project/internal/event":      true,
+		"example.com/project/internal/naming":     true,
 		"example.com/project/report":              true,
 		"example.com/project/planner":             false,
 		"example.com/project/internal/cache":      false,

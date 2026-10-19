@@ -47,7 +47,7 @@ func targetPackage(path string) bool {
 	if strings.Contains(path, "/dialect/") || strings.HasSuffix(path, "/dialect") {
 		return true
 	}
-	for _, name := range []string{"ir", "event", "report", "plan"} {
+	for _, name := range []string{"ir", "event", "report", "plan", "naming"} {
 		if strings.HasSuffix(path, "/"+name) || path == name {
 			return true
 		}
