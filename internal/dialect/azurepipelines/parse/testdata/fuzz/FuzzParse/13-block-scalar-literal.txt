@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n- script: |\n    set -e\n    echo \"line one\"\n    echo \"line two\"\n\n    exit 0\n- script: |-\n    echo \"no trailing newline\"\n- script: |+\n    echo \"keep trailing newlines\"\n\n")

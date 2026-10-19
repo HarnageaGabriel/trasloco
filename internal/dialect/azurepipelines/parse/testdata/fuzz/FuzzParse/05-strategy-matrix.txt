@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("jobs:\n- job: matrixBuild\n  strategy:\n    matrix:\n      linux:\n        imageName: ubuntu-latest\n      mac:\n        imageName: macos-14\n      include:\n      - imageName: windows-latest\n        os: windows\n      exclude:\n      - linux:\n          imageName: ubuntu-latest\n        mac:\n          imageName: macos-14\n    maxParallel: 4\n  steps:\n  - script: build\n")

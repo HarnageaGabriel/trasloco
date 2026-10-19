@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("schedule:\n- cron: '0 6 * * *'\n  displayName: Daily midnight build\n  branches:\n    include:\n    - main\n  always: true\n")

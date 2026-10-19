@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\ufeffsteps:\n- script: echo bom\n  displayName: With BOM\n")

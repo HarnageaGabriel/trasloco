@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("stages:\n- stage: build\n  displayName: Build\n  jobs:\n  - job: compile\n    steps:\n    - task: Bash@3\n      inputs:\n        script: make build\n- stage: test\n  dependsOn: build\n  jobs:\n  - job: unit\n    steps:\n    - script: make test\n")
