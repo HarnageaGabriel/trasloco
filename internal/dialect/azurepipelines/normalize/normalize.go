@@ -154,6 +154,12 @@ type conv struct {
 	// on whole-leaf equality only). References to them by name are flagged.
 	shortSecretNames []string
 	shortSecretSet   map[string]bool
+	// macroScopes holds effective variable declarations visible to the node
+	// being converted. Outer scopes stay underneath inner ones, and later
+	// declarations in one block replace earlier names.
+	macroScopes []map[string]macroDeclaration
+	// activeRunner is the resolved job runner used by generic script steps.
+	activeRunner ir.RunnerReq
 	// parts memoizes scrubbed components (see part): distinct tainted
 	// components keep distinct scrubbed spellings, and partsUsed holds them.
 	parts     map[string]map[string]string
@@ -290,6 +296,8 @@ func (c *conv) pipeline(root *ast.Pipeline) *ir.Pipeline {
 		a.lose(codeExt, "pipeline", "rootJobProperties", root.Source, "root-level job properties are only valid for steps-shaped pipelines and were ignored")
 	}
 
+	c.pushMacroScope(root.Variables)
+	defer c.popMacroScope()
 	c.structure(out, root)
 	if c.err != nil {
 		return out

@@ -240,12 +240,38 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 	case *ast.ScriptStep:
 		step.Kind = ir.StepRun
 		shell := mapShell(value.Kind)
+		// generic `script:` keeps the unresolved shell for secret detection:
+		// the agent may use any of the three continuation styles, and the
+		// conservative false positive is deliberate (docs/spec/normalize-ado.md).
+		guardShell := shell
 		if value.Kind == ast.ScriptCmd {
-			a.lose(codeExt, "script", "defaultShell", value.Source, "Azure script shell depends on agent OS; retained as the Azure default shell")
+			if os, ok := hostedShellOS(c.activeRunner); ok {
+				switch os {
+				case "windows":
+					shell = "cmd"
+				case "linux", "macos":
+					shell = "bash"
+				}
+			} else {
+				a.lose(codeExt, "script", "defaultShell", value.Source, "Azure script shell depends on agent OS; retained as the Azure default shell")
+			}
 		}
-		step.Run = &ir.RunStep{Script: scalarOr(value.Script, ""), Shell: ir.Shell(shell), WorkingDirectory: scalarOr(value.WorkingDirectory, "")}
-		step.Run.Operations, step.Run.Script = c.protocolOperations(step.Run.Script, a, value.Source, shell)
+		workingDirectory := ""
+		workingDirectorySource := value.Source
+		if value.WorkingDirectory != nil {
+			workingDirectorySource = value.WorkingDirectory.Source
+			workingDirectory = a.scrub("script", "workingDirectory", value.WorkingDirectory.Source, value.WorkingDirectory.Value)
+		}
+		step.Run = &ir.RunStep{Script: scalarOr(value.Script, ""), Shell: ir.Shell(shell), WorkingDirectory: workingDirectory}
+		if step.Run.Shell == "bash" {
+			step.Run.ShellOptions = &ir.ShellOptions{}
+		}
+		step.Run.Operations, step.Run.Script = c.protocolOperations(step.Run.Script, a, value.Source, guardShell)
 		step.Run.Script = a.scrub("script", "script", value.Source, step.Run.Script)
+		step.Run.MacroRefs = append(
+			c.macroRefs(a, "script", value.Source, step.Run.Script),
+			c.macroRefs(a, "workingDirectory", workingDirectorySource, step.Run.WorkingDirectory)...,
+		)
 		if value.ErrorActionPreference != nil || value.FailOnStderr != nil || value.IgnoreLASTEXITCODE != nil {
 			opts := ir.OrderedMap[any]{}
 			for _, pair := range []struct {
@@ -277,11 +303,12 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 				if entry.Key != nil && entry.Value != nil {
 					input := *entry.Value
 					input.Value = taskInputText(a, input.Value, input.Source)
-					inputs.Set(entry.Key.Value, c.keyedExpr(a, "task-input", entry.Key.Value, &input))
+					expr := c.keyedExpr(a, "task-input", entry.Key.Value, &input)
+					inputs.Set(entry.Key.Value, expr)
 					c.work++
 					deferred, work := deferredTextWork(entry.Value.Value)
 					c.work += work
-					if deferred {
+					if deferred && expr.Kind != ir.ExprMacro {
 						a.lose(codeDeferred, "task-input", entry.Key.Value, entry.Value.Source, "Azure variable expression is preserved for the later precedence pass")
 					}
 				}
@@ -303,7 +330,11 @@ func (c *conv) step(source ast.Step, index int, gate ir.Function) ir.Step {
 			resource := c.repoByAlias[repo]
 			found := resource != nil && resource.Ref != nil
 			if found {
-				checkout.Ref = stringExpr(resource.Ref.Value)
+				if expr, ok := c.wholeMacroRoot(a, "checkout", "ref", resource.Ref.Source, resource.Ref.Value); ok {
+					checkout.Ref = expr
+				} else {
+					checkout.Ref = stringExpr(a.scrub("checkout", "ref", resource.Ref.Source, resource.Ref.Value))
+				}
 			}
 			if !found {
 				a.lose(codeExt, "checkout", "ref", value.Source, "repository resource has no ref; Azure checks out its default branch, recorded as HEAD")
@@ -429,6 +460,10 @@ func stepProperties(step ast.Step) *ast.StepProps {
 // keyedExpr converts a literal under a key: secret-looking literals become a
 // secret reference (IR rule 7) and credential patterns are scrubbed.
 func (c *conv) keyedExpr(a *acc, construct, key string, value *ast.Scalar) ir.Expr {
+	if expr, ok := c.wholeMacro(a, construct, key, value.Source, value.Value); ok {
+		c.work += len(value.Value)
+		return expr
+	}
 	if construct == "task-input" && nonSecretTaskInputs[key] {
 		c.work += len(value.Value)
 		return ir.StringLiteral(a.scrub(construct, key, value.Source, value.Value))
@@ -450,11 +485,12 @@ func (c *conv) scalarMap(value *ast.Map[*ast.Scalar], a *acc, construct string) 
 	}
 	for _, entry := range value.Entries {
 		if entry.Key != nil && entry.Value != nil {
-			out.Set(entry.Key.Value, c.keyedExpr(a, construct, entry.Key.Value, entry.Value))
+			expr := c.keyedExpr(a, construct, entry.Key.Value, entry.Value)
+			out.Set(entry.Key.Value, expr)
 			c.work++
 			deferred, work := deferredTextWork(entry.Value.Value)
 			c.work += work
-			if deferred {
+			if deferred && expr.Kind != ir.ExprMacro {
 				a.lose(codeDeferred, construct, entry.Key.Value, entry.Value.Source, "Azure variable expression is preserved for the later precedence pass")
 			}
 		}
