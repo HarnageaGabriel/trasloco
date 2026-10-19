@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("parameters:\n- name: environment\n  type: string\n  values:\n  - dev\n  - staging\n  - prod\n- name: retries\n  type: number\n  default: 2\n- name: tags\n  type: object\n  default: {}\nvariables:\n- group: shared-secrets\n")

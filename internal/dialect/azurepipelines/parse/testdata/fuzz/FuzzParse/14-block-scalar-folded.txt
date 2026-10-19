@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n- script: >\n    this text is folded\n    into a single line\n  displayName: >-\n    folded\n    display name\n  env:\n    SCRIPT: >\n      echo hello\n      echo world\n")

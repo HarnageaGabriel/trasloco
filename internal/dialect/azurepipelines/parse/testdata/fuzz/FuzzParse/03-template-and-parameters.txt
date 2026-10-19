@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("parameters:\n- name: runTests\n  type: boolean\n  default: true\n- name: imageTag\n  type: string\n  default: '3.11'\nsteps:\n- template: steps/build.yml\n  parameters:\n    imageTag: ${{ parameters.imageTag }}\n    runTests: ${{ parameters.runTests }}\n")
