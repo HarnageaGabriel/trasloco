@@ -27,9 +27,12 @@ func (c *conv) job(source *ast.JobDef, inherited *ast.Pool) ir.Job {
 	pool := firstPool(source.Pool, inherited)
 	job.Runner = c.runner(pool, pool != nil, a)
 	job.Timeout = c.jobTimeout(a, source.TimeoutInMinutes, "job", pool, job.Runner)
+	c.pushMacroScope(source.Variables)
+	defer c.popMacroScope()
 	job.Container = c.container(source.Container, a)
 	job.Services = c.services(source.Services, source.ServiceSpecs, a)
 	job.Matrix = c.matrix(source.Strategy, a)
+	defer c.useRunner(job.Runner)()
 	job.Steps = c.steps(source.Steps, false, "")
 	dedupeStepIDs(job.Steps, &c.work)
 	c.jobLosses(a, source.CancelTimeoutInMinutes, source.Workspace, source.Uses, source.TemplateContext, source.Extra)
@@ -47,6 +50,7 @@ func (c *conv) jobFromRoot(root *ast.Pipeline) ir.Job {
 	job.Services = c.services(root.Services, root.ServiceSpecs, a)
 	job.Matrix = c.matrix(root.Strategy, a)
 	job.AllowFailure = c.flag(a, root.ContinueOnError, "job", "continueOnError")
+	defer c.useRunner(job.Runner)()
 	job.Steps = c.steps(root.Steps, false, "")
 	dedupeStepIDs(job.Steps, &c.work)
 	if root.Workspace != nil {
@@ -69,6 +73,9 @@ func (c *conv) deployment(source *ast.Deployment, inherited *ast.Pool) ir.Job {
 	pool := firstPool(source.Pool, inherited)
 	job.Runner = c.runner(pool, pool != nil || deploymentHookPoolDeclared(source.Strategy), a)
 	job.Timeout = c.jobTimeout(a, source.TimeoutInMinutes, "deployment", pool, job.Runner)
+	c.pushMacroScope(source.Variables)
+	defer c.popMacroScope()
+	defer c.useRunner(job.Runner)()
 	job.Container = c.container(source.Container, a)
 	job.Services = c.services(source.Services, source.ServiceSpecs, a)
 	environment := "environment"
@@ -179,7 +186,12 @@ func (c *conv) lifecycleSteps(lifecycle *ast.Lifecycle, a *acc) []ir.Step {
 				If: ir.SuccessCondition(ir.PhaseRuntime), ArtifactRestore: &ir.ArtifactRestoreStep{Name: "", Path: stringExpr("$(Pipeline.Workspace)")},
 			})
 		}
+		restoreRunner := func() {}
+		if pair.hook.Pool != nil {
+			restoreRunner = c.useRunner(hookRunner(pair.hook.Pool))
+		}
 		steps := c.steps(pair.hook.Steps, true, pair.gate)
+		restoreRunner()
 		out = append(out, steps...)
 		a.keep("lifecycle."+pair.name, len(steps))
 		if pair.hook.Pool != nil {
