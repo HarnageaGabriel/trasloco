@@ -72,8 +72,8 @@ func TestEmitReportsOneDispositionPerNode(t *testing.T) {
 		"stage:st1",
 		"step:Job A/step-1",
 		"trigger:tr1",
-		"variable:job:Job A/BAR",
-		"variable:pipeline:ci/FOO",
+		"variable:job:Job A/0/BAR",
+		"variable:pipeline:ci/0/FOO",
 	}
 	got := make([]string, 0, len(result.Dispositions))
 	for _, disposition := range result.Dispositions {
@@ -187,5 +187,43 @@ func TestOptionsZeroValueIsTheDocumentedDefault(t *testing.T) {
 	}
 	if options.TargetVisibility == VisibilityPublic {
 		t.Error("the zero value must not claim a public target")
+	}
+}
+
+// TestDispositionIDsAreUnambiguousAndUnique checks Ruling R9: the variable
+// declaration index and component escaping keep IDs unique for duplicate names
+// and slash-containing IDs.
+func TestDispositionIDsAreUnambiguousAndUnique(t *testing.T) {
+	pipeline := &ir.Pipeline{
+		ID:        "ci",
+		Variables: []ir.Variable{{Name: "FOO"}, {Name: "FOO"}},
+		Stages: []ir.Stage{{
+			ID:        "st/1",
+			Variables: []ir.Variable{{Name: "FOO"}},
+		}},
+		Jobs: []ir.Job{{
+			ID:        "j/1",
+			Variables: []ir.Variable{{Name: "FOO"}},
+			Steps:     []ir.Step{{ID: "s/1"}},
+		}},
+	}
+	result := Emit(pipeline, catalog.ActionsLock{}, stubNaming{}, Options{}, nil)
+	seen := make(map[string]bool, len(result.Dispositions))
+	for _, disposition := range result.Dispositions {
+		if seen[disposition.ID] {
+			t.Errorf("duplicate disposition ID %q", disposition.ID)
+		}
+		seen[disposition.ID] = true
+	}
+	for _, want := range []string{
+		"variable:pipeline:ci/0/FOO",
+		"variable:pipeline:ci/1/FOO",
+		"variable:stage:st%2F1/0/FOO",
+		"variable:job:j%2F1/0/FOO",
+		"step:j%2F1/s%2F1",
+	} {
+		if !seen[want] {
+			t.Errorf("missing disposition ID %q in %v", want, seen)
+		}
 	}
 }

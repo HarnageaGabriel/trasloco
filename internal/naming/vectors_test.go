@@ -8,8 +8,10 @@ package naming
 import (
 	"bufio"
 	"crypto/sha256"
+	"encoding/base32"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +21,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/HarnageaGabriel/trasloco/internal/diag"
+	"github.com/HarnageaGabriel/trasloco/internal/ir"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/text/unicode/norm"
 )
@@ -85,6 +89,13 @@ var namingVectors = []namingVector{
 	{id: "NAME-037", notApplicable: "adoption of an existing target name is a plan-level mapping decision"},
 	{id: "NAME-038", run: runTokenEscalationVector},
 	{id: "NAME-039", notApplicable: "the GitHub repository kind belongs to the capability probe, not to this package"},
+	{id: "NAME-040", run: runSimpleVector},
+	{id: "NAME-041", run: runSimpleVector},
+	{id: "NAME-042", run: runCollisionVector},
+	{id: "NAME-043", run: runThreeCollisionVector},
+	{id: "NAME-044", run: runSmallLimitVector},
+	{id: "NAME-045", run: runSimpleVector},
+	{id: "NAME-046", run: runRepositoryNamespaceCollisionVector},
 }
 
 func TestNamingVectorsArePinned(t *testing.T) {
@@ -141,7 +152,9 @@ func loadSpecVectors(tb testing.TB) map[string]specVector {
 	vectors := make(map[string]specVector)
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 1<<16), 1<<20)
+	lineNumber := 0
 	for scanner.Scan() {
+		lineNumber++
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "| NAME-") {
 			continue
@@ -155,7 +168,7 @@ func loadSpecVectors(tb testing.TB) map[string]specVector {
 			id:       id,
 			kindCell: strings.TrimSpace(fields[1]),
 			expected: strings.TrimSpace(fields[2]),
-			source:   specVectorsPath + "#test-vectors",
+			source:   fmt.Sprintf("%s:%d", specVectorsPath, lineNumber),
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -251,21 +264,64 @@ func normalizeFor(kind Kind, stableID, name string, limit int) (Decision, error)
 	}
 }
 
-// assertToken checks the collision suffix exactly as naming.md defines it: the
-// base, then "--", then a lower-case RFC 4648 base32 token of the given length.
-func assertToken(t *testing.T, id, name, base string, length int) {
+// assertToken checks a production collision suffix against naming.md: the
+// base, the kind's marker, and a base32 token of the requested length derived
+// independently from SHA-256 over "kind NUL sourceStableId".
+func assertToken(t *testing.T, id string, kind Kind, stableID, name, base string, length int) {
 	t.Helper()
-	token, ok := strings.CutPrefix(name, base+"--")
+	marker := collisionSeparator(kind)
+	token, ok := strings.CutPrefix(name, base+marker)
 	if !ok {
-		t.Errorf("%s: %q does not start with %q", id, name, base+"--")
+		t.Errorf("%s: %q does not start with %q", id, name, base+marker)
+		return
+	}
+	alphabet := "abcdefghijklmnopqrstuvwxyz234567"
+	encoded := strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sha256Digest(string(kind) + "\x00" + stableID)))
+	if kind == KindSecret {
+		alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+		encoded = strings.ToUpper(encoded)
+	}
+	if len(token) != length {
+		t.Errorf("%s: token %q has length %d, want %d", id, token, len(token), length)
+	}
+	if strings.Trim(token, alphabet) != "" {
+		t.Errorf("%s: token %q is not %s base32", id, token, alphabetName(kind))
+	}
+	if length > len(encoded) {
+		t.Fatalf("%s: independent token length %d exceeds the digest", id, length)
+	}
+	if want := encoded[:length]; token != want {
+		t.Errorf("%s: token = %q, independently derived SHA-256 token is %q", id, token, want)
+	}
+}
+
+// assertTokenShape checks a suffixed name produced by an injected token
+// function, for which the SHA-256 derivation does not apply.
+func assertTokenShape(t *testing.T, id, name, base, marker, alphabet string, length int) {
+	t.Helper()
+	token, ok := strings.CutPrefix(name, base+marker)
+	if !ok {
+		t.Errorf("%s: %q does not start with %q", id, name, base+marker)
 		return
 	}
 	if len(token) != length {
 		t.Errorf("%s: token %q has length %d, want %d", id, token, len(token), length)
 	}
-	if strings.Trim(token, "abcdefghijklmnopqrstuvwxyz234567") != "" {
-		t.Errorf("%s: token %q is not lower-case RFC 4648 base32", id, token)
+	if strings.Trim(token, alphabet) != "" {
+		t.Errorf("%s: token %q is outside the expected alphabet %q", id, token, alphabet)
 	}
+}
+
+func sha256Digest(value string) []byte {
+	digest := sha256.Sum256([]byte(value))
+	return digest[:]
+}
+
+func alphabetName(kind Kind) string {
+	if kind == KindSecret {
+		return "upper-case"
+	}
+	return "lower-case"
 }
 
 // runSimpleVector executes one regular "Kind / stableId / input" row.
@@ -321,7 +377,7 @@ func runCollisionVector(t *testing.T, v specVector, _ map[string]specVector) {
 		if !ok {
 			t.Fatalf("%s: no decision for %s", v.id, entry.StableID)
 		}
-		if decision.TargetName != want && !strings.HasPrefix(decision.TargetName, want+"--") {
+		if decision.TargetName != want && !strings.HasPrefix(decision.TargetName, want+collisionSeparator(KindSecret)) {
 			t.Errorf("%s: %s normalized to %q, which is neither %q nor a suffixed %q",
 				v.id, entry.StableID, decision.TargetName, want, want)
 		}
@@ -335,10 +391,120 @@ func runCollisionVector(t *testing.T, v specVector, _ map[string]specVector) {
 	if decisions[firstID].TargetName != want {
 		t.Errorf("%s: %s got %q, expected the unsuffixed %q", v.id, firstID, decisions[firstID].TargetName, want)
 	}
-	assertToken(t, v.id, decisions[secondID].TargetName, want, 8)
+	assertToken(t, v.id, KindSecret, secondID, decisions[secondID].TargetName, want, 8)
 	if !slices.Contains(decisions[secondID].DiagnosticCodes, "TRL-NAME-0002") {
 		t.Errorf("%s: disambiguated source codes = %v, expected TRL-NAME-0002",
 			v.id, decisions[secondID].DiagnosticCodes)
+	}
+}
+
+// runThreeCollisionVector executes the row that assigns one unsuffixed
+// candidate and two colliding tokens, and requires escalation to extend every
+// colliding token (naming.md collision step 4).
+func runThreeCollisionVector(t *testing.T, v specVector, _ map[string]specVector) {
+	t.Helper()
+	spans := quoted(v.kindCell)
+	if len(spans) != 4 {
+		t.Fatalf("%s: want three stable IDs and one input name, kind cell %q", v.id, v.kindCell)
+	}
+	ids := spans[:3]
+	input := spans[3]
+	want := expectedName(t, v)
+	entries := make([]Entry, len(ids))
+	for index, id := range ids {
+		entries[index] = Entry{Kind: KindSecret, Platform: "ado", StableID: id, SourceName: input, ScopeKey: "github:repository"}
+	}
+	colliding := func(_ Kind, stableID string, length int) string {
+		token := strings.Repeat("a", length)
+		if length > 8 {
+			token = token[:length-1] + stableID[:1]
+		}
+		return token
+	}
+	resolver, err := newResolver(entries, DefaultPolicy(), colliding)
+	if err != nil {
+		t.Fatalf("%s: %v", v.id, err)
+	}
+	decisions := make(map[string]Decision, len(ids))
+	for _, id := range ids {
+		decision, ok := resolver.Lookup(KindSecret, "github:repository", id)
+		if !ok {
+			t.Fatalf("%s: no decision for %s", v.id, id)
+		}
+		decisions[id] = decision
+	}
+	if decisions[ids[0]].TargetName != want {
+		t.Errorf("%s: %s got %q, expected the unsuffixed %q", v.id, ids[0], decisions[ids[0]].TargetName, want)
+	}
+	seen := map[string]bool{want: true}
+	for _, id := range ids[1:] {
+		decision := decisions[id]
+		assertTokenShape(t, v.id, decision.TargetName, want, collisionSeparator(KindSecret), "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", 10)
+		if seen[decision.TargetName] {
+			t.Errorf("%s: duplicate output %q", v.id, decision.TargetName)
+		}
+		seen[decision.TargetName] = true
+		if !slices.Contains(decision.DiagnosticCodes, "TRL-NAME-0002") {
+			t.Errorf("%s: %s codes = %v, expected TRL-NAME-0002", v.id, id, decision.DiagnosticCodes)
+		}
+	}
+}
+
+// runSmallLimitVector executes the row that rejects a limit too small to hold
+// a valid truncation marker with the dedicated diagnostic.
+func runSmallLimitVector(t *testing.T, v specVector, _ map[string]specVector) {
+	t.Helper()
+	_, stableID, input := simpleVector(t, v)
+	_, err := NormalizeSecretName(stableID, input, 3)
+	var finding *diag.Error
+	if !errors.As(err, &finding) || finding.Finding.Code != "TRL-NAME-0008" {
+		t.Fatalf("%s: error = %v, want TRL-NAME-0008", v.id, err)
+	}
+}
+
+// runRepositoryNamespaceCollisionVector executes the row that keeps every IR
+// secret scope in one repository namespace except environment scope.
+func runRepositoryNamespaceCollisionVector(t *testing.T, v specVector, _ map[string]specVector) {
+	t.Helper()
+	spans := quoted(v.kindCell)
+	if len(spans) != 4 {
+		t.Fatalf("%s: want two names and two scope IDs, kind cell %q", v.id, v.kindCell)
+	}
+	firstRef := ir.SecretRef{Name: spans[0], Scope: ir.ScopeStage, ScopeID: spans[1]}
+	secondRef := ir.SecretRef{Name: spans[2], Scope: ir.ScopeJob, ScopeID: spans[3]}
+	entries := []Entry{secretEntry(firstRef), secretEntry(secondRef)}
+	if entries[0].ScopeKey != "github:repository" || entries[1].ScopeKey != "github:repository" {
+		t.Fatalf("%s: stage and job secrets resolved to scopes %q and %q, want one repository namespace",
+			v.id, entries[0].ScopeKey, entries[1].ScopeKey)
+	}
+	want := expectedName(t, v)
+	resolver, err := NewResolver(entries, DefaultPolicy())
+	if err != nil {
+		t.Fatalf("%s: %v", v.id, err)
+	}
+	decisions := make([]Decision, len(entries))
+	for index, entry := range entries {
+		decision, ok := resolver.Lookup(entry.Kind, entry.ScopeKey, entry.StableID)
+		if !ok {
+			t.Fatalf("%s: no decision for %s", v.id, entry.StableID)
+		}
+		decisions[index] = decision
+	}
+	if decisions[0].TargetName == decisions[1].TargetName {
+		t.Fatalf("%s: both source scopes were assigned %q; the repository namespace must collide",
+			v.id, decisions[0].TargetName)
+	}
+	unsuffixed, suffixed := 0, 1
+	if decisions[1].TargetName == want {
+		unsuffixed, suffixed = 1, 0
+	}
+	if decisions[unsuffixed].TargetName != want {
+		t.Errorf("%s: neither decision kept the unsuffixed %q", v.id, want)
+	}
+	assertToken(t, v.id, KindSecret, decisions[suffixed].Entry.StableID, decisions[suffixed].TargetName, want, 8)
+	if !slices.Contains(decisions[suffixed].DiagnosticCodes, "TRL-NAME-0002") {
+		t.Errorf("%s: disambiguated source codes = %v, expected TRL-NAME-0002",
+			v.id, decisions[suffixed].DiagnosticCodes)
 	}
 }
 
@@ -365,7 +531,7 @@ func runObservedTargetVector(t *testing.T, v specVector, _ map[string]specVector
 	if decision.TargetName == source {
 		t.Errorf("%s: the source kept %q although the observed target already owns it case-insensitively", v.id, source)
 	}
-	assertToken(t, v.id, decision.TargetName, source, 8)
+	assertToken(t, v.id, KindSecret, "source", decision.TargetName, source, 8)
 	if !slices.Contains(decision.DiagnosticCodes, "TRL-NAME-0002") {
 		t.Errorf("%s: source codes = %v, expected TRL-NAME-0002", v.id, decision.DiagnosticCodes)
 	}
@@ -407,8 +573,10 @@ func runWorkflowCollisionVector(t *testing.T, v specVector, _ map[string]specVec
 		t.Fatalf("%s: %v", v.id, err)
 	}
 	suffixed := first.TargetName
+	suffixedID := "s1"
 	if suffixed == candidate.TargetName {
 		suffixed = second.TargetName
+		suffixedID = "s2"
 	}
 	if first.TargetName != candidate.TargetName && second.TargetName != candidate.TargetName {
 		t.Errorf("%s: neither %q nor %q is the unsuffixed candidate %q", v.id, first.TargetName, second.TargetName, candidate.TargetName)
@@ -417,7 +585,7 @@ func runWorkflowCollisionVector(t *testing.T, v specVector, _ map[string]specVec
 	if !strings.HasSuffix(suffixed, ".yml") {
 		t.Errorf("%s: %q lost the canonical extension", v.id, suffixed)
 	}
-	assertToken(t, v.id, strings.TrimSuffix(suffixed, ".yml"), base, 8)
+	assertToken(t, v.id, KindWorkflowFile, suffixedID, strings.TrimSuffix(suffixed, ".yml"), base, 8)
 }
 
 // collisionAssignments resolves one collision inventory in the given API order
@@ -472,7 +640,7 @@ func runCollisionOrderVector(t *testing.T, v specVector, all map[string]specVect
 	}
 	for _, id := range ids {
 		if id != lowest {
-			assertToken(t, v.id, forward[id], candidate.TargetName, 8)
+			assertToken(t, v.id, KindSecret, id, forward[id], candidate.TargetName, 8)
 		}
 	}
 }
@@ -501,13 +669,16 @@ func runTruncationVector(t *testing.T, v specVector, all map[string]specVector) 
 	if !slices.Contains(decision.DiagnosticCodes, "TRL-NAME-0006") {
 		t.Errorf("%s: codes = %v, expected TRL-NAME-0006", v.id, decision.DiagnosticCodes)
 	}
-	marker := strings.Index(decision.TargetName, "--h")
+	marker := strings.Index(decision.TargetName, "__H")
 	if marker < 0 {
 		t.Fatalf("%s: %q carries no truncation hash", v.id, decision.TargetName)
 	}
-	hash := decision.TargetName[marker+len("--h"):]
-	if len(hash) != 10 || strings.Trim(hash, "0123456789abcdef") != "" {
-		t.Errorf("%s: %q does not end with --h and 10 lower-case hex characters", v.id, decision.TargetName)
+	hash := decision.TargetName[marker+len("__H"):]
+	if len(hash) != 10 || strings.Trim(hash, "0123456789ABCDEF") != "" {
+		t.Errorf("%s: %q does not end with __H and 10 upper-case hex characters", v.id, decision.TargetName)
+	}
+	if strings.HasPrefix(decision.TargetName, "-") {
+		t.Errorf("%s: %q starts with a dash", v.id, decision.TargetName)
 	}
 }
 
@@ -535,7 +706,7 @@ func runTruncationHashVector(t *testing.T, v specVector, all map[string]specVect
 		t.Errorf("%s: two runs produced %q then %q", v.id, first.TargetName, second.TargetName)
 	}
 	digest := sha256.Sum256([]byte(string(KindSecret) + "\x00" + stableID + "\x00" + norm.NFC.String(input)))
-	want := "--h" + hex.EncodeToString(digest[:])[:10]
+	want := "__H" + strings.ToUpper(hex.EncodeToString(digest[:])[:10])
 	if !strings.HasSuffix(first.TargetName, want) {
 		t.Errorf("%s: %q does not end with the step-10 hash %q", v.id, first.TargetName, want)
 	}
@@ -584,25 +755,23 @@ func runUnicodeEquivalenceVector(t *testing.T, v specVector, _ map[string]specVe
 	if firstDecision.TargetName == secondDecision.TargetName {
 		t.Fatalf("%s: identical candidates with distinct stable IDs were not disambiguated", v.id)
 	}
-	assertToken(t, v.id, secondDecision.TargetName, firstDecision.TargetName, 8)
+	assertToken(t, v.id, KindSecret, "2", secondDecision.TargetName, firstDecision.TargetName, 8)
 }
 
-// runTokenEscalationVector executes the row that extends a colliding token to 10
-// characters. A real 8-character base32 collision cannot be constructed from
+// runTokenEscalationVector executes the row that extends colliding tokens to
+// 10 characters. A real 8-character base32 collision cannot be constructed from
 // SHA-256, so the fixture substitutes the token function of the production loop;
-// every other rule, including the ordering, stays production code.
+// every other rule, including the ordering, stays production code. Two suffixed
+// entries are required to exercise collision step 4.
 func runTokenEscalationVector(t *testing.T, v specVector, all map[string]specVector) {
 	t.Helper()
-	ids := quoted(all["NAME-030"].kindCell)
-	seed := quoted(all["NAME-024"].kindCell)
-	if len(ids) != 2 || len(seed) == 0 {
-		t.Fatalf("%s: NAME-030 or NAME-024 is no longer usable as the inventory source", v.id)
+	spans := quoted(all["NAME-043"].kindCell)
+	if len(spans) != 4 {
+		t.Fatalf("%s: NAME-043 is no longer usable as the three-entry inventory source", v.id)
 	}
-	input, scope := seed[0], "github:repo:1"
-	candidate, err := NormalizeSecretName("1", input, 0)
-	if err != nil {
-		t.Fatalf("%s: %v", v.id, err)
-	}
+	ids, input := spans[:3], spans[3]
+	base := expectedName(t, all["NAME-043"])
+	scope := "github:repository"
 	colliding := func(_ Kind, stableID string, length int) string {
 		token := strings.Repeat("a", length)
 		if length > 8 {
@@ -610,26 +779,33 @@ func runTokenEscalationVector(t *testing.T, v specVector, all map[string]specVec
 		}
 		return token
 	}
-	entries := []Entry{
-		{Kind: KindSecret, Platform: "ado", StableID: ids[0], SourceName: input, ScopeKey: scope},
-		{Kind: KindSecret, Platform: "ado", StableID: ids[1], SourceName: input, ScopeKey: scope},
+	entries := make([]Entry, len(ids))
+	for index, id := range ids {
+		entries[index] = Entry{Kind: KindSecret, Platform: "ado", StableID: id, SourceName: input, ScopeKey: scope}
 	}
 	resolver, err := newResolver(entries, DefaultPolicy(), colliding)
 	if err != nil {
 		t.Fatalf("%s: %v", v.id, err)
 	}
-	extended, ok := resolver.Lookup(KindSecret, scope, ids[1])
-	if !ok {
-		t.Fatalf("%s: no decision for %s", v.id, ids[1])
+	if first, ok := resolver.Lookup(KindSecret, scope, ids[0]); !ok || first.TargetName != base {
+		t.Errorf("%s: %s got %q, expected the unsuffixed %q", v.id, ids[0], first.TargetName, base)
 	}
-	assertToken(t, v.id, extended.TargetName, candidate.TargetName, 10)
+	for _, id := range ids[1:] {
+		extended, ok := resolver.Lookup(KindSecret, scope, id)
+		if !ok {
+			t.Fatalf("%s: no decision for %s", v.id, id)
+		}
+		assertTokenShape(t, v.id, extended.TargetName, base, collisionSeparator(KindSecret), "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", 10)
+	}
 	production, err := NewResolver(entries, DefaultPolicy())
 	if err != nil {
 		t.Fatalf("%s: %v", v.id, err)
 	}
-	normal, ok := production.Lookup(KindSecret, scope, ids[1])
-	if !ok {
-		t.Fatalf("%s: no decision for %s", v.id, ids[1])
+	for _, id := range ids[1:] {
+		normal, ok := production.Lookup(KindSecret, scope, id)
+		if !ok {
+			t.Fatalf("%s: no decision for %s", v.id, id)
+		}
+		assertToken(t, v.id, KindSecret, id, normal.TargetName, base, 8)
 	}
-	assertToken(t, v.id, normal.TargetName, candidate.TargetName, 8)
 }

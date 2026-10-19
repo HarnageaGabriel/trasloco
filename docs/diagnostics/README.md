@@ -98,6 +98,7 @@
 | [TRL-NAME-0005](TRL-NAME-0005.md) | error | Name is empty after normalization | active |
 | [TRL-NAME-0006](TRL-NAME-0006.md) | info | Name truncated with hash | active |
 | [TRL-NAME-0007](TRL-NAME-0007.md) | warning | RUNNER_ prefix may conflict with runner variables | active |
+| [TRL-NAME-0008](TRL-NAME-0008.md) | error | Name limit is too small for a valid target name | active |
 | [TRL-PARSE-0001](TRL-PARSE-0001.md) | error | YAML syntax error | active |
 | [TRL-PARSE-0002](TRL-PARSE-0002.md) | warning | Unknown key preserved as extension | active |
 | [TRL-PARSE-0003](TRL-PARSE-0003.md) | error | Duplicate mapping key | active |

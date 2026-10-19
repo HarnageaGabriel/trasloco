@@ -18,6 +18,8 @@ package emit
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/HarnageaGabriel/trasloco/internal/catalog"
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
@@ -197,49 +199,71 @@ type irNode struct {
 	id     string
 	kind   string
 	source *diag.Source
+	seq    int
 }
 
-// pipelineNodes enumerates every node that receives exactly one disposition: the
-// pipeline, its inputs, triggers and variables, its stages, and the jobs,
-// variables and steps of each job.
-//
-// Variable IDs are qualified by the node that owns the declaration, because
-// ir.Variable.ScopeID is optional and may be empty. Secret references are not IR
-// nodes: a declared secret is a variable with a SecretRef.
 func pipelineNodes(pipeline *ir.Pipeline) []irNode {
-	nodes := []irNode{{id: "pipeline:" + pipeline.ID, kind: "pipeline", source: originSource(pipeline.Origin)}}
+	nodes := []irNode{{id: qualifyID("pipeline", pipeline.ID), kind: "pipeline", source: originSource(pipeline.Origin)}}
 	for _, input := range pipeline.Inputs {
-		nodes = append(nodes, irNode{id: "input:" + input.ID, kind: "input", source: originSource(input.Origin)})
+		nodes = append(nodes, irNode{id: qualifyID("input", input.ID), kind: "input", source: originSource(input.Origin)})
 	}
 	for _, trigger := range pipeline.Triggers {
-		nodes = append(nodes, irNode{id: "trigger:" + trigger.ID, kind: "trigger", source: originSource(trigger.Origin)})
+		nodes = append(nodes, irNode{id: qualifyID("trigger", trigger.ID), kind: "trigger", source: originSource(trigger.Origin)})
 	}
 	nodes = appendVariableNodes(nodes, "pipeline:"+pipeline.ID, pipeline.Variables)
 	for _, stage := range pipeline.Stages {
-		nodes = append(nodes, irNode{id: "stage:" + stage.ID, kind: "stage", source: originSource(stage.Origin)})
+		nodes = append(nodes, irNode{id: qualifyID("stage", stage.ID), kind: "stage", source: originSource(stage.Origin)})
 		nodes = appendVariableNodes(nodes, "stage:"+stage.ID, stage.Variables)
 	}
 	for _, job := range pipeline.Jobs {
-		nodes = append(nodes, irNode{id: "job:" + job.ID, kind: "job", source: originSource(job.Origin)})
+		nodes = append(nodes, irNode{id: qualifyID("job", job.ID), kind: "job", source: originSource(job.Origin)})
 		nodes = appendVariableNodes(nodes, "job:"+job.ID, job.Variables)
 		for _, step := range job.Steps {
-			nodes = append(nodes, irNode{id: "step:" + job.ID + "/" + step.ID, kind: "step", source: originSource(step.Origin)})
+			nodes = append(nodes, irNode{id: qualifyID("step", job.ID, step.ID), kind: "step", source: originSource(step.Origin)})
 		}
 	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].id < nodes[j].id })
+	for index := range nodes {
+		nodes[index].seq = index
+	}
+	sort.SliceStable(nodes, func(i, j int) bool {
+		if nodes[i].id != nodes[j].id {
+			return nodes[i].id < nodes[j].id
+		}
+		if nodes[i].kind != nodes[j].kind {
+			return nodes[i].kind < nodes[j].kind
+		}
+		return nodes[i].seq < nodes[j].seq
+	})
 	return nodes
 }
 
-// appendVariableNodes appends the variable nodes declared by one owner.
+// appendVariableNodes appends the variable nodes declared by one owner. The
+// declaration index keeps IDs unique when one owner declares a name twice; it
+// is deterministic because IR collections are ordered.
 func appendVariableNodes(nodes []irNode, owner string, variables []ir.Variable) []irNode {
-	for _, variable := range variables {
+	for index, variable := range variables {
 		nodes = append(nodes, irNode{
-			id:     "variable:" + owner + "/" + variable.Name,
+			id:     qualifyID("variable", owner, strconv.Itoa(index), variable.Name),
 			kind:   "variable",
 			source: originSource(variable.Origin),
 		})
 	}
 	return nodes
+}
+
+// qualifyID builds an unambiguous node ID: each component escapes "%" and "/"
+// before the components are joined by "/". No component can therefore contain
+// the separator, and the kind plus component path is unique.
+func qualifyID(kind string, parts ...string) string {
+	escaped := make([]string, len(parts))
+	for index, part := range parts {
+		escaped[index] = escapeIDPart(part)
+	}
+	return kind + ":" + strings.Join(escaped, "/")
+}
+
+func escapeIDPart(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "%", "%25"), "/", "%2F")
 }
 
 // originSource returns the source position a node's diagnostics are attributed

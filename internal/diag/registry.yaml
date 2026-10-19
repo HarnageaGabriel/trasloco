@@ -952,6 +952,16 @@
                       "status":  "active"
                   },
                   {
+                      "code":  "TRL-NAME-0008",
+                      "area":  "NAME",
+                      "title":  "Name limit is too small for a valid target name",
+                      "severity":  "error",
+                      "exitClass":  "error",
+                      "remediation":  "Raise the endpoint name limit or provide a shorter explicit target name; a truncated marker, hash or collision suffix cannot fit.",
+                      "since":  "0.2.2",
+                      "status":  "active"
+                  },
+                  {
                       "code":  "TRL-CONV-0001",
                       "area":  "CONV",
                       "title":  "Construct converted with approximation",

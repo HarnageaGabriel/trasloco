@@ -25,6 +25,12 @@ const PolicyVersion = "trasloco-name-v1"
 // pipeline: the file lives in the repository tree, not in a stage or a job.
 const workflowScopeKey = "workflow"
 
+// encodedMarker protects one _UHH transliteration token while forbidden
+// characters and repeated separators are processed. It is removed before the
+// name is returned and can never come from source text, because every
+// non-ASCII source rune is itself transliterated first.
+const encodedMarker rune = '\uE000'
+
 // Kind identifies a supported target-name kind.
 type Kind string
 
@@ -98,6 +104,7 @@ type candidate struct {
 	compare string
 	digest  [sha256.Size]byte
 	codes   []string
+	seq     int
 }
 
 // newCandidates normalizes every entry of one inventory.
@@ -113,6 +120,7 @@ func newCandidates(entries []Entry, policy Policy) ([]candidate, error) {
 			compare: comparisonKey(entry.Kind, decision.TargetName),
 			digest:  sha256.Sum256([]byte(norm.NFC.String(entry.SourceName))),
 			codes:   append([]string(nil), decision.DiagnosticCodes...),
+			seq:     i,
 		}
 	}
 	return candidates, nil
@@ -153,23 +161,19 @@ func newResolver(entries []Entry, policy Policy, tokenOf tokenFunc) (*Resolver, 
 		if a.entry.StableID != b.entry.StableID {
 			return a.entry.StableID < b.entry.StableID
 		}
-		return string(a.digest[:]) < string(b.digest[:])
+		if a.entry.SourceName != b.entry.SourceName {
+			return a.entry.SourceName < b.entry.SourceName
+		}
+		if a.digest != b.digest {
+			return string(a.digest[:]) < string(b.digest[:])
+		}
+		return a.seq < b.seq
 	})
 
-	decisions := make([]Decision, 0, len(candidates))
-	for start := 0; start < len(candidates); {
-		end := start + 1
-		for end < len(candidates) && sameCollisionGroup(candidates[start], candidates[end]) {
-			end++
-		}
-		group, err := resolveGroup(candidates[start:end], policy, tokenOf)
-		if err != nil {
-			return nil, err
-		}
-		decisions = append(decisions, group...)
-		start = end
+	decisions, err := resolveInventory(candidates, policy, tokenOf)
+	if err != nil {
+		return nil, err
 	}
-	sort.Slice(decisions, func(i, j int) bool { return decisionKey(decisions[i].Entry) < decisionKey(decisions[j].Entry) })
 	return &Resolver{decisions: decisions}, nil
 }
 
@@ -230,27 +234,25 @@ func normalize(kind Kind, stableID, sourceName string, maxLength int) (Decision,
 	}
 
 	caseName := name
-	switch kind {
-	case KindWorkflowFile:
+	if kind == KindWorkflowFile {
 		caseName = strings.ToLower(caseName)
-	case KindSecret:
-		caseName = strings.ToUpper(caseName)
 	}
 	name = transliterateASCII(caseName)
-	if kind == KindWorkflowFile {
+	switch kind {
+	case KindSecret:
+		name = strings.ToUpper(name)
+	case KindWorkflowFile:
+		// The workflow charset is lower-case, including the _UHH encoding
+		// tokens produced by transliteration.
 		name = strings.ToLower(name)
 	}
-	name = replaceForbidden(kind, name)
-	name = collapseSeparator(kind, name)
+	name = stripEncodedMarkers(replaceForbidden(kind, name))
+	name = stripEncodedMarkers(collapseSeparator(kind, name))
 	if name == "" {
 		return Decision{}, diagnosticError("TRL-NAME-0005", kind, stableID)
 	}
 	if illegalFirst(kind, name[0]) {
-		if kind == KindWorkflowFile {
-			name = "n-" + name
-		} else {
-			name = "N_" + name
-		}
+		name = "N_" + name
 	}
 	if reserved(kind, name) {
 		if kind == KindWorkflowFile {
@@ -268,11 +270,14 @@ func normalize(kind Kind, stableID, sourceName string, maxLength int) (Decision,
 	available := maxLength
 	if available > 0 {
 		available -= len(extension)
+		if available <= 0 {
+			return Decision{}, diagnosticError("TRL-NAME-0008", kind, stableID)
+		}
 	}
 	if available > 0 && len(name) > available {
-		suffix := "--h" + truncationHash(kind, stableID, nfcName)
-		if available < len(suffix) {
-			return Decision{}, diagnosticError("TRL-NAME-0003", kind, stableID)
+		suffix := truncationMarker(kind) + truncationHash(kind, stableID, nfcName)
+		if available <= len(suffix) {
+			return Decision{}, diagnosticError("TRL-NAME-0008", kind, stableID)
 		}
 		name = truncateUTF8(name, available-len(suffix)) + suffix
 		codes = appendCode(codes, "TRL-NAME-0006")
@@ -294,11 +299,18 @@ func transliterateASCII(value string) string {
 		}
 		encoded := []byte(string(r))
 		for _, b := range encoded {
+			result.WriteRune(encodedMarker)
 			result.WriteString("_U")
 			result.WriteString(strings.ToUpper(hex.EncodeToString([]byte{b})))
 		}
 	}
 	return result.String()
+}
+
+// stripEncodedMarkers removes the private markers that protected encoding
+// tokens during separator processing.
+func stripEncodedMarkers(value string) string {
+	return strings.ReplaceAll(value, string(encodedMarker), "")
 }
 
 func replaceForbidden(kind Kind, value string) string {
@@ -308,15 +320,32 @@ func replaceForbidden(kind Kind, value string) string {
 	}
 	var result strings.Builder
 	for i := 0; i < len(value); {
-		if allowed(kind, value[i]) {
-			result.WriteByte(value[i])
-			i++
+		if value[i] < utf8.RuneSelf {
+			if allowed(kind, value[i]) {
+				result.WriteByte(value[i])
+				i++
+				continue
+			}
+			result.WriteByte(separator)
+			for i < len(value) && value[i] < utf8.RuneSelf && !allowed(kind, value[i]) {
+				i++
+			}
 			continue
 		}
-		result.WriteByte(separator)
-		for i < len(value) && !allowed(kind, value[i]) {
-			i++
+		r, size := utf8.DecodeRuneInString(value[i:])
+		if r == encodedMarker {
+			result.WriteRune(r)
+			i += size
+			end := i + 4
+			if end > len(value) {
+				end = len(value)
+			}
+			result.WriteString(value[i:end])
+			i = end
+			continue
 		}
+		result.WriteRune(r)
+		i += size
 	}
 	return result.String()
 }
@@ -336,9 +365,25 @@ func collapseSeparator(kind Kind, value string) string {
 	}
 	var result strings.Builder
 	previous := false
-	for i := 0; i < len(value); i++ {
+	for i := 0; i < len(value); {
+		if value[i] >= utf8.RuneSelf {
+			r, size := utf8.DecodeRuneInString(value[i:])
+			result.WriteRune(r)
+			i += size
+			if r == encodedMarker {
+				end := i + 4
+				if end > len(value) {
+					end = len(value)
+				}
+				result.WriteString(value[i:end])
+				i = end
+			}
+			previous = false
+			continue
+		}
 		if value[i] == separator {
 			if previous {
+				i++
 				continue
 			}
 			previous = true
@@ -346,6 +391,7 @@ func collapseSeparator(kind Kind, value string) string {
 			previous = false
 		}
 		result.WriteByte(value[i])
+		i++
 	}
 	if kind == KindWorkflowFile {
 		return strings.Trim(result.String(), "-")
@@ -354,10 +400,10 @@ func collapseSeparator(kind Kind, value string) string {
 }
 
 func illegalFirst(kind Kind, b byte) bool {
-	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b == '_' {
 		return false
 	}
-	return kind != KindJobID && kind != KindStepID && kind != KindSecret || b != '_'
+	return kind != KindWorkflowFile
 }
 
 func reserved(kind Kind, name string) bool {
@@ -403,7 +449,11 @@ func workflowExtension(kind Kind) string {
 
 func truncationHash(kind Kind, stableID, nfcName string) string {
 	digest := sha256.Sum256([]byte(string(kind) + "\x00" + stableID + "\x00" + nfcName))
-	return hex.EncodeToString(digest[:])[:10]
+	hash := hex.EncodeToString(digest[:])[:10]
+	if kind == KindSecret {
+		return strings.ToUpper(hash)
+	}
+	return hash
 }
 
 func collisionToken(kind Kind, stableID string, length int) string {
@@ -412,79 +462,271 @@ func collisionToken(kind Kind, stableID string, length int) string {
 	if length > len(encoded) {
 		length = len(encoded)
 	}
-	return encoded[:length]
+	token := encoded[:length]
+	if kind == KindSecret {
+		return strings.ToUpper(token)
+	}
+	return token
 }
 
-func resolveGroup(group []candidate, policy Policy, tokenOf tokenFunc) ([]Decision, error) {
-	generated := make([]candidate, 0, len(group))
-	hasObserved := false
-	for _, item := range group {
-		if item.entry.Observed {
-			hasObserved = true
-			continue
-		}
-		generated = append(generated, item)
-	}
-	if len(generated) == 0 {
-		return nil, nil
-	}
-
-	results := make([]Decision, 0, len(generated))
-	for i, item := range generated {
-		duplicate := -1
-		for j := 0; j < i; j++ {
-			if item.entry.StableID == generated[j].entry.StableID && item.digest == generated[j].digest {
-				duplicate = j
-				break
-			}
-		}
-		if duplicate >= 0 {
-			results = append(results, Decision{Entry: item.entry, TargetName: results[duplicate].TargetName, DiagnosticCodes: append([]string(nil), results[duplicate].DiagnosticCodes...)})
-			continue
-		}
-		name := item.name
-		codes := append([]string(nil), item.codes...)
-		if hasObserved || i > 0 {
-			var err error
-			name, err = appendCollisionSuffix(item, policy, generated[:i], tokenOf)
-			if err != nil {
-				return nil, err
-			}
-			codes = appendCode(codes, "TRL-NAME-0002")
-		}
-		results = append(results, Decision{Entry: item.entry, TargetName: name, DiagnosticCodes: codes})
-	}
-	return results, nil
+type plannedEntry struct {
+	candidate candidate
+	suffixed  bool
+	tokenLen  int
+	token     string
+	name      string
 }
 
-func appendCollisionSuffix(item candidate, policy Policy, preceding []candidate, tokenOf tokenFunc) (string, error) {
-	tokenLength := 8
+type collisionGroup struct {
+	members     []candidate
+	items       []*plannedEntry
+	byKey       map[string]*plannedEntry
+	hasObserved bool
+}
+
+type positionedDecision struct {
+	decision Decision
+	seq      int
+}
+
+// resolveInventory assigns every generated candidate a name that is unique in
+// its target namespace. Collision groups are only a starting point: a suffixed
+// form must not equal any literal candidate or any assigned name of the
+// namespace, including candidates of other groups.
+func resolveInventory(candidates []candidate, policy Policy, tokenOf tokenFunc) ([]Decision, error) {
+	literals := make(map[string]map[string]bool)
+	for _, item := range candidates {
+		namespace := targetNamespace(item.entry)
+		if literals[namespace] == nil {
+			literals[namespace] = make(map[string]bool)
+		}
+		literals[namespace][comparisonKey(item.entry.Kind, item.name)] = true
+	}
+
+	groups := make([]*collisionGroup, 0, len(candidates))
+	for start := 0; start < len(candidates); {
+		end := start + 1
+		for end < len(candidates) && sameCollisionGroup(candidates[start], candidates[end]) {
+			end++
+		}
+		group := &collisionGroup{byKey: make(map[string]*plannedEntry)}
+		for _, item := range candidates[start:end] {
+			group.members = append(group.members, item)
+			if item.entry.Observed {
+				group.hasObserved = true
+				continue
+			}
+			identity := item.entry.StableID + "\x00" + string(item.digest[:])
+			if _, exists := group.byKey[identity]; exists {
+				continue
+			}
+			planned := &plannedEntry{candidate: item}
+			group.byKey[identity] = planned
+			group.items = append(group.items, planned)
+		}
+		for index, item := range group.items {
+			item.suffixed = group.hasObserved || index > 0
+			if item.suffixed {
+				item.tokenLen = 8
+			}
+		}
+		groups = append(groups, group)
+		start = end
+	}
+
 	for {
-		token := tokenOf(item.entry.Kind, item.entry.StableID, tokenLength)
-		unique := true
-		for _, other := range preceding {
-			if tokenOf(other.entry.Kind, other.entry.StableID, tokenLength) == token {
-				unique = false
-				break
+		changed := false
+		tokenGroups := make(map[string][]*plannedEntry)
+		nameGroups := make(map[string][]*plannedEntry)
+		for _, group := range groups {
+			for _, item := range group.items {
+				if !item.suffixed {
+					continue
+				}
+				kind := item.candidate.entry.Kind
+				item.token = tokenOf(kind, item.candidate.entry.StableID, item.tokenLen)
+				if kind == KindSecret {
+					item.token = strings.ToUpper(item.token)
+				}
+				name, err := withSuffix(item.candidate.name, collisionSeparator(kind)+item.token, limitFor(policy, kind), item.candidate.entry)
+				if err != nil {
+					return nil, err
+				}
+				item.name = name
+				namespace := targetNamespace(item.candidate.entry)
+				tokenKey := namespace + "\x00" + item.candidate.compare + "\x00" + item.token
+				tokenGroups[tokenKey] = append(tokenGroups[tokenKey], item)
+				nameKey := namespace + "\x00" + comparisonKey(kind, name)
+				nameGroups[nameKey] = append(nameGroups[nameKey], item)
 			}
 		}
-		if unique {
-			return withSuffix(item.name, "--"+token, limitFor(policy, item.entry.Kind), item.entry.Kind), nil
+		// Collect every entry that must grow exactly once in this iteration.
+		// Extending the same entry twice would skip a valid token length (for
+		// example 8 -> 10 -> 12) when its token and its name both collide.
+		marked := make(map[*plannedEntry]bool)
+		for _, colliding := range tokenGroups { //trasloco:unordered-ok only marks entries; extension follows group order
+			if len(colliding) < 2 {
+				continue
+			}
+			for _, item := range colliding {
+				marked[item] = true
+			}
 		}
-		if tokenLength >= 52 {
-			return "", diagnosticError("TRL-NAME-0003", item.entry.Kind, item.entry.StableID)
+		for _, colliding := range nameGroups { //trasloco:unordered-ok only marks entries; extension follows group order
+			if len(colliding) < 2 {
+				continue
+			}
+			for _, item := range colliding {
+				marked[item] = true
+			}
 		}
-		tokenLength += 2
+		for _, group := range groups {
+			for _, item := range group.items {
+				if !item.suffixed {
+					continue
+				}
+				if literals[targetNamespace(item.candidate.entry)][comparisonKey(item.candidate.entry.Kind, item.name)] {
+					marked[item] = true
+				}
+			}
+		}
+		for _, group := range groups {
+			for _, item := range group.items {
+				if !marked[item] {
+					continue
+				}
+				if err := extendToken(item); err != nil {
+					return nil, err
+				}
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
 	}
+
+	for _, group := range groups {
+		for _, item := range group.items {
+			if !item.suffixed {
+				item.name = item.candidate.name
+			}
+		}
+	}
+
+	var positioned []positionedDecision
+	seen := make(map[string]bool)
+	for _, group := range groups {
+		for _, member := range group.members {
+			if member.entry.Observed {
+				continue
+			}
+			key := decisionKey(member.entry)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			identity := member.entry.StableID + "\x00" + string(member.digest[:])
+			planned := group.byKey[identity]
+			if planned == nil {
+				return nil, fmt.Errorf("naming: no plan for %s", key)
+			}
+			codes := append([]string(nil), planned.candidate.codes...)
+			if planned.suffixed {
+				codes = appendCode(codes, "TRL-NAME-0002")
+			}
+			positioned = append(positioned, positionedDecision{
+				decision: Decision{Entry: member.entry, TargetName: planned.name, DiagnosticCodes: codes},
+				seq:      len(positioned),
+			})
+		}
+	}
+	sort.Slice(positioned, func(i, j int) bool {
+		a, b := positioned[i].decision, positioned[j].decision
+		keyA, keyB := decisionKey(a.Entry), decisionKey(b.Entry)
+		if keyA != keyB {
+			return keyA < keyB
+		}
+		if a.TargetName != b.TargetName {
+			return a.TargetName < b.TargetName
+		}
+		return positioned[i].seq < positioned[j].seq
+	})
+	decisions := make([]Decision, len(positioned))
+	for index, item := range positioned {
+		decisions[index] = item.decision
+	}
+	return decisions, nil
 }
 
-func withSuffix(name, suffix string, limit int, kind Kind) string {
-	extension := workflowExtension(kind)
-	base := strings.TrimSuffix(name, extension)
-	if limit > 0 {
-		base = truncateUTF8(base, limit-len(extension)-len(suffix))
+// extendToken applies naming.md collision step 4 to one planned entry.
+func extendToken(item *plannedEntry) error {
+	if item.tokenLen >= maxCollisionTokenLength {
+		return diagnosticError("TRL-NAME-0003", item.candidate.entry.Kind, item.candidate.entry.StableID)
 	}
-	return base + suffix + extension
+	item.tokenLen += 2
+	if item.tokenLen > maxCollisionTokenLength {
+		item.tokenLen = maxCollisionTokenLength
+	}
+	return nil
+}
+
+func withSuffix(name, suffix string, limit int, entry Entry) (string, error) {
+	extension := workflowExtension(entry.Kind)
+	base := strings.TrimSuffix(name, extension)
+	if limit <= 0 {
+		result := base + suffix + extension
+		if reserved(entry.Kind, strings.TrimSuffix(result, extension)) {
+			result = "T_" + result
+		}
+		return result, nil
+	}
+	available := limit - len(extension) - len(suffix)
+	if available < 1 {
+		return "", diagnosticError("TRL-NAME-0008", entry.Kind, entry.StableID)
+	}
+	result := truncateUTF8(base, available) + suffix + extension
+	plain := strings.TrimSuffix(result, extension)
+	if !reserved(entry.Kind, plain) {
+		return result, nil
+	}
+	// A collision suffix can itself create a reserved name, for example
+	// GITHUB plus the secret "__" marker. Apply step 8 to the suffixed form and
+	// reserve room for the prefix.
+	const prefix = "T_"
+	available = limit - len(extension) - len(suffix) - len(prefix)
+	if available < 1 {
+		return "", diagnosticError("TRL-NAME-0008", entry.Kind, entry.StableID)
+	}
+	return prefix + truncateUTF8(base, available) + suffix + extension, nil
+}
+
+// collisionSeparator is the marker that separates a base name from a collision
+// token. Secret and variable names admit only [A-Z0-9_], so they use an
+// underscore marker; file and identifier kinds keep the specification's dash.
+func collisionSeparator(kind Kind) string {
+	if kind == KindSecret {
+		return "__"
+	}
+	return "--"
+}
+
+// truncationMarker is the marker of normalization step 10 before the hash.
+func truncationMarker(kind Kind) string {
+	if kind == KindSecret {
+		return "__H"
+	}
+	return "--h"
+}
+
+// maxCollisionTokenLength is the length of the unpadded lower-case base32
+// encoding of a SHA-256 digest (52 characters).
+const maxCollisionTokenLength = 52
+
+// targetNamespace is the namespace in which generated names must be unique.
+// GitHub secrets are repository-level except for environment secrets.
+func targetNamespace(entry Entry) string {
+	return string(entry.Kind) + "\x00" + entry.ScopeKey
 }
 
 func truncateUTF8(value string, length int) string {
@@ -547,26 +789,28 @@ func New(pipeline *ir.Pipeline, policy Policy) (*Namer, error) {
 	if pipeline == nil {
 		return nil, fmt.Errorf("nil pipeline")
 	}
-	entries := []Entry{{Kind: KindWorkflowFile, Platform: "ado", StableID: pipeline.ID, SourceName: pipeline.Name, ScopeKey: workflowScopeKey}}
+	entries := make([]Entry, 0, 8)
+	// emit-gha.md 5.1: an empty Pipeline.name is valid and omits the workflow
+	// name. Naming.md forbids inventing a filename from IDs, so no workflow-file
+	// decision exists until the emitter chooses its documented fallback.
+	if pipeline.Name != "" {
+		entries = append(entries, Entry{Kind: KindWorkflowFile, Platform: "ado", StableID: pipeline.ID, SourceName: pipeline.Name, ScopeKey: workflowScopeKey})
+	}
 	for _, job := range pipeline.Jobs {
 		entries = append(entries, Entry{Kind: KindJobID, Platform: "ado", StableID: job.ID, SourceName: job.ID, ScopeKey: pipeline.ID})
 		for _, step := range job.Steps {
 			entries = append(entries, Entry{Kind: KindStepID, Platform: "ado", StableID: step.ID, SourceName: step.ID, ScopeKey: job.ID})
 		}
-		for _, secret := range job.Secrets {
-			entries = append(entries, secretEntry(secret))
-		}
-		for _, variable := range job.Variables {
-			if variable.SecretRef != nil {
-				entries = append(entries, secretEntry(*variable.SecretRef))
-			}
-		}
 	}
-	for _, variable := range pipeline.Variables {
-		if variable.SecretRef != nil {
-			entries = append(entries, secretEntry(*variable.SecretRef))
-		}
+
+	declared := declaredSecretRefs(pipeline)
+	for _, secret := range declared {
+		entries = append(entries, secretEntry(secret))
 	}
+	for _, secret := range expressionSecretRefs(pipeline, declared) {
+		entries = append(entries, secretEntry(secret))
+	}
+
 	resolver, err := NewResolver(entries, policy)
 	if err != nil {
 		return nil, err
@@ -574,10 +818,137 @@ func New(pipeline *ir.Pipeline, policy Policy) (*Namer, error) {
 	return &Namer{pipelineID: pipeline.ID, resolver: resolver}, nil
 }
 
+// declaredSecretRefs collects every SecretRef that the IR stores directly:
+// variables at pipeline, stage and job scope, job bindings, reusable-workflow
+// secret bindings, and container/service passwords. Variables with ScopeGroup
+// are included because they are variables too.
+func declaredSecretRefs(pipeline *ir.Pipeline) []ir.SecretRef {
+	var refs []ir.SecretRef
+	for _, variable := range pipeline.Variables {
+		if variable.SecretRef != nil {
+			refs = append(refs, *variable.SecretRef)
+		}
+	}
+	for _, stage := range pipeline.Stages {
+		for _, variable := range stage.Variables {
+			if variable.SecretRef != nil {
+				refs = append(refs, *variable.SecretRef)
+			}
+		}
+	}
+	for _, job := range pipeline.Jobs {
+		for _, variable := range job.Variables {
+			if variable.SecretRef != nil {
+				refs = append(refs, *variable.SecretRef)
+			}
+		}
+		refs = append(refs, job.Secrets...)
+		if job.Uses != nil {
+			for _, secret := range job.Uses.Secrets.All() {
+				refs = append(refs, secret)
+			}
+		}
+		refs = appendContainerPasswords(refs, job.Container)
+		for _, service := range job.Services {
+			refs = appendContainerPasswords(refs, &service.Container)
+		}
+	}
+	return refs
+}
+
+func appendContainerPasswords(refs []ir.SecretRef, container *ir.Container) []ir.SecretRef {
+	if container == nil || container.Credentials == nil || container.Credentials.Password == nil {
+		return refs
+	}
+	return append(refs, *container.Credentials.Password)
+}
+
+// expressionSecretRefs collects secret references that are stored as Expr
+// values: container and service usernames and env, step env, and step with.
+func expressionSecretRefs(pipeline *ir.Pipeline, declared []ir.SecretRef) []ir.SecretRef {
+	var refs []ir.SecretRef
+	appendExpr := func(expr ir.Expr, ownerStep string) {
+		appendExprSecretRefs(&refs, expr, declared, pipeline.ID, ownerStep)
+	}
+	for _, job := range pipeline.Jobs {
+		appendContainerExpressions(&refs, job.Container, declared, pipeline.ID)
+		for _, service := range job.Services {
+			appendContainerExpressions(&refs, &service.Container, declared, pipeline.ID)
+		}
+		for _, step := range job.Steps {
+			for _, entry := range step.Env {
+				appendExpr(entry.Value, step.ID)
+			}
+			if step.Action != nil {
+				for _, entry := range step.Action.With {
+					appendExpr(entry.Value, step.ID)
+				}
+			}
+		}
+	}
+	return refs
+}
+
+func appendContainerExpressions(refs *[]ir.SecretRef, container *ir.Container, declared []ir.SecretRef, pipelineID string) {
+	if container == nil {
+		return
+	}
+	if container.Credentials != nil && container.Credentials.Username != nil {
+		appendExprSecretRefs(refs, *container.Credentials.Username, declared, pipelineID, "")
+	}
+	for _, entry := range container.Env {
+		appendExprSecretRefs(refs, entry.Value, declared, pipelineID, "")
+	}
+}
+
+func appendExprSecretRefs(refs *[]ir.SecretRef, expr ir.Expr, declared []ir.SecretRef, pipelineID, ownerStep string) {
+	switch expr.Kind {
+	case ir.ExprRef:
+		if expr.Ref == nil || expr.Ref.Context != ir.RefSecrets || len(expr.Ref.Path) == 0 {
+			return
+		}
+		name := strings.Join(expr.Ref.Path, ".")
+		*refs = append(*refs, resolveSecretRef(name, declared, pipelineID, ownerStep))
+	case ir.ExprMacro:
+		if expr.Macro == nil || !expr.Macro.Secret || expr.Macro.Name == "" {
+			return
+		}
+		*refs = append(*refs, resolveSecretRef(expr.Macro.Name, declared, pipelineID, ownerStep))
+	case ir.ExprCall:
+		if expr.Call == nil {
+			return
+		}
+		for _, argument := range expr.Call.Args {
+			appendExprSecretRefs(refs, argument, declared, pipelineID, ownerStep)
+		}
+	}
+}
+
+// resolveSecretRef links a macro or secrets expression to its declaration when
+// exactly one declaration has that name. Ambiguous or undeclared names use one
+// stable synthetic identity so several uses still share one target name.
+func resolveSecretRef(name string, declared []ir.SecretRef, pipelineID, _ string) ir.SecretRef {
+	var found ir.SecretRef
+	matches := 0
+	for _, candidate := range declared {
+		if strings.EqualFold(candidate.Name, name) {
+			found = candidate
+			matches++
+		}
+	}
+	if matches == 1 {
+		return found
+	}
+	return ir.SecretRef{Name: name, Scope: ir.ScopePipeline, ScopeID: pipelineID}
+}
+
 // WorkflowFile returns the precomputed workflow filename of the pipeline. A name
 // that is not the normalized pipeline name is an error: the emitter must not ask
 // for a decision the inventory never made.
 func (n *Namer) WorkflowFile(name string) (string, error) {
+	if n == nil {
+		return "", fmt.Errorf("nil namer")
+	}
 	decision, ok := n.resolver.Lookup(KindWorkflowFile, workflowScopeKey, n.pipelineID)
 	if !ok {
 		return "", fmt.Errorf("workflow name %q is not in the naming inventory", name)
@@ -591,6 +962,9 @@ func (n *Namer) WorkflowFile(name string) (string, error) {
 // JobID returns the precomputed GitHub job ID. stageID is accepted for the
 // emitter interface; IR job IDs are already pipeline-qualified.
 func (n *Namer) JobID(stageID, jobID string) (string, error) {
+	if n == nil {
+		return "", fmt.Errorf("nil namer")
+	}
 	if decision, ok := n.resolver.Lookup(KindJobID, n.pipelineID, jobID); ok {
 		return decision.TargetName, nil
 	}
@@ -599,6 +973,9 @@ func (n *Namer) JobID(stageID, jobID string) (string, error) {
 
 // StepID returns the precomputed GitHub step ID within its owning job.
 func (n *Namer) StepID(jobID, stepID string) (string, error) {
+	if n == nil {
+		return "", fmt.Errorf("nil namer")
+	}
 	if decision, ok := n.resolver.Lookup(KindStepID, jobID, stepID); ok {
 		return decision.TargetName, nil
 	}
@@ -607,6 +984,9 @@ func (n *Namer) StepID(jobID, stepID string) (string, error) {
 
 // SecretName returns the precomputed GitHub secret name.
 func (n *Namer) SecretName(secret ir.SecretRef) (string, error) {
+	if n == nil {
+		return "", fmt.Errorf("nil namer")
+	}
 	entry := secretEntry(secret)
 	if decision, ok := n.resolver.Lookup(entry.Kind, entry.ScopeKey, entry.StableID); ok {
 		return decision.TargetName, nil
@@ -615,9 +995,13 @@ func (n *Namer) SecretName(secret ir.SecretRef) (string, error) {
 }
 
 func secretEntry(secret ir.SecretRef) Entry {
-	scope := string(secret.Scope) + ":" + secret.ScopeID
+	sourceScope := string(secret.Scope) + ":" + secret.ScopeID
+	namespace := "github:repository"
+	if secret.Scope == ir.ScopeEnvironment {
+		namespace = "github:environment:" + secret.ScopeID
+	}
 	return Entry{
-		Kind: KindSecret, Platform: "ado", StableID: scope + "\x00" + secret.Name,
-		SourceName: secret.Name, ScopeKey: scope,
+		Kind: KindSecret, Platform: "ado", StableID: sourceScope + "\x00" + secret.Name,
+		SourceName: secret.Name, ScopeKey: namespace,
 	}
 }
