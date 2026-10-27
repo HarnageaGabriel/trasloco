@@ -65,7 +65,7 @@ func Scan(name string, data []byte, cat *catalog.Catalog) ([]Finding, []diag.Dia
 		collector.Add(diagnostic)
 	}
 	if document == nil || document.Root() == nil {
-		return fallbackTaskStrings(name, data, newIndex(cat)), collector.List()
+		return newLineIndex(data).fallbackTaskStrings(name, newIndex(cat)), collector.List()
 	}
 	_ = adoparse.Document(document, collector)
 
@@ -78,7 +78,7 @@ func Scan(name string, data []byte, cat *catalog.Catalog) ([]Finding, []diag.Dia
 		}, index)
 	}
 	if len(findings) == 0 && hasError(collector.List()) {
-		findings = append(findings, fallbackTaskStrings(name, data, index)...)
+		findings = append(findings, newLineIndex(data).fallbackTaskStrings(name, index)...)
 	}
 	sort.SliceStable(findings, func(i, j int) bool {
 		a, b := findings[i], findings[j]
@@ -109,13 +109,54 @@ func hasError(diagnostics []diag.Diagnostic) bool {
 // preferred to silently missing a retired task.
 var fallbackTask = regexp.MustCompile(`(?im)(?:^|[,{])\s*-?\s*["']?task["']?\s*:\s*["']?([^\s,}\]"']+)`)
 
+// lineIndex resolves byte offsets to one-based line and byte column numbers.
+// The line-start table is built once per file, so resolving many offsets costs
+// a binary search each instead of a rescan of the file.
+type lineIndex struct {
+	data []byte
+	// starts holds the byte offset at which every line begins.
+	starts []int
+	// work counts the bytes scanned and the table entries compared while
+	// resolving positions. It is a regression counter for tests; it has no
+	// effect on the result.
+	work int
+}
+
+// newLineIndex returns the position index of a file.
+func newLineIndex(data []byte) *lineIndex {
+	return &lineIndex{data: data}
+}
+
+// position returns the one-based line and the one-based byte column of
+// offset. An offset before the start of the file is clamped to the start and
+// an offset past the end of the file to the end.
+func (positions *lineIndex) position(offset int) (int, int) {
+	if positions.starts == nil {
+		positions.starts = lineStarts(positions.data)
+		positions.work += len(positions.data)
+	}
+	offset = min(max(offset, 0), len(positions.data))
+	low, high := 0, len(positions.starts)
+	for low < high {
+		middle := (low + high) / 2
+		positions.work++
+		if positions.starts[middle] > offset {
+			high = middle
+		} else {
+			low = middle + 1
+		}
+	}
+	line := low
+	return line, offset - positions.starts[line-1] + 1
+}
+
 // fallbackTaskStrings conservatively scans parser-rejected documents. These
 // values are manual findings because the surrounding step shape is invalid.
-func fallbackTaskStrings(name string, data []byte, index catalogIndex) []Finding {
+func (positions *lineIndex) fallbackTaskStrings(name string, index catalogIndex) []Finding {
 	var findings []Finding
-	for _, match := range fallbackTask.FindAllSubmatchIndex(data, -1) {
+	for _, match := range fallbackTask.FindAllSubmatchIndex(positions.data, -1) {
 		start, end := match[2], match[3]
-		raw := string(data[start:end])
+		raw := string(positions.data[start:end])
 		task, major, _, ok := splitReference(raw)
 		if !ok {
 			continue
@@ -123,11 +164,10 @@ func fallbackTaskStrings(name string, data []byte, index catalogIndex) []Finding
 		if _, state := index.resolve(task, major); state == notRetired {
 			continue
 		}
-		line := 1 + strings.Count(string(data[:start]), "\n")
-		lineStart := strings.LastIndex(string(data[:start]), "\n") + 1
+		line, column := positions.position(start)
 		findings = append(findings, Finding{
 			Code: "TRL-MOD-0005", Severity: SeverityWarning, Path: name,
-			Line: line, Column: start - lineStart + 1, RetiredTask: raw,
+			Line: line, Column: column, RetiredTask: raw,
 			Action: "Cannot determine the task version; replace the retired task reference by hand.",
 		})
 	}
