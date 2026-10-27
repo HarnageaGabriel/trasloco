@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("variables:\n- name: configuration\n  value: release\n- name: path\n  value: '$(Build.SourcesDirectory)/dist'\n- name: nested\n  value:\n    key: value\n    other: 2\n- name: conditional\n  value: ${{ iif(eq(variables['Build.SourceBranch'], 'refs/heads/main'), 'prod', 'dev') }}\n")
