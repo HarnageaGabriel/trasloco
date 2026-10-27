@@ -1,0 +1,8 @@
+- id: trasloco-modernize
+  name: trasloco modernize --check
+  description: Find retired Azure Pipelines task versions in committed YAML
+  language: golang
+  entry: trasloco modernize --check
+  args: ['--']
+  types: [yaml]
+  pass_filenames: true

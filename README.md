@@ -101,6 +101,10 @@ Or add the GitHub Action to an existing workflow:
     strict: true
 ```
 
+Or add the [pre-commit](https://pre-commit.com/) hook to check committed YAML
+and fail commits that leave retired Azure Pipelines tasks (see the
+[installation guide](docs/install.md#pre-commit)).
+
 Microsoft has scheduled 73 built-in task versions in **Azure DevOps Services**
 for retirement on **2026-10-15**; on **2027-03-15** they are removed and
 pipelines that still use them fail
