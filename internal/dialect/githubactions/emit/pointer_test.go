@@ -59,8 +59,10 @@ func TestEmitOutputElementPathsResolve(t *testing.T) {
 		Jobs: []ir.Job{
 			{ID: "a~b", Name: "a~b"},
 			{ID: "c/d", Name: "name ~ with / both", Needs: []string{"a~b"}},
-			{ID: "e~1f/~0", Name: "e~1f/~0", Needs: []string{"a~b", "c/d"},
-				Steps: []ir.Step{{ID: "s", Name: "s", Kind: ir.StepRun}}},
+			{
+				ID: "e~1f/~0", Name: "e~1f/~0", Needs: []string{"a~b", "c/d"},
+				Steps: []ir.Step{{ID: "s", Name: "s", Kind: ir.StepRun}},
+			},
 		},
 	}
 	result := Emit(pipeline, catalog.ActionsLock{}, fixedNaming{}, Options{}, nil)
