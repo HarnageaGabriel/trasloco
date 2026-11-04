@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "input": "src/build.yml",
+      "output": ".github/workflows/build.yml",
+      "sha256": "bcb406177d8dcabf8f46fb79bd99b4202449178594390dbb9d16ab7ca0e96fa4",
+      "strict": false,
+      "blocked": false,
+      "noFile": false,
+      "dispositions": [
+        {
+          "id": "job:Job A",
+          "kind": "placeholder",
+          "fidelity": "needs-manual"
+        },
+        {
+          "id": "step:Job A/step-1",
+          "kind": "emitted",
+          "fidelity": "exact"
+        },
+        {
+          "id": "trigger:tr1",
+          "kind": "emitted",
+          "fidelity": "approximated"
+        },
+        {
+          "id": "variable:pipeline:ci/0/group",
+          "kind": "carried",
+          "fidelity": "approximated"
+        },
+        {
+          "id": "workflow:concurrency",
+          "kind": "dropped",
+          "fidelity": "unsupported"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "TRL-CONV-0004",
+          "severity": "info",
+          "fidelity": "exact",
+          "provenance": "deterministic",
+          "message": "Implicit source semantics made explicit",
+          "source": null,
+          "resource": null,
+          "remediation": "None (e.g. implicit success gate, implicit checkout).",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0004.md"
+        },
+        {
+          "code": "TRL-CONV-0001",
+          "severity": "warning",
+          "fidelity": "approximated",
+          "provenance": "deterministic",
+          "message": "Construct converted with approximation",
+          "source": null,
+          "resource": null,
+          "remediation": "Review the semantic difference described in `params.difference`.",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0001.md"
+        },
+        {
+          "code": "TRL-CONV-0003",
+          "severity": "warning",
+          "fidelity": "needs-manual",
+          "provenance": "deterministic",
+          "message": "Construct requires manual conversion",
+          "source": null,
+          "resource": null,
+          "remediation": "Complete the manual task listed in the report.",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0003.md"
+        },
+        {
+          "code": "TRL-CONV-0003",
+          "severity": "warning",
+          "fidelity": "needs-manual",
+          "provenance": "deterministic",
+          "message": "Construct requires manual conversion",
+          "source": null,
+          "resource": null,
+          "remediation": "Complete the manual task listed in the report.",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0003.md"
+        },
+        {
+          "code": "TRL-CONV-0002",
+          "severity": "warning",
+          "fidelity": "unsupported",
+          "provenance": "deterministic",
+          "message": "Construct unsupported on target",
+          "source": null,
+          "resource": {
+            "kind": "workflow",
+            "key": "concurrency",
+            "name": "concurrency"
+          },
+          "remediation": "Emitted as an explicitly failing step; implement manually.",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0002.md"
+        }
+      ]
+    },
+    {
+      "input": "src/deploy.yml",
+      "strict": false,
+      "blocked": true,
+      "noFile": true,
+      "dispositions": [],
+      "diagnostics": []
+    },
+    {
+      "input": "src/gated.yml",
+      "strict": true,
+      "blocked": false,
+      "noFile": true,
+      "dispositions": [
+        {
+          "id": "step:Job B/step-1",
+          "kind": "placeholder",
+          "fidelity": "needs-manual"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "TRL-CONV-0003",
+          "severity": "warning",
+          "fidelity": "needs-manual",
+          "provenance": "deterministic",
+          "message": "Construct requires manual conversion",
+          "source": null,
+          "resource": null,
+          "remediation": "Complete the manual task listed in the report.",
+          "docsUrl": "https://github.com/HarnageaGabriel/trasloco/blob/main/docs/diagnostics/TRL-CONV-0003.md"
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "TRL-CONV-0001",
+      "severity": "warning",
+      "count": 1
+    },
+    {
+      "code": "TRL-CONV-0002",
+      "severity": "warning",
+      "count": 1
+    },
+    {
+      "code": "TRL-CONV-0003",
+      "severity": "warning",
+      "count": 3
+    },
+    {
+      "code": "TRL-CONV-0004",
+      "severity": "info",
+      "count": 1
+    }
+  ],
+  "requiredSecrets": [
+    "API_TOKEN",
+    "DB_PASSWORD"
+  ],
+  "dispositions": [
+    {
+      "kind": "carried",
+      "count": 1
+    },
+    {
+      "kind": "dropped",
+      "count": 1
+    },
+    {
+      "kind": "emitted",
+      "count": 2
+    },
+    {
+      "kind": "placeholder",
+      "count": 2
+    }
+  ],
+  "totals": {
+    "converted": 1,
+    "approximated": 2,
+    "manual": 3,
+    "placeholders": 2,
+    "dropped": 1,
+    "carried": 1
+  }
+}
