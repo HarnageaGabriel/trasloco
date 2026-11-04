@@ -322,7 +322,7 @@ func validPair(kind emit.DispositionKind, fidelity diag.Fidelity) bool {
 	case emit.DispositionPlaceholder:
 		return fidelity == diag.FidelityNeedsManual
 	case emit.DispositionDropped:
-		return fidelity == diag.FidelityApproximated || fidelity == diag.FidelityUnsupported
+		return fidelity != diag.FidelityExact && knownFidelity(fidelity)
 	default:
 		return false
 	}

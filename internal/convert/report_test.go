@@ -474,7 +474,6 @@ func TestNewReportKindFidelityPairs(t *testing.T) {
 		{ID: "job:x", Kind: emit.DispositionPlaceholder, Fidelity: diag.FidelityExact},
 		{ID: "job:x", Kind: emit.DispositionPlaceholder, Fidelity: diag.FidelityUnsupported},
 		{ID: "job:x", Kind: emit.DispositionDropped, Fidelity: diag.FidelityExact},
-		{ID: "job:x", Kind: emit.DispositionDropped, Fidelity: diag.FidelityNeedsManual},
 		{ID: "job:x", Kind: emit.DispositionCarried, Fidelity: "weird"},
 	}
 	for _, disposition := range bad {
@@ -504,6 +503,7 @@ func TestNewReportTotalsCountEveryNodeOnce(t *testing.T) {
 			Diagnostics: []diag.Diagnostic{
 				diag.MustNew("TRL-CONV-0002", resource("a", "7")),
 				diag.MustNew("TRL-CONV-0002", resource("a", "9")),
+				diag.MustNew("TRL-CONV-0002", resource("a", "10")),
 			},
 			Dispositions: []emit.Disposition{
 				{ID: "a:1", Kind: emit.DispositionEmitted, Fidelity: diag.FidelityExact},
@@ -515,6 +515,7 @@ func TestNewReportTotalsCountEveryNodeOnce(t *testing.T) {
 				{ID: "a:7", Kind: emit.DispositionDropped, Fidelity: diag.FidelityApproximated},
 				{ID: "a:8", Kind: emit.DispositionCarried, Fidelity: diag.FidelityUnsupported},
 				{ID: "a:9", Kind: emit.DispositionDropped, Fidelity: diag.FidelityUnsupported},
+				{ID: "a:10", Kind: emit.DispositionDropped, Fidelity: diag.FidelityNeedsManual},
 			},
 			OutputElements: []emit.OutputElement{elem("a:1"), elem("a:2"), elem("a:3"), elem("a:4")},
 		},
@@ -523,12 +524,12 @@ func TestNewReportTotalsCountEveryNodeOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := convert.Totals{Converted: 2, Approximated: 2, Manual: 5, Placeholders: 1, Dropped: 2, Carried: 1}
+	want := convert.Totals{Converted: 2, Approximated: 2, Manual: 6, Placeholders: 1, Dropped: 3, Carried: 1}
 	if diff := cmp.Diff(want, report.Totals); diff != "" {
 		t.Errorf("totals (-want +got):\n%s", diff)
 	}
-	if total := want.Converted + want.Approximated + want.Manual; total != 9 {
-		t.Errorf("classes cover %d of 9 nodes", total)
+	if total := want.Converted + want.Approximated + want.Manual; total != 10 {
+		t.Errorf("classes cover %d of 10 nodes", total)
 	}
 }
 
