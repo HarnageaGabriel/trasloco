@@ -91,7 +91,7 @@ Each IR node of these kinds receives exactly one disposition under a stable ID: 
 | `emitted` | Rendered in the file with the semantics of the mapping rule | the mapping's grade |
 | `default` | Not rendered because the GitHub default is identical (for example `if: success()`) | `exact` |
 | `placeholder` | The node's body is replaced by the failing placeholder of section 2.5 | `needs-manual` |
-| `dropped` | Not rendered, with a diagnostic stating what behavior is lost | `approximated` or `unsupported` as the rule states |
+| `dropped` | Not rendered, with a diagnostic stating what behavior is lost | `approximated`, `needs-manual` or `unsupported` as the rule states |
 | `carried` | The reader already recorded the loss in `extensions`; the emitter renders the rest and adds no diagnostic | the node's recorded fidelity |
 
 Conservation (INV-12) is decidable without re-parsing: (1) every qualified IR node ID and present feature ID appears exactly once in `dispositions`; (2) every `OutputElement.nodeID` appears in `dispositions`; (3) every `emitted` disposition produces at least one output element for its node. A property test walks the IR and writer records to evaluate this predicate. Strict/no-file results have no `emitted` dispositions.
