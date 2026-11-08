@@ -34,7 +34,7 @@ runs:
   using: composite
   steps:
     - name: Install cosign
-      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (cosign v3.0.6)
+      uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.2 (cosign v3.0.6)
     - name: Download, verify, and run trasloco
       id: run
       shell: bash
@@ -52,6 +52,6 @@ runs:
       run: bash "$TRASLOCO_ACTION_PATH/action/run.sh"
     - name: Upload SARIF
       if: ${{ always() && inputs.format == 'sarif' && inputs.upload-sarif == 'true' && steps.run.outputs.sarif-written == 'true' }}
-      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ runner.temp }}/trasloco-results.sarif
