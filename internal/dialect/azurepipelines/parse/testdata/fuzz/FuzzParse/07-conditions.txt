@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("jobs:\n- job: gated\n  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))\n  steps:\n  - script: echo one\n    condition: succeeded()\n  - script: echo two\n    condition: or(failed(), canceled())\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("variables:\n- name: list\n  value: [one, two, three]\n- name: nestedList\n  value: [a, [b, c], {d: e}]\nsteps:\n- script: echo hi\n  condition: >-\n    in('$(Build.Reason)', ['Manual', 'IndividualCI'])\njobs:\n- job: flow\n  strategy:\n    matrix:\n      linux: { imageName: ubuntu-latest, arch: x64 }\n      windows: {imageName: windows-latest, arch: x86}\n  steps:\n  - script: echo flow\n")

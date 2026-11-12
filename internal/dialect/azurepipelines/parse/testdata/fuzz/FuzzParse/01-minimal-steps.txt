@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n- script: echo hello\n  displayName: Say hello\n")

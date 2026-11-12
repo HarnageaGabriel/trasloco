@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n   - script: echo three-space\n     displayName: three space indent\n   # a comment at two spaces\n   - script: echo second\n     workingDirectory: $(Build.SourcesDirectory)\n     env:\n       A: '1'\n")

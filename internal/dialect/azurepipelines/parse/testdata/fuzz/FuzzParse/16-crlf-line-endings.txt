@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\r\n- script: echo windows\r\n  displayName: Windows line endings\r\n  env:\r\n    PATH: '$(Build.BinPath)'\r\n")
