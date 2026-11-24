@@ -80,13 +80,7 @@ func (w *fileWriter) startJobs(nodeID string) {
 // job.
 func (w *fileWriter) writePlaceholderJob(nodeID, jobKey string, job model.Job, code string, sourceLine int) {
 	job.Permissions = model.EmptyMap()
-	step := model.Step{
-		Name:  "Manual conversion required",
-		Shell: "bash",
-		Run: "echo \"::error::trasloco: manual conversion required (" + code + ")\"\n" +
-			"exit 1\n",
-	}
-	item, err := encodeStruct(step)
+	item, err := encodeStruct(placeholderStep(code))
 	if err != nil {
 		w.defect = err
 		return
@@ -315,4 +309,14 @@ func styleScalar(node *goyaml.Node, parentKey string) {
 		return
 	}
 	node.Style = stringStyle(node.Value)
+}
+
+// placeholderStep is the failing step of emit-gha.md 2.5.
+func placeholderStep(code string) model.Step {
+	return model.Step{
+		Name:  "Manual conversion required",
+		Shell: "bash",
+		Run: "echo \"::error::trasloco: manual conversion required (" + code + ")\"\n" +
+			"exit 1\n",
+	}
 }

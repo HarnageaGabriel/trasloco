@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
+	"github.com/HarnageaGabriel/trasloco/internal/dialect/githubactions/emit/mapping"
 	"github.com/HarnageaGabriel/trasloco/internal/ir"
 )
 
@@ -247,15 +248,7 @@ func sortRequirements(requirements []requirement) {
 // the separator, and the kind plus component path is unique (emit-gha.md 2.3,
 // ruling R9).
 func qualifyID(kind string, parts ...string) string {
-	escaped := make([]string, len(parts))
-	for index, part := range parts {
-		escaped[index] = escapeIDPart(part)
-	}
-	return kind + ":" + strings.Join(escaped, "/")
-}
-
-func escapeIDPart(value string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(value, "%", "%25"), "/", "%2F")
+	return mapping.QualifyID(kind, parts...)
 }
 
 // originSource returns the source position a node's diagnostics are
