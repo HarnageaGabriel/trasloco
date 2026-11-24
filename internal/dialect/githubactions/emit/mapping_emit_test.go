@@ -322,6 +322,71 @@ func TestEmitEnforcesINV02OnMapperOutput(t *testing.T) {
 	}
 }
 
+// TestEmitPermissionsDenyAllWithRealMappers runs Emit through the registered
+// mappers (mapping.Dispatch) and checks INV-02 end to end: the top-level block
+// is exactly the emitter's deny-all mapping, written once for the pipeline
+// node, and no mapper claims a permissions feature or contributes a permission
+// entry that could duplicate or conflict with it.
+func TestEmitPermissionsDenyAllWithRealMappers(t *testing.T) {
+	pipeline := samplePipeline()
+	pipeline.Jobs[0].Permissions.Set("pull-requests", "write")
+
+	mapped, err := mapping.Dispatch(pipeline)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	for _, outcome := range mapped.Outcomes {
+		if strings.HasSuffix(outcome.Disposition.ID, "#permissions") {
+			t.Errorf("mapper claimed a permissions feature, want emitter scaffolding (INV-02): %+v", outcome.Disposition)
+		}
+	}
+	for _, fragment := range mapped.Fragments {
+		for _, f := range fragment.Workflow {
+			if len(f.Permissions) != 0 {
+				t.Errorf("mapper wrote top-level permissions, want deny-all scaffolding only (INV-02): %+v", f.Permissions)
+			}
+		}
+		for _, f := range fragment.Jobs {
+			if len(f.Permissions) != 0 {
+				t.Errorf("mapper wrote job permissions, want none this tranche: %+v", f.Permissions)
+			}
+		}
+	}
+
+	got := Emit(pipeline, catalog.ActionsLock{}, stubNaming{}, Options{}, nil)
+	if len(got.Files) != 1 {
+		t.Fatalf("files = %d, want 1 (diagnostics: %v)", len(got.Files), got.Diagnostics)
+	}
+	data := string(got.Files[0].Data)
+	if strings.Count(data, "\npermissions: {}\n") != 1 {
+		t.Errorf("want exactly one top-level permissions: {}:\n%s", data)
+	}
+	if !strings.Contains(data, "\n    permissions: {}\n") {
+		t.Errorf("job permissions must stay deny-all despite the IR grant:\n%s", data)
+	}
+	var root goyaml.Node
+	if err := goyaml.Unmarshal(got.Files[0].Data, &root); err != nil {
+		t.Fatal(err)
+	}
+	node, ok := resolvePointer(&root, "/permissions")
+	if !ok || node.Kind != goyaml.MappingNode || len(node.Content) != 0 {
+		t.Errorf("top-level permissions = %+v, want the empty deny-all mapping", node)
+	}
+	pipelineNode := mapping.QualifyID("pipeline", "ci")
+	writes := 0
+	for _, element := range got.OutputElements {
+		if _, pointer, _ := strings.Cut(element.Path, "#"); pointer == "/permissions" {
+			writes++
+			if element.NodeID != pipelineNode {
+				t.Errorf("/permissions written by %q, want %q", element.NodeID, pipelineNode)
+			}
+		}
+	}
+	if writes != 1 {
+		t.Errorf("/permissions written %d times, want exactly 1", writes)
+	}
+}
+
 func TestEmitUsesComment(t *testing.T) {
 	jobNode, stepNode := mapping.QualifyID("job", "Job A"), mapping.QualifyID("step", "Job A", "step-1")
 	uses := "actions/checkout@0123456789abcdef0123456789abcdef01234567"
