@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n- task: Bash@3\n  inputs:\n    script: |\n      echo deep\n  env:\n    A:\n      B:\n        C:\n          D: value\n    LIST:\n    - one\n    - two\n  condition: >\n    and(succeeded(),\n      eq(1, 1))\n  timeoutInMinutes: 5\n  retryCountOnTaskFailure: 2\n")

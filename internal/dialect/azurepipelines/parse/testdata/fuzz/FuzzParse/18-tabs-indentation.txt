@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("steps:\n\t- script: echo tabbed\n\t  displayName: tab indentation\n\t  env:\n\t\tKEY: value\n")

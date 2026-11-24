@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("trigger:\n  branches:\n    include:\n    - main\n    exclude:\n    - main/docs\n  tags:\n    include:\n    - v*.*.*\npr:\n  branches:\n    include:\n    - main\n    - releases/*\n  paths:\n    exclude:\n    - docs/*\n")

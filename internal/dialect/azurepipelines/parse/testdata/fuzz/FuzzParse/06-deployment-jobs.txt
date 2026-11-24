@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("jobs:\n- deployment: deployWeb\n  displayName: Deploy web\n  environment: production\n  strategy:\n    rolling:\n      maxParallel: 1\n      preDeploy:\n        steps:\n        - script: echo pre\n      routeTraffic:\n        loadBalancer:\n          preTrafficWaitTime: 5m\n      postTrafficWaitTime: 5m\n      runOn:\n        pool: vmPool\n  dependsOn: build\n")

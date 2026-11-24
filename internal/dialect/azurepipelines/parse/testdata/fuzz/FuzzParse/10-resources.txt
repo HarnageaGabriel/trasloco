@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("resources:\n  repositories:\n  - repository: other\n    type: github\n    name: owner/repo\n    endpoint: myGitHub\n    ref: refs/heads/main\n  pipelines:\n  - pipeline: upstream\n    source: MyOtherPipeline\n    branch: main\n  packages:\n  - package: myPackage\n    type: container\n  - package: nugetPkg\n    type: nuget\n  builds:\n  - build: myBuild\n    type: build\n")

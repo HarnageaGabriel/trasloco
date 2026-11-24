@@ -10,6 +10,33 @@ import (
 	"github.com/HarnageaGabriel/trasloco/internal/dialect/azurepipelines/asttest"
 )
 
+// The seed corpus in testdata/fuzz/FuzzParse holds original, hand-written
+// Azure Pipelines YAML in the style of the public Microsoft documentation.
+// It is not copied from private, employer-owned or customer-owned material
+// (clean-room rule in CONTRIBUTING.md). The seeds cover the shapes the
+// documentation uses: stages, jobs, deployment jobs, strategy matrices,
+// template and runtime parameters, resources, triggers and schedules,
+// conditions, long ${{ }} template expressions, flow sequences, literal and
+// folded block scalars, odd indentation, tab indentation, CRLF line endings
+// and a UTF-8 BOM.
+//
+// Documentation used to derive the seeds (public Microsoft Learn pages):
+//
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/pipeline
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-deployment
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-deployment-strategy
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/jobs-job-strategy
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/parameters-parameter
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/resources
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/triggers
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/schedules
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/process/templates
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/process/conditions
+//   - https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions
 func FuzzParse(f *testing.F) {
 	for _, vector := range asttest.LoadVectors(f) {
 		f.Add([]byte(vector.Input))
