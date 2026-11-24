@@ -28,6 +28,7 @@ import (
 
 	"github.com/HarnageaGabriel/trasloco/internal/catalog"
 	"github.com/HarnageaGabriel/trasloco/internal/diag"
+	"github.com/HarnageaGabriel/trasloco/internal/dialect/githubactions/emit/mapping"
 	"github.com/HarnageaGabriel/trasloco/internal/dialect/githubactions/emit/model"
 	"github.com/HarnageaGabriel/trasloco/internal/ir"
 )
@@ -211,6 +212,13 @@ type Result struct {
 //
 //nolint:revive // The lock is consumed by later mapping tranches; T7b renders none of its keys.
 func Emit(pipeline *ir.Pipeline, actions catalog.ActionsLock, naming Naming, options Options, findings *diag.Collector) Result {
+	return emitMapped(pipeline, naming, options, findings, mapping.Dispatch)
+}
+
+// emitMapped is Emit with the mapper dispatch injected, so tests can run fake
+// mappers. With a dispatch that claims nothing the output is the placeholder
+// document of T7b, byte for byte.
+func emitMapped(pipeline *ir.Pipeline, naming Naming, options Options, findings *diag.Collector, dispatch func(*ir.Pipeline) (mapping.Output, error)) Result {
 	if pipeline == nil {
 		return Result{Blocked: true}
 	}
@@ -227,15 +235,28 @@ func Emit(pipeline *ir.Pipeline, actions catalog.ActionsLock, naming Naming, opt
 		return noFile(pipelineNoteNoJobs, "")
 	}
 
-	files, elements, failure := renderPlaceholderDocument(pipeline, naming)
+	mapped, err := dispatch(pipeline)
+	if err != nil {
+		return noFile(pipelineNoteInternal, internalFailureMessage)
+	}
+	merged, err := mergeFragments(mapped.Fragments)
+	if err != nil {
+		return noFile(pipelineNoteInternal, internalFailureMessage)
+	}
+	files, elements, failure := renderDocument(pipeline, naming, merged)
 	if failure != nil {
 		// The detail may embed source names (INV-05); it stays out of the
 		// diagnostic.
 		return noFile(pipelineNoteInternal, internalFailureMessage)
 	}
+	claimed := claimedOutcomes(mapped)
 	dispositions, diagnostics := requirementOutcomes(requirements, outcomeContext{
-		note: pipelineNoteEmitted, nameUnrepresentable: nameUnrepresentable,
+		note: pipelineNoteEmitted, nameUnrepresentable: nameUnrepresentable, claimed: claimed,
 	})
+	if claimedCount(dispositions, claimed) != len(claimed) {
+		// A mapper claimed an ID that is not an IR node or feature.
+		return noFile(pipelineNoteInternal, internalFailureMessage)
+	}
 	if options.Strict && hasErrorDiagnostic(diagnostics) {
 		return noFile(pipelineNoteStrict, "")
 	}
@@ -273,6 +294,10 @@ type outcomeContext struct {
 	// nameUnrepresentable reports a pipeline name containing the GitHub
 	// expression delimiter (emit-gha.md section 5.13).
 	nameUnrepresentable bool
+	// claimed holds the mapper outcomes by qualified ID; they replace the
+	// not-yet-mapped outcome of the same ID. It is only looked up, never
+	// iterated.
+	claimed map[string]mapping.Outcome
 }
 
 // pipelineNoteKind says why a result has no emitted file, if it has none at
@@ -302,6 +327,13 @@ func requirementOutcomes(requirements []requirement, context outcomeContext) ([]
 	dispositions := make([]Disposition, 0, len(requirements))
 	diagnostics := make([]diag.Diagnostic, 0, len(requirements)+8)
 	for _, r := range requirements {
+		if outcome, ok := context.claimed[r.ID]; ok {
+			dispositions = append(dispositions, Disposition{
+				ID: r.ID, Kind: DispositionKind(outcome.Disposition.Kind), Fidelity: outcome.Disposition.Fidelity,
+			})
+			diagnostics = append(diagnostics, outcome.Diagnostics...)
+			continue
+		}
 		dispositions = append(dispositions, requirementDisposition(r, context))
 		diagnostics = append(diagnostics, requirementFindings(r, context)...)
 	}
@@ -503,11 +535,11 @@ type internalFailure struct{ err error }
 // the runner itself is the problem; in T7b no runner is mapped).
 const placeholderRunsOn = "ubuntu-24.04"
 
-// renderPlaceholderDocument writes the placeholder document of section 2.5:
+// renderDocument writes the placeholder document of section 2.5:
 // the scaffolding of section 4.1 and one placeholder job per IR job. It
 // returns the file plus its output elements, in file traversal order, or the
 // internal defect that stopped it.
-func renderPlaceholderDocument(pipeline *ir.Pipeline, naming Naming) ([]File, []OutputElement, *internalFailure) {
+func renderDocument(pipeline *ir.Pipeline, naming Naming, merged mergedFragments) ([]File, []OutputElement, *internalFailure) {
 	namingMaps := namingMaps{}
 	fileName, err := naming.WorkflowFile(pipeline.Name)
 	if err != nil {
@@ -538,16 +570,34 @@ func renderPlaceholderDocument(pipeline *ir.Pipeline, naming Naming) ([]File, []
 	if pipeline.Name != "" && !strings.Contains(pipeline.Name, "${{") {
 		writer.writeName(pipelineID, pipeline.Name)
 	}
-	writer.writeWorkflowDispatch(pipelineID)
+	if len(merged.workflow.on.keys) > 0 {
+		writer.workflow.On = merged.workflow.on.node()
+		writer.record(pipelineID, "/on")
+		writer.recordEntries("/on", &merged.workflow.on)
+	} else {
+		writer.writeWorkflowDispatch(pipelineID)
+	}
+	// INV-02: mergeFragments rejects any top-level permission entry, so the
+	// deny-all mapping is always the emitter's own.
 	writer.writeWorkflowPermissions(pipelineID)
+	if len(merged.workflow.env.keys) > 0 {
+		writer.workflow.Env = merged.workflow.env.node()
+		writer.record(pipelineID, "/env")
+		writer.recordEntries("/env", &merged.workflow.env)
+	}
 	writer.startJobs(pipelineID)
 	for index, job := range pipeline.Jobs {
-		writer.writePlaceholderJob(qualifyID("job", job.ID), namingMaps.jobIDs[job.ID], model.Job{
+		base := model.Job{
 			Name:        jobDisplayName(job),
 			Permissions: model.EmptyMap(),
 			Needs:       needs[index],
 			RunsOn:      placeholderRunsOn,
-		}, manualConversionCode, originLine(job.Origin))
+		}
+		if mapped := merged.jobs[job.ID]; mapped != nil {
+			writer.writeMappedJob(qualifyID("job", job.ID), namingMaps.jobIDs[job.ID], job, base, mapped)
+			continue
+		}
+		writer.writePlaceholderJob(qualifyID("job", job.ID), namingMaps.jobIDs[job.ID], base, manualConversionCode, originLine(job.Origin))
 	}
 	data, elements, err := writer.finalize()
 	if err != nil {
@@ -679,4 +729,25 @@ func assembledResult(files []File, elements []OutputElement, dispositions []Disp
 		RequiredSecrets: nil,
 		Blocked:         true,
 	}
+}
+
+// claimedOutcomes indexes the mapper outcomes by qualified ID.
+func claimedOutcomes(mapped mapping.Output) map[string]mapping.Outcome {
+	claimed := make(map[string]mapping.Outcome, len(mapped.Outcomes))
+	for _, outcome := range mapped.Outcomes {
+		claimed[outcome.Disposition.ID] = outcome
+	}
+	return claimed
+}
+
+// claimedCount counts the dispositions that came from a mapper claim, so an
+// ID that matches no requirement is detected.
+func claimedCount(dispositions []Disposition, claimed map[string]mapping.Outcome) int {
+	count := 0
+	for _, disposition := range dispositions {
+		if _, ok := claimed[disposition.ID]; ok {
+			count++
+		}
+	}
+	return count
 }
