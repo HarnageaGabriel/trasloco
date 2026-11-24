@@ -84,7 +84,7 @@ func TestRunnersMap(t *testing.T) {
 			literals := append([]string{tc.runner.Image, tc.runner.Pool, tc.runner.OS, tc.runner.Arch}, tc.runner.Labels...)
 			literals = append(literals, tc.runner.Demands...)
 			for _, finding := range out.Outcomes[0].Diagnostics {
-				for key, value := range finding.Params {
+				for key, value := range finding.Params { //trasloco:unordered-ok test only checks absence of leaks
 					text, ok := value.(string)
 					if !ok {
 						continue
